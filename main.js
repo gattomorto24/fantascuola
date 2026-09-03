@@ -20,11 +20,14 @@ const state = {
   auditFilter: { actor: '', action: '', direction: '', date: '' },
   selectedStudentId: localStorage.getItem('fantascuola_student_id') || '',
   profile: null,
+  editingStudentId: '',
+  accountSaving: false,
   loading: true,
   error: '',
 };
 
 const defaultPreferences = {
+  theme: 'light',
   darkMode: false,
   textScale: 100,
   boldText: false,
@@ -34,6 +37,7 @@ const defaultPreferences = {
   reduceMotion: false,
 };
 const preferences = { ...defaultPreferences, ...JSON.parse(localStorage.getItem('fantascuola_preferences') || '{}') };
+if (!preferences.theme || preferences.theme === 'light' && preferences.darkMode) preferences.theme = preferences.darkMode ? 'dark' : 'light';
 
 const fmt = new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium', timeStyle: 'medium' });
 function dateKey(value) {
@@ -41,7 +45,15 @@ function dateKey(value) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function setStatus(text) { statusEl.textContent = text; }
+function setStatus(text) {
+  statusEl.textContent = text;
+  const liveEl = document.getElementById('newUiLive');
+  if (!liveEl) return;
+  const isConnected = text === 'Live' || text === 'SUBSCRIBED';
+  const isError = text.includes('Errore') || text.includes('CHANNEL_ERROR') || text.includes('TIMED_OUT');
+  liveEl.dataset.connection = isConnected ? 'connected' : isError ? 'error' : 'syncing';
+  liveEl.querySelector('span').textContent = isConnected ? 'LIVE' : isError ? 'OFFLINE' : 'SYNC';
+}
 function renderHeaderAccount() {
   const authStatus = document.getElementById('authStatus');
   const accountBtn = document.getElementById('accountBtn');
@@ -67,12 +79,19 @@ function esc(v) {
 }
 function pointsLabel(points) { return `${points > 0 ? '+' : ''}${Number(points || 0).toFixed(1)}`; }
 function isLoggedIn() { return Boolean(state.session); }
-function isPremium() { return Boolean(state.account?.is_premium); }
+function isPremium() {
+  const value = state.account?.is_premium;
+  return value === true || value === 1 || value === '1' || value === 'true' || value === 'TRUE';
+}
 function applyPreferences() {
   const root = document.documentElement;
-  root.dataset.theme = preferences.darkMode ? 'dark' : 'light';
-  root.style.setProperty('--accent', preferences.accent);
-  if (preferences.darkMode && preferences.textColor === defaultPreferences.textColor) root.style.removeProperty('--text');
+  preferences.darkMode = preferences.theme === 'dark';
+  root.dataset.theme = preferences.theme;
+  const isNewUi = preferences.theme.startsWith('new-ui');
+  if (isNewUi && preferences.accent === defaultPreferences.accent) root.style.removeProperty('--accent');
+  else root.style.setProperty('--accent', preferences.accent);
+  if (isNewUi && preferences.textColor === defaultPreferences.textColor) root.style.removeProperty('--text');
+  else if (preferences.darkMode && preferences.textColor === defaultPreferences.textColor) root.style.removeProperty('--text');
   else root.style.setProperty('--text', preferences.textColor);
   root.style.setProperty('--font-scale', `${Number(preferences.textScale) / 100}`);
   document.body.classList.toggle('strong-type', preferences.boldText);
@@ -94,7 +113,7 @@ async function loadData() {
     supabase.from('voti').select('id, studente_id, voto, created_at').order('created_at', { ascending: false }).limit(100),
     supabase.from('bonus_malus').select('id, studente_id, motivo, punti, created_at').order('created_at', { ascending: false }).limit(100),
     state.session
-      ? supabase.from('account_profiles').select('id, user_id, studente_id, display_name, is_premium').eq('user_id', state.session.user.id).maybeSingle()
+      ? loadAccountProfile()
       : Promise.resolve({ data: null, error: null }),
     state.session
       ? supabase.from('audit_logs').select('id, actor_email, action, entity, details, points_delta, studente_id, created_at').order('created_at', { ascending: false }).limit(250)
@@ -121,6 +140,12 @@ async function loadData() {
   render();
 }
 
+async function loadAccountProfile() {
+  const fullResult = await supabase.from('account_profiles').select('id, user_id, studente_id, display_name, is_premium, settings').eq('user_id', state.session.user.id).maybeSingle();
+  if (!fullResult.error || !fullResult.error.message?.includes('settings')) return fullResult;
+  return supabase.from('account_profiles').select('id, user_id, studente_id, display_name, is_premium').eq('user_id', state.session.user.id).maybeSingle();
+}
+
 function subscribeRealtime() {
   const channel = supabase
     .channel('fantascuola-live')
@@ -141,14 +166,17 @@ function nav() {
     ['regolamento', 'book', 'Regolamento'],
     ['archivio', 'archive', 'Archivio'],
   ];
-  return `<nav class="tabs"><div class="tabs-inner">${tabs.map(([id, ico, label]) => {
+  const renderTab = ([id, ico, label], extraClass = '') => {
     const locked = (!isLoggedIn() && ['registro', 'player', 'opzioni'].includes(id)) || (id === 'admin' && !isPremium());
     return `
-    <button class="tab ${state.activeTab === id ? 'active' : ''} ${locked ? 'locked' : ''}" data-tab="${id}" aria-label="${label}${locked ? ' - login richiesto' : ''}">
+    <button class="tab ${extraClass} ${state.activeTab === id ? 'active' : ''} ${locked ? 'locked' : ''}" data-tab="${id}" aria-label="${label}${locked ? ' - login richiesto' : ''}">
       <span class="tab-icon" aria-hidden="true">${icon(ico)}</span><span class="tab-label">${label}</span>
       ${locked ? '<span class="tab-lock" aria-hidden="true">LOCK</span>' : ''}
     </button>`;
-  }).join('')}</div></nav>`;
+  };
+  return `<nav class="tabs"><div class="tabs-inner">${tabs.map((tab, index) => renderTab(tab, index > 2 ? 'tab-more-item' : '')).join('')}
+    <button class="tab more-tab ${tabs.slice(3).some(([id]) => state.activeTab === id) ? 'active' : ''}" id="moreTabsBtn" type="button" aria-expanded="false" aria-controls="moreTabsMenu"><span class="tab-icon" aria-hidden="true">${icon('more')}</span><span class="tab-label">Altro</span></button>
+  </div><div class="more-menu" id="moreTabsMenu" hidden>${tabs.slice(3).map((tab) => renderTab(tab, 'more-menu-item')).join('')}</div></nav>`;
 }
 
 function icon(name) {
@@ -160,6 +188,7 @@ function icon(name) {
     tool: '<path d="m14 6 4-4 2 2-4 4M13 7 4 16a2 2 0 0 0 3 3l9-9M5 21l-2-2M16 13l5 5-3 3-5-5"/>',
     book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21V5.5Z"/><path d="M4 5.5v15M8 7h8M8 11h8M8 15h5"/>',
     archive: '<path d="M4 7h16v13H4zM3 4h18v3H3zM9 11h6"/>',
+    more: '<circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/>',
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
 }
@@ -206,11 +235,20 @@ function renderAnonymousSection() {
 
 function renderAccount() {
   const email = state.session?.user?.email || 'Account autenticato';
-  return `<section class="card pad account-card">
+  const accountSettings = { notifications: true, publicProfile: true, ...state.account?.settings };
+  return `<section class="card pad account-card ${document.documentElement.dataset.theme.startsWith('new-ui') ? 'new-ui-account-modal' : ''}">
+    <div class="account-modal-header"><button class="account-modal-close" id="accountCancelBtn" type="button">Annulla</button><h2>Impostazioni account</h2><button class="account-modal-done" id="accountDoneBtn" type="button">Fatto</button></div>
     <div class="section-title"><h2>Account</h2><span class="auth-status logged">LOGGATO</span></div>
     <div class="account-email">${esc(email)}</div>
+    <div class="account-online-group">
+      <div class="account-group-title">Profilo online</div>
+      <label class="account-input"><span>Nome visualizzato</span><input id="accountDisplayName" value="${esc(state.account?.display_name || '')}" placeholder="Il tuo nome"></label>
+      <label class="setting-row"><span><strong>Notifiche attività</strong><small>Avvisi sulle modifiche della classifica</small></span><input class="toggle" id="accountNotifications" type="checkbox" ${accountSettings.notifications ? 'checked' : ''}></label>
+      <label class="setting-row"><span><strong>Profilo visibile</strong><small>Consenti di mostrare il tuo nome nella community</small></span><input class="toggle" id="accountPublicProfile" type="checkbox" ${accountSettings.publicProfile ? 'checked' : ''}></label>
+      <button class="btn secondary account-save-btn" id="saveAccountBtn" type="button">${state.accountSaving ? 'Salvataggio...' : 'Salva modifiche'}</button>
+    </div>
     <div class="account-grid">
-      <div class="account-stat"><span>Piano</span><strong>${isPremium() ? 'Premium' : 'Free'}</strong></div>
+      <div class="account-stat"><span>Tipo account</span><strong>${isPremium() ? 'Premium' : 'Giocatore'}</strong></div>
       <div class="account-stat"><span>Player</span><strong>${esc(state.profile?.nome || 'Da scegliere')}</strong></div>
     </div>
     <button class="btn danger" id="accountLogoutBtn" type="button">Logout</button>
@@ -221,7 +259,7 @@ function renderAccountSetup() {
   const studentOptions = state.students.map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join('');
   return `<section class="card pad setup-card">
     <div class="section-title"><h2>Scegli il tuo player</h2><span class="tiny">Una scelta per account</span></div>
-    <p class="muted-copy">Associa un player al tuo account per sbloccare Registro, Player e Opzioni.</p>
+    <p class="muted-copy">Associa un player al tuo account per usare Registro e Player.</p>
     <form id="playerSetupForm" class="grid">
       <div class="field"><label for="playerSelect">Player disponibile</label><select id="playerSelect" name="studente_id" required><option value="">Seleziona un player</option>${studentOptions}</select></div>
       <button class="btn" type="submit" ${studentOptions ? '' : 'disabled'}>Conferma player</button>
@@ -332,9 +370,17 @@ function renderPlayer() {
 function renderOpzioni() {
   return `<section class="card pad options-panel">
     <div class="section-title"><h2>Opzioni</h2><span class="tiny">Preferenze di questo dispositivo</span></div>
+    <div class="settings-group theme-settings">
+      <div class="settings-heading"><div><h3>Temi</h3><p>Scegli l'aspetto dell'interfaccia.</p></div></div>
+      <div class="theme-options" role="radiogroup" aria-label="Tema dell'interfaccia">
+        <label class="theme-option ${preferences.theme === 'light' ? 'selected' : ''}"><input type="radio" name="theme" value="light" ${preferences.theme === 'light' ? 'checked' : ''}><span><strong>Light</strong><small>Tema chiaro, impostazione predefinita</small></span></label>
+        <label class="theme-option ${preferences.theme === 'dark' ? 'selected' : ''}"><input type="radio" name="theme" value="dark" ${preferences.theme === 'dark' ? 'checked' : ''}><span><strong>Dark</strong><small>Tema scuro per ambienti poco illuminati</small></span></label>
+        <label class="theme-option ${preferences.theme === 'new-ui' ? 'selected' : ''}"><input type="radio" name="theme" value="new-ui" ${preferences.theme === 'new-ui' ? 'checked' : ''}><span><strong>New UI (Beta)</strong><small>Interfaccia iOS chiara</small></span></label>
+        <label class="theme-option ${preferences.theme === 'new-ui-dark' ? 'selected' : ''}"><input type="radio" name="theme" value="new-ui-dark" ${preferences.theme === 'new-ui-dark' ? 'checked' : ''}><span><strong>Nuova UI (Beta) Dark</strong><small>Interfaccia scura ad alto contrasto</small></span></label>
+      </div>
+    </div>
     <div class="settings-group">
       <div class="settings-heading"><div><h3>Aspetto</h3><p>Personalizza l'esperienza di Fantascuola.</p></div><span class="beta-tag">BETA</span></div>
-      <label class="setting-row"><span><strong>Dark Mode</strong><small>Tema scuro sperimentale</small></span><input class="toggle" id="darkModeToggle" type="checkbox" ${preferences.darkMode ? 'checked' : ''}></label>
       <label class="setting-row"><span><strong>Testo in grassetto</strong><small>Rende più leggibili titoli e contenuti</small></span><input class="toggle" id="boldTextToggle" type="checkbox" ${preferences.boldText ? 'checked' : ''}></label>
       <label class="setting-row"><span><strong>Interfaccia compatta</strong><small>Riduce spazi e dimensioni delle schede</small></span><input class="toggle" id="compactToggle" type="checkbox" ${preferences.compact ? 'checked' : ''}></label>
       <label class="setting-row"><span><strong>Riduci animazioni</strong><small>Minimizza i movimenti dell'interfaccia</small></span><input class="toggle" id="motionToggle" type="checkbox" ${preferences.reduceMotion ? 'checked' : ''}></label>
@@ -420,10 +466,24 @@ function renderAdmin() {
               ${avatarMarkup(s.nome, s.avatar_url, 'style="width:44px;height:44px;border-radius:14px;"')}
               <strong class="row-name">${esc(s.nome)}</strong>
             </div>
-            <button class="btn danger row-action" data-delete-student="${s.id}">Elimina</button>
+            <div class="row-actions"><button class="btn secondary row-action" data-edit-student="${s.id}" type="button">Modifica</button><button class="btn danger row-action" data-delete-student="${s.id}" type="button">Elimina</button></div>
           </div>`).join('')}</div>` : `<div class="empty">Nessuno studente inserito</div>`}
       </div>
-    </section>`;
+    </section>${state.editingStudentId ? renderEditStudentModal() : ''}`;
+}
+
+function renderEditStudentModal() {
+  const student = state.students.find((item) => item.id === state.editingStudentId);
+  if (!student) return '';
+  return `<div class="edit-student-backdrop"><section class="edit-student-modal card" role="dialog" aria-modal="true" aria-labelledby="editStudentTitle">
+    <div class="edit-modal-header"><h2 id="editStudentTitle">Modifica player</h2><button class="modal-close" id="closeEditStudentBtn" type="button" aria-label="Chiudi">×</button></div>
+    <form id="editStudentForm" class="grid">
+      <div class="edit-player-preview">${avatarMarkup(student.nome, student.avatar_url)}<strong>${esc(student.nome)}</strong></div>
+      <div class="field"><label for="editStudentName">Nome player</label><input id="editStudentName" name="nome" value="${esc(student.nome)}" required></div>
+      <div class="field"><label for="editStudentAvatar">URL foto</label><input id="editStudentAvatar" name="avatar_url" type="url" value="${esc(student.avatar_url || '')}" placeholder="https://..."></div>
+      <div class="edit-modal-actions"><button class="btn secondary" id="cancelEditStudentBtn" type="button">Chiudi</button><button class="btn" type="submit">Salva cambiamenti</button></div>
+    </form>
+  </section></div>`;
 }
 
 function renderDashboard() {
@@ -437,7 +497,7 @@ function renderDashboard() {
     regolamento: renderRegolamento(),
     archivio: renderArchivio(),
   }[state.activeTab] || renderClassifica();
-  app.innerHTML = `${!state.account ? renderAccountSetup() : ''}${body}${nav()}`;
+  app.innerHTML = `${!state.account || (!isPremium() && !state.account.studente_id) ? renderAccountSetup() : ''}${body}${nav()}`;
   renderHeaderAccount();
   attachHandlers();
 }
@@ -455,14 +515,24 @@ function render() {
 
 function attachHandlers() {
   const accountBtn = document.getElementById('accountBtn');
-  if (accountBtn) accountBtn.addEventListener('click', () => {
+  const openAccount = () => {
     if (!isLoggedIn()) return render();
     state.activeTab = 'account';
     renderDashboard();
-  });
+  };
+  if (accountBtn) accountBtn.addEventListener('click', openAccount);
+  const newUiAccountBtn = document.getElementById('newUiAccountBtn');
+  if (newUiAccountBtn) newUiAccountBtn.addEventListener('click', openAccount);
+  const closeAccount = () => { state.activeTab = 'classifica'; renderDashboard(); };
+  const accountCancelBtn = document.getElementById('accountCancelBtn');
+  if (accountCancelBtn) accountCancelBtn.addEventListener('click', closeAccount);
+  const accountDoneBtn = document.getElementById('accountDoneBtn');
+  if (accountDoneBtn) accountDoneBtn.addEventListener('click', closeAccount);
   const headerLogoutBtn = document.getElementById('headerLogoutBtn');
   if (headerLogoutBtn) headerLogoutBtn.addEventListener('click', () => supabase.auth.signOut());
   document.querySelectorAll('[data-tab]').forEach((btn) => btn.addEventListener('click', () => {
+    document.getElementById('moreTabsMenu')?.setAttribute('hidden', '');
+    document.getElementById('moreTabsBtn')?.setAttribute('aria-expanded', 'false');
     const requestedTab = btn.dataset.tab;
     const locked = (!isLoggedIn() && ['registro', 'player', 'opzioni'].includes(requestedTab)) || (requestedTab === 'admin' && !isPremium());
     if (locked) {
@@ -474,6 +544,13 @@ function attachHandlers() {
     state.activeTab = requestedTab;
     renderDashboard();
   }));
+  const moreTabsBtn = document.getElementById('moreTabsBtn');
+  const moreTabsMenu = document.getElementById('moreTabsMenu');
+  if (moreTabsBtn && moreTabsMenu) moreTabsBtn.addEventListener('click', () => {
+    const isOpen = !moreTabsMenu.hidden;
+    moreTabsMenu.hidden = isOpen;
+    moreTabsBtn.setAttribute('aria-expanded', String(!isOpen));
+  });
   document.querySelectorAll('[data-auth-mode]').forEach((btn) => btn.addEventListener('click', () => { state.authMode = btn.dataset.authMode; render(); }));
   const authForm = document.getElementById('authForm');
   if (authForm) authForm.addEventListener('submit', submitAuth);
@@ -483,8 +560,12 @@ function attachHandlers() {
   if (logoutBtn) logoutBtn.addEventListener('click', () => {
     supabase.auth.signOut();
   });
-  const darkModeToggle = document.getElementById('darkModeToggle');
-  if (darkModeToggle) darkModeToggle.addEventListener('change', (e) => { preferences.darkMode = e.target.checked; savePreferences(); });
+  document.querySelectorAll('input[name="theme"]').forEach((themeInput) => themeInput.addEventListener('change', (e) => {
+    preferences.theme = e.target.value;
+    preferences.darkMode = preferences.theme === 'dark';
+    document.querySelectorAll('.theme-option').forEach((option) => option.classList.toggle('selected', option.contains(e.target)));
+    savePreferences();
+  }));
   const boldTextToggle = document.getElementById('boldTextToggle');
   if (boldTextToggle) boldTextToggle.addEventListener('change', (e) => { preferences.boldText = e.target.checked; savePreferences(); });
   const compactToggle = document.getElementById('compactToggle');
@@ -503,6 +584,8 @@ function attachHandlers() {
   if (addDelaysBtn) addDelaysBtn.addEventListener('click', () => addQuickAttendance('Ritardo', -2));
   const addAbsencesBtn = document.getElementById('addAbsencesBtn');
   if (addAbsencesBtn) addAbsencesBtn.addEventListener('click', () => addQuickAttendance('Assenza', -3));
+  const saveAccountBtn = document.getElementById('saveAccountBtn');
+  if (saveAccountBtn) saveAccountBtn.addEventListener('click', saveAccountSettings);
   const accountLogoutBtn = document.getElementById('accountLogoutBtn');
   if (accountLogoutBtn) accountLogoutBtn.addEventListener('click', () => supabase.auth.signOut());
   const resetSeasonBtn = document.getElementById('resetSeasonBtn');
@@ -513,6 +596,17 @@ function attachHandlers() {
   if (addVoteForm) addVoteForm.addEventListener('submit', submitAddVote);
   const addBonusForm = document.getElementById('addBonusForm');
   if (addBonusForm) addBonusForm.addEventListener('submit', submitAddBonus);
+  document.querySelectorAll('[data-edit-student]').forEach((btn) => btn.addEventListener('click', () => {
+    state.editingStudentId = btn.dataset.editStudent;
+    renderDashboard();
+  }));
+  const closeEditStudent = () => { state.editingStudentId = ''; renderDashboard(); };
+  const closeEditStudentBtn = document.getElementById('closeEditStudentBtn');
+  if (closeEditStudentBtn) closeEditStudentBtn.addEventListener('click', closeEditStudent);
+  const cancelEditStudentBtn = document.getElementById('cancelEditStudentBtn');
+  if (cancelEditStudentBtn) cancelEditStudentBtn.addEventListener('click', closeEditStudent);
+  const editStudentForm = document.getElementById('editStudentForm');
+  if (editStudentForm) editStudentForm.addEventListener('submit', submitEditStudent);
   document.querySelectorAll('[data-delete-student]').forEach((btn) => btn.addEventListener('click', () => deleteStudent(btn.dataset.deleteStudent)));
   const auditActorFilter = document.getElementById('auditActorFilter');
   if (auditActorFilter) auditActorFilter.addEventListener('change', (e) => { state.auditFilter.actor = e.target.value; renderDashboard(); });
@@ -524,6 +618,22 @@ function attachHandlers() {
   if (auditDateFilter) auditDateFilter.addEventListener('change', (e) => { state.auditFilter.date = e.target.value; renderDashboard(); });
   const archiveDateSelect = document.getElementById('archiveDateSelect');
   if (archiveDateSelect) archiveDateSelect.addEventListener('change', (e) => { state.archiveDate = e.target.value; renderDashboard(); });
+}
+
+async function saveAccountSettings() {
+  if (!state.account || state.accountSaving) return;
+  state.accountSaving = true;
+  const displayName = String(document.getElementById('accountDisplayName')?.value || '').trim();
+  const settings = {
+    ...(state.account.settings || {}),
+    notifications: Boolean(document.getElementById('accountNotifications')?.checked),
+    publicProfile: Boolean(document.getElementById('accountPublicProfile')?.checked),
+  };
+  const { data, error } = await supabase.from('account_profiles').update({ display_name: displayName || state.session.user.email, settings }).eq('user_id', state.session.user.id).select('id, user_id, studente_id, display_name, is_premium, settings').single();
+  state.accountSaving = false;
+  if (error) return alert(error.message);
+  state.account = data;
+  renderDashboard();
 }
 
 async function logAction(action, entity, details, pointsDelta = null, studentId = null) {
@@ -548,7 +658,7 @@ async function submitPlayerSetup(e) {
     user_id: state.session.user.id,
     studente_id: studenteId,
     display_name: state.session.user.user_metadata?.display_name || state.session.user.email,
-  }, { onConflict: 'user_id' }).select('id, user_id, studente_id, display_name, is_premium').single();
+  }, { onConflict: 'user_id' }).select('id, user_id, studente_id, display_name, is_premium, settings').single();
   if (error) return alert(error.code === '23505' ? 'Questo player è già stato scelto da un altro account.' : error.message);
   state.account = data;
   state.selectedStudentId = data.studente_id;
@@ -606,6 +716,19 @@ async function submitAddBonus(e) {
   if (error) return alert(error.message);
   await logAction('create', 'bonus_malus', `${punti < 0 ? 'Malus' : 'Bonus'} "${motivo}" per ${student?.nome || 'player'}`, punti, student?.id);
   e.currentTarget.reset();
+  await loadData();
+}
+async function submitEditStudent(e) {
+  e.preventDefault();
+  const student = state.students.find((item) => item.id === state.editingStudentId);
+  if (!student) return;
+  const form = new FormData(e.currentTarget);
+  const nome = String(form.get('nome')).trim();
+  const avatarUrl = String(form.get('avatar_url') || '').trim() || null;
+  const { error } = await supabase.from('studenti').update({ nome, avatar_url: avatarUrl }).eq('id', student.id);
+  if (error) return alert(error.message);
+  await logAction('update', 'studenti', `Modificato player ${student.nome} in ${nome}`);
+  state.editingStudentId = '';
   await loadData();
 }
 async function deleteStudent(id) {
