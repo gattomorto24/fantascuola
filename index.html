@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1020" />
+    <title>Fantascuola</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Fantascuola</p>
+          <h1>Leaderboard live, gestione rapida, tutto dal telefono.</h1>
+          <div class="account-controls">
+            <span class="auth-status guest" id="authStatus">GUEST</span>
+            <button class="account-btn" id="accountBtn" type="button">Account</button>
+            <button class="account-btn logout-btn" id="headerLogoutBtn" type="button" hidden>Logout</button>
+          </div>
+        </div>
+        <div class="status-chip" id="connectionStatus">Connessione in attesa</div>
+      </header>
+
+      <main id="app" class="app"></main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
