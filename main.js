@@ -22,6 +22,15 @@ const state = {
   profile: null,
   editingStudentId: '',
   accountSaving: false,
+  accountAdmin: {
+    open: false,
+    loading: false,
+    busy: false,
+    error: '',
+    users: [],
+    search: '',
+    editingUserId: '',
+  },
   loading: true,
   error: '',
 };
@@ -82,6 +91,37 @@ function isLoggedIn() { return Boolean(state.session); }
 function isPremium() {
   const value = state.account?.is_premium;
   return value === true || value === 1 || value === '1' || value === 'true' || value === 'TRUE';
+}
+
+const USERNAME_AUTH_DOMAIN = 'users.fantascuola.invalid';
+
+function normalizeUsername(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9._-]/g, '')
+    .replace(/^[._-]+|[._-]+$/g, '')
+    .slice(0, 40);
+}
+
+function usernameToInternalEmail(username) {
+  const normalized = normalizeUsername(username);
+  return normalized ? `${normalized}@${USERNAME_AUTH_DOMAIN}` : '';
+}
+
+function isInternalUsernameEmail(email) {
+  return String(email || '').toLowerCase().endsWith(`@${USERNAME_AUTH_DOMAIN}`);
+}
+
+function accountIdentityLabel(user) {
+  if (user?.login_type === 'username' || user?.username) return `@${user.username || String(user.email || '').split('@')[0]}`;
+  return user?.email || 'Nessuna email';
+}
+
+function accountConfirmed(user) {
+  return Boolean(user?.email_confirmed_at || user?.confirmed_at || user?.login_type === 'username');
 }
 function applyPreferences() {
   const root = document.documentElement;
@@ -195,20 +235,25 @@ function icon(name) {
 
 function renderLogin() {
   const hasStudents = state.students.length > 0;
+  const loginMode = state.authMode === 'login';
   app.innerHTML = `
     <section class="card hero">
       <div class="section-title"><h2>Accedi a Fantascuola</h2><span class="tiny">Classifica pubblica disponibile</span></div>
       <p>${hasStudents ? 'Crea il tuo account, scegli un player libero e sblocca le statistiche personali.' : 'La classifica è pronta. Il primo player verrà aggiunto da Gestione.'}</p>
       <div class="auth-switcher" role="tablist">
-        <button class="switch ${state.authMode === 'login' ? 'active' : ''}" data-auth-mode="login">Accedi</button>
-        <button class="switch ${state.authMode === 'signup' ? 'active' : ''}" data-auth-mode="signup">Registrati</button>
+        <button class="switch ${loginMode ? 'active' : ''}" data-auth-mode="login">Accedi</button>
+        <button class="switch ${!loginMode ? 'active' : ''}" data-auth-mode="signup">Registrati</button>
       </div>
       <form id="authForm" class="grid">
-        ${state.authMode === 'signup' ? '<div class="field"><label for="displayName">Nome account</label><input id="displayName" name="display_name" required placeholder="Es. Antonino"></div>' : ''}
-        <div class="field"><label for="authEmail">Email</label><input id="authEmail" name="email" type="email" required autocomplete="email"></div>
-        <div class="field"><label for="authPassword">Password</label><input id="authPassword" name="password" type="password" minlength="6" required autocomplete="${state.authMode === 'login' ? 'current-password' : 'new-password'}"></div>
-        <button class="btn" type="submit">${state.authMode === 'login' ? 'Accedi' : 'Crea account'}</button>
+        ${!loginMode ? '<div class="field"><label for="displayName">Nome account</label><input id="displayName" name="display_name" required placeholder="Es. Antonino"></div>' : ''}
+        <div class="field">
+          <label for="authEmail">${loginMode ? 'Email o nome utente' : 'Email'}</label>
+          <input id="authEmail" name="email" type="${loginMode ? 'text' : 'email'}" required autocomplete="${loginMode ? 'username' : 'email'}" placeholder="${loginMode ? 'nomeutente oppure email@dominio.it' : 'email@dominio.it'}">
+        </div>
+        <div class="field"><label for="authPassword">Password</label><input id="authPassword" name="password" type="password" minlength="6" required autocomplete="${loginMode ? 'current-password' : 'new-password'}"></div>
+        <button class="btn" type="submit">${loginMode ? 'Accedi' : 'Crea account'}</button>
       </form>
+      ${loginMode ? '<p class="tiny" style="margin-top:10px;">Gli account creati dal manager con solo nome utente possono accedere senza email.</p>' : ''}
     </section>
     ${renderGuestLeaderboard()}
   `;
@@ -234,7 +279,11 @@ function renderAnonymousSection() {
 }
 
 function renderAccount() {
-  const email = state.session?.user?.email || 'Account autenticato';
+  const sessionUser = state.session?.user;
+  const username = normalizeUsername(sessionUser?.user_metadata?.username || '');
+  const email = sessionUser?.user_metadata?.login_type === 'username' || isInternalUsernameEmail(sessionUser?.email)
+    ? `@${username || String(sessionUser?.email || '').split('@')[0]}`
+    : (sessionUser?.email || 'Account autenticato');
   const accountSettings = { notifications: true, publicProfile: true, ...state.account?.settings };
   return `<section class="card pad account-card ${document.documentElement.dataset.theme.startsWith('new-ui') ? 'new-ui-account-modal' : ''}">
     <div class="account-modal-header"><button class="account-modal-close" id="accountCancelBtn" type="button">Annulla</button><h2>Impostazioni account</h2><button class="account-modal-done" id="accountDoneBtn" type="button">Fatto</button></div>
@@ -429,6 +478,196 @@ function renderRegolamento() {
     </section>`;
 }
 
+
+function renderAccountCustomerService() {
+  const panel = state.accountAdmin;
+  if (!isPremium()) return '';
+  const query = String(panel.search || '').trim().toLowerCase();
+  const filteredUsers = (panel.users || []).filter((user) => {
+    if (!query) return true;
+    const haystack = [
+      user.display_name,
+      user.email,
+      user.username,
+      user.id,
+      user.student_name,
+      user.login_type,
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(query);
+  });
+
+  return `
+    <div class="account-support">
+      <button class="account-support-toggle" id="accountSupportToggle" type="button" aria-expanded="${panel.open ? 'true' : 'false'}">
+        <span>
+          <strong>Servizio Clienti Account</strong>
+          <small>Gestisci accessi, recuperi, verifiche e account</small>
+        </span>
+        <span class="account-support-chevron">${panel.open ? '−' : '+'}</span>
+      </button>
+
+      ${panel.open ? `
+        <div class="account-support-panel">
+          <div class="account-support-toolbar">
+            <label class="field account-support-search">
+              <span class="field-label">Cerca account</span>
+              <input id="accountSupportSearch" type="search" value="${esc(panel.search)}" placeholder="Nome, email, username o ID">
+            </label>
+            <button class="btn secondary" id="refreshManagedUsersBtn" type="button" ${panel.loading ? 'disabled' : ''}>${panel.loading ? 'Caricamento...' : 'Aggiorna'}</button>
+          </div>
+
+          ${panel.error ? `<div class="account-support-error">${esc(panel.error)}</div>` : ''}
+
+          <div class="account-support-create">
+            <div class="section-title"><h2 style="font-size:16px;">Crea nuovo account</h2><span class="tiny">Manager Plus</span></div>
+            <form id="createManagedUserForm" class="grid">
+              <div class="account-support-two-col">
+                <label class="field">
+                  <span class="field-label">Tipo accesso</span>
+                  <select name="login_type" id="managedCreateLoginType">
+                    <option value="email">Email + password</option>
+                    <option value="username">Solo nome utente + password</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Nome visualizzato</span>
+                  <input name="display_name" required placeholder="Es. Mario Rossi">
+                </label>
+              </div>
+
+              <label class="field">
+                <span class="field-label" id="managedIdentityLabel">Email</span>
+                <input name="identity" id="managedIdentityInput" required placeholder="utente@example.com" autocomplete="off">
+              </label>
+
+              <label class="field">
+                <span class="field-label">Password iniziale</span>
+                <input name="password" type="password" minlength="6" required autocomplete="new-password" placeholder="Minimo 6 caratteri">
+              </label>
+
+              <div class="account-support-two-col">
+                <label class="field">
+                  <span class="field-label">Player collegato</span>
+                  <select name="studente_id">
+                    <option value="">Nessuno</option>
+                    ${state.students.map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join('')}
+                  </select>
+                </label>
+                <label class="setting-row account-support-switch">
+                  <span><strong>Account Plus</strong><small>Abilita Gestione</small></span>
+                  <input class="toggle" name="is_premium" type="checkbox">
+                </label>
+              </div>
+
+              <label class="setting-row account-support-switch" id="managedConfirmRow">
+                <span><strong>Conferma subito l'email</strong><small>Salta il link di verifica per questo account</small></span>
+                <input class="toggle" name="email_confirm" type="checkbox" checked>
+              </label>
+
+              <button class="btn" type="submit" ${panel.busy ? 'disabled' : ''}>Crea account</button>
+            </form>
+          </div>
+
+          <div class="account-support-users">
+            <div class="section-title"><h2 style="font-size:16px;">Account registrati</h2><span class="tiny">${filteredUsers.length} risultati</span></div>
+            ${panel.loading && !panel.users.length
+              ? '<div class="empty">Caricamento account...</div>'
+              : filteredUsers.length
+                ? `<div class="account-support-list">${filteredUsers.map((user) => `
+                    <article class="account-support-user">
+                      <div class="account-support-user-main">
+                        <div class="account-support-avatar">${esc((user.display_name || user.username || user.email || '?').slice(0, 1).toUpperCase())}</div>
+                        <div>
+                          <strong>${esc(user.display_name || user.username || user.email || 'Account senza nome')}</strong>
+                          <div class="meta">${esc(accountIdentityLabel(user))}</div>
+                          <div class="account-support-badges">
+                            <span class="support-badge ${accountConfirmed(user) ? 'ok' : 'warn'}">${accountConfirmed(user) ? 'VERIFICATO' : 'NON VERIFICATO'}</span>
+                            ${user.is_premium ? '<span class="support-badge plus">PLUS</span>' : ''}
+                            ${user.login_type === 'username' ? '<span class="support-badge">USERNAME</span>' : '<span class="support-badge">EMAIL</span>'}
+                          </div>
+                          ${user.student_name ? `<div class="meta">Player: ${esc(user.student_name)}</div>` : ''}
+                        </div>
+                      </div>
+                      <div class="account-support-user-actions">
+                        <button class="btn secondary row-action" type="button" data-manage-account="${esc(user.id)}">Modifica</button>
+                        ${!accountConfirmed(user) && user.login_type !== 'username' ? `<button class="btn secondary row-action" type="button" data-confirm-account="${esc(user.id)}">Verifica</button>` : ''}
+                        ${user.login_type !== 'username' ? `<button class="btn secondary row-action" type="button" data-recovery-account="${esc(user.id)}">Link recupero</button>` : ''}
+                      </div>
+                    </article>
+                  `).join('')}</div>`
+                : '<div class="empty">Nessun account corrisponde alla ricerca.</div>'}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+    ${panel.editingUserId ? renderManagedUserModal(panel.editingUserId) : ''}
+  `;
+}
+
+function renderManagedUserModal(userId) {
+  const user = state.accountAdmin.users.find((item) => item.id === userId);
+  if (!user) return '';
+  const loginType = user.login_type === 'username' ? 'username' : 'email';
+  const identity = loginType === 'username' ? (user.username || '') : (user.email || '');
+  return `
+    <div class="edit-student-backdrop">
+      <section class="edit-student-modal card account-support-modal" role="dialog" aria-modal="true" aria-labelledby="managedUserTitle">
+        <div class="edit-modal-header">
+          <h2 id="managedUserTitle">Gestisci account</h2>
+          <button class="modal-close" id="closeManagedUserBtn" type="button" aria-label="Chiudi">×</button>
+        </div>
+        <form id="editManagedUserForm" class="grid">
+          <input type="hidden" name="user_id" value="${esc(user.id)}">
+          <label class="field">
+            <span class="field-label">Nome visualizzato</span>
+            <input name="display_name" value="${esc(user.display_name || '')}" required>
+          </label>
+          <div class="account-support-two-col">
+            <label class="field">
+              <span class="field-label">Tipo accesso</span>
+              <select name="login_type" id="managedEditLoginType">
+                <option value="email" ${loginType === 'email' ? 'selected' : ''}>Email</option>
+                <option value="username" ${loginType === 'username' ? 'selected' : ''}>Nome utente</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label" id="managedEditIdentityLabel">${loginType === 'username' ? 'Nome utente' : 'Email'}</span>
+              <input name="identity" id="managedEditIdentityInput" value="${esc(identity)}" required autocomplete="off">
+            </label>
+          </div>
+          <label class="field">
+            <span class="field-label">Nuova password</span>
+            <input name="password" type="password" minlength="6" autocomplete="new-password" placeholder="Lascia vuoto per non cambiarla">
+          </label>
+          <div class="account-support-two-col">
+            <label class="field">
+              <span class="field-label">Player collegato</span>
+              <select name="studente_id">
+                <option value="">Nessuno</option>
+                ${state.students.map((s) => `<option value="${s.id}" ${String(user.studente_id || '') === String(s.id) ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="setting-row account-support-switch">
+              <span><strong>Account Plus</strong><small>Accesso alla Gestione</small></span>
+              <input class="toggle" name="is_premium" type="checkbox" ${user.is_premium ? 'checked' : ''}>
+            </label>
+          </div>
+          <label class="setting-row account-support-switch" id="managedEditConfirmRow" ${loginType === 'username' ? 'hidden' : ''}>
+            <span><strong>Email verificata</strong><small>Conferma manualmente senza link email</small></span>
+            <input class="toggle" name="email_confirm" type="checkbox" ${accountConfirmed(user) ? 'checked' : ''}>
+          </label>
+          <div class="account-support-danger-note">La password attuale non è visibile: il manager può solo sostituirla con una nuova password temporanea.</div>
+          <div class="edit-modal-actions account-support-modal-actions">
+            <button class="btn danger" id="deleteManagedUserBtn" type="button" data-user-id="${esc(user.id)}">Elimina account</button>
+            <button class="btn secondary" id="cancelManagedUserBtn" type="button">Chiudi</button>
+            <button class="btn" type="submit" ${state.accountAdmin.busy ? 'disabled' : ''}>Salva cambiamenti</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  `;
+}
+
 function renderAdmin() {
   const studentOptions = state.students.map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join('');
   return `
@@ -469,6 +708,7 @@ function renderAdmin() {
             <div class="row-actions"><button class="btn secondary row-action" data-edit-student="${s.id}" type="button">Modifica</button><button class="btn danger row-action" data-delete-student="${s.id}" type="button">Elimina</button></div>
           </div>`).join('')}</div>` : `<div class="empty">Nessuno studente inserito</div>`}
       </div>
+      ${renderAccountCustomerService()}
     </section>${state.editingStudentId ? renderEditStudentModal() : ''}`;
 }
 
@@ -608,6 +848,52 @@ function attachHandlers() {
   const editStudentForm = document.getElementById('editStudentForm');
   if (editStudentForm) editStudentForm.addEventListener('submit', submitEditStudent);
   document.querySelectorAll('[data-delete-student]').forEach((btn) => btn.addEventListener('click', () => deleteStudent(btn.dataset.deleteStudent)));
+
+  const accountSupportToggle = document.getElementById('accountSupportToggle');
+  if (accountSupportToggle) accountSupportToggle.addEventListener('click', async () => {
+    state.accountAdmin.open = !state.accountAdmin.open;
+    renderDashboard();
+    if (state.accountAdmin.open && !state.accountAdmin.users.length) await loadManagedUsers();
+  });
+  const refreshManagedUsersBtn = document.getElementById('refreshManagedUsersBtn');
+  if (refreshManagedUsersBtn) refreshManagedUsersBtn.addEventListener('click', loadManagedUsers);
+  const accountSupportSearch = document.getElementById('accountSupportSearch');
+  if (accountSupportSearch) accountSupportSearch.addEventListener('input', (e) => {
+    state.accountAdmin.search = e.target.value;
+    renderDashboard();
+    requestAnimationFrame(() => {
+      const input = document.getElementById('accountSupportSearch');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    });
+  });
+  const managedCreateLoginType = document.getElementById('managedCreateLoginType');
+  if (managedCreateLoginType) managedCreateLoginType.addEventListener('change', () => syncManagedIdentityUi('create'));
+  const managedEditLoginType = document.getElementById('managedEditLoginType');
+  if (managedEditLoginType) managedEditLoginType.addEventListener('change', () => syncManagedIdentityUi('edit'));
+  const createManagedUserForm = document.getElementById('createManagedUserForm');
+  if (createManagedUserForm) createManagedUserForm.addEventListener('submit', createManagedUser);
+  document.querySelectorAll('[data-manage-account]').forEach((btn) => btn.addEventListener('click', () => {
+    state.accountAdmin.editingUserId = btn.dataset.manageAccount;
+    renderDashboard();
+  }));
+  document.querySelectorAll('[data-confirm-account]').forEach((btn) => btn.addEventListener('click', () => confirmManagedUser(btn.dataset.confirmAccount)));
+  document.querySelectorAll('[data-recovery-account]').forEach((btn) => btn.addEventListener('click', () => generateManagedRecoveryLink(btn.dataset.recoveryAccount)));
+  const closeManagedUser = () => {
+    state.accountAdmin.editingUserId = '';
+    renderDashboard();
+  };
+  const closeManagedUserBtn = document.getElementById('closeManagedUserBtn');
+  if (closeManagedUserBtn) closeManagedUserBtn.addEventListener('click', closeManagedUser);
+  const cancelManagedUserBtn = document.getElementById('cancelManagedUserBtn');
+  if (cancelManagedUserBtn) cancelManagedUserBtn.addEventListener('click', closeManagedUser);
+  const editManagedUserForm = document.getElementById('editManagedUserForm');
+  if (editManagedUserForm) editManagedUserForm.addEventListener('submit', updateManagedUser);
+  const deleteManagedUserBtn = document.getElementById('deleteManagedUserBtn');
+  if (deleteManagedUserBtn) deleteManagedUserBtn.addEventListener('click', () => deleteManagedUser(deleteManagedUserBtn.dataset.userId));
+
   const auditActorFilter = document.getElementById('auditActorFilter');
   if (auditActorFilter) auditActorFilter.addEventListener('change', (e) => { state.auditFilter.actor = e.target.value; renderDashboard(); });
   const auditActionFilter = document.getElementById('auditActionFilter');
@@ -618,6 +904,167 @@ function attachHandlers() {
   if (auditDateFilter) auditDateFilter.addEventListener('change', (e) => { state.auditFilter.date = e.target.value; renderDashboard(); });
   const archiveDateSelect = document.getElementById('archiveDateSelect');
   if (archiveDateSelect) archiveDateSelect.addEventListener('change', (e) => { state.archiveDate = e.target.value; renderDashboard(); });
+}
+
+
+function syncManagedIdentityUi(mode) {
+  const prefix = mode === 'edit' ? 'managedEdit' : 'managed';
+  const typeSelect = document.getElementById(`${prefix}LoginType`);
+  const identityInput = document.getElementById(`${prefix}IdentityInput`);
+  const identityLabel = document.getElementById(`${prefix}IdentityLabel`);
+  const confirmRow = document.getElementById(`${prefix}ConfirmRow`);
+  if (!typeSelect || !identityInput || !identityLabel) return;
+  const usernameMode = typeSelect.value === 'username';
+  identityLabel.textContent = usernameMode ? 'Nome utente' : 'Email';
+  identityInput.placeholder = usernameMode ? 'es. mario.rossi' : 'utente@example.com';
+  identityInput.type = usernameMode ? 'text' : 'email';
+  if (confirmRow) confirmRow.hidden = usernameMode;
+}
+
+async function invokeAccountAdmin(action, payload = {}) {
+  if (!isPremium()) throw new Error('Operazione riservata ai manager Plus.');
+  const { data, error } = await supabase.functions.invoke('account-admin', {
+    body: { action, ...payload },
+  });
+  if (error) {
+    let message = error.message || 'Errore della funzione account-admin.';
+    try {
+      const contextBody = await error.context?.json?.();
+      if (contextBody?.error) message = contextBody.error;
+    } catch (_) {}
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+async function loadManagedUsers() {
+  if (!isPremium() || state.accountAdmin.loading) return;
+  state.accountAdmin.loading = true;
+  state.accountAdmin.error = '';
+  renderDashboard();
+  try {
+    const data = await invokeAccountAdmin('list');
+    state.accountAdmin.users = Array.isArray(data?.users) ? data.users : [];
+  } catch (error) {
+    state.accountAdmin.error = error.message || String(error);
+  } finally {
+    state.accountAdmin.loading = false;
+    renderDashboard();
+  }
+}
+
+async function createManagedUser(e) {
+  e.preventDefault();
+  if (state.accountAdmin.busy) return;
+  const form = new FormData(e.currentTarget);
+  const loginType = String(form.get('login_type') || 'email');
+  const identity = String(form.get('identity') || '').trim();
+  const displayName = String(form.get('display_name') || '').trim();
+  const password = String(form.get('password') || '');
+  const studenteId = String(form.get('studente_id') || '') || null;
+  const isPremiumAccount = form.get('is_premium') === 'on';
+  const emailConfirm = loginType === 'username' || form.get('email_confirm') === 'on';
+
+  if (loginType === 'username' && normalizeUsername(identity).length < 3) {
+    return alert('Il nome utente deve contenere almeno 3 caratteri validi.');
+  }
+
+  state.accountAdmin.busy = true;
+  state.accountAdmin.error = '';
+  renderDashboard();
+  try {
+    await invokeAccountAdmin('create', {
+      login_type: loginType,
+      identity,
+      display_name: displayName,
+      password,
+      studente_id: studenteId,
+      is_premium: isPremiumAccount,
+      email_confirm: emailConfirm,
+    });
+    await loadManagedUsers();
+    alert(loginType === 'username'
+      ? `Account creato. Accesso: ${normalizeUsername(identity)} + password impostata.`
+      : 'Account creato correttamente.');
+  } catch (error) {
+    state.accountAdmin.error = error.message || String(error);
+    alert(state.accountAdmin.error);
+  } finally {
+    state.accountAdmin.busy = false;
+    renderDashboard();
+  }
+}
+
+async function updateManagedUser(e) {
+  e.preventDefault();
+  if (state.accountAdmin.busy) return;
+  const form = new FormData(e.currentTarget);
+  const loginType = String(form.get('login_type') || 'email');
+  const identity = String(form.get('identity') || '').trim();
+  const password = String(form.get('password') || '');
+  state.accountAdmin.busy = true;
+  state.accountAdmin.error = '';
+  renderDashboard();
+  try {
+    await invokeAccountAdmin('update', {
+      user_id: String(form.get('user_id')),
+      login_type: loginType,
+      identity,
+      display_name: String(form.get('display_name') || '').trim(),
+      password: password || null,
+      studente_id: String(form.get('studente_id') || '') || null,
+      is_premium: form.get('is_premium') === 'on',
+      email_confirm: loginType === 'username' || form.get('email_confirm') === 'on',
+    });
+    state.accountAdmin.editingUserId = '';
+    await loadManagedUsers();
+    alert('Account aggiornato.');
+  } catch (error) {
+    state.accountAdmin.error = error.message || String(error);
+    alert(state.accountAdmin.error);
+  } finally {
+    state.accountAdmin.busy = false;
+    renderDashboard();
+  }
+}
+
+async function confirmManagedUser(userId) {
+  if (!confirm('Confermare manualmente questa email senza usare il link di verifica?')) return;
+  try {
+    await invokeAccountAdmin('confirm', { user_id: userId });
+    await loadManagedUsers();
+    alert('Account verificato.');
+  } catch (error) {
+    alert(error.message || String(error));
+  }
+}
+
+async function generateManagedRecoveryLink(userId) {
+  try {
+    const data = await invokeAccountAdmin('recovery_link', { user_id: userId });
+    if (!data?.action_link) throw new Error('Il server non ha restituito un link di recupero.');
+    try {
+      await navigator.clipboard.writeText(data.action_link);
+      alert('Link di recupero copiato negli appunti. Puoi inviarlo al proprietario dell’account.');
+    } catch (_) {
+      prompt('Copia questo link di recupero e invialo al proprietario dell’account:', data.action_link);
+    }
+  } catch (error) {
+    alert(error.message || String(error));
+  }
+}
+
+async function deleteManagedUser(userId) {
+  if (!confirm('Eliminare definitivamente questo account? Questa operazione non può essere annullata.')) return;
+  try {
+    await invokeAccountAdmin('delete', { user_id: userId });
+    state.accountAdmin.editingUserId = '';
+    await loadManagedUsers();
+    alert('Account eliminato.');
+  } catch (error) {
+    alert(error.message || String(error));
+  }
 }
 
 async function saveAccountSettings() {
@@ -670,11 +1117,22 @@ async function submitPlayerSetup(e) {
 async function submitAuth(e) {
   e.preventDefault();
   const form = new FormData(e.currentTarget);
-  const email = String(form.get('email')).trim();
+  const identity = String(form.get('email') || '').trim();
   const password = String(form.get('password'));
-  const result = state.authMode === 'signup'
-    ? await supabase.auth.signUp({ email, password, options: { data: { display_name: form.get('display_name') } } })
-    : await supabase.auth.signInWithPassword({ email, password });
+  let result;
+
+  if (state.authMode === 'signup') {
+    result = await supabase.auth.signUp({
+      email: identity,
+      password,
+      options: { data: { display_name: form.get('display_name'), login_type: 'email' } },
+    });
+  } else {
+    const email = identity.includes('@') ? identity : usernameToInternalEmail(identity);
+    if (!email) return alert('Inserisci un’email o un nome utente valido.');
+    result = await supabase.auth.signInWithPassword({ email, password });
+  }
+
   if (result.error) return alert(result.error.message);
   if (state.authMode === 'signup' && !result.data.session) return alert('Account creato. Controlla la tua email per confermare l’accesso.');
   state.session = result.data.session;
@@ -766,6 +1224,10 @@ if (!SUPABASE_ANON_KEY) {
       state.account = null;
       state.selectedStudentId = '';
       state.profile = null;
+      state.accountAdmin.users = [];
+      state.accountAdmin.open = false;
+      state.accountAdmin.editingUserId = '';
+      state.accountAdmin.error = '';
     }
     loadData();
   });
