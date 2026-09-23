@@ -52,9 +52,10 @@ const defaultPreferences = {
   reduceMotion: false,
   showBorders: true,
   showShadows: true,
+  dockLegacy: false,
 };
 const preferences = { ...defaultPreferences, ...JSON.parse(localStorage.getItem('fantascuola_preferences') || '{}') };
-if (!['new-ui', 'new-ui-dark'].includes(preferences.theme)) preferences.theme = 'new-ui';
+if (!['new-ui', 'new-ui-dark', 'new-ui-red'].includes(preferences.theme)) preferences.theme = 'new-ui';
 
 const fmt = new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium', timeStyle: 'medium' });
 function dateKey(value) {
@@ -151,11 +152,14 @@ function applyPreferences() {
   root.style.setProperty('--element-spacing', `${Number(preferences.elementSpacing) / 100}`);
   root.style.setProperty('--glass-opacity', `${Number(preferences.glassOpacity) / 100}`);
   root.style.setProperty('--glass-blur', `${Number(preferences.glassBlur)}px`);
+  const isLegacyTheme = ['new-ui', 'new-ui-dark'].includes(preferences.theme);
+  const isMobileLayout = window.matchMedia('(max-width: 839px)').matches;
   document.body.classList.toggle('strong-type', preferences.boldText);
   document.body.classList.toggle('compact-ui', preferences.compact);
   document.body.classList.toggle('reduce-motion', preferences.reduceMotion);
   document.body.classList.toggle('hide-borders', !preferences.showBorders);
   document.body.classList.toggle('hide-shadows', !preferences.showShadows);
+  document.body.classList.toggle('legacy-dock', isLegacyTheme && isMobileLayout && preferences.dockLegacy);
 }
 function savePreferences() {
   localStorage.setItem('fantascuola_preferences', JSON.stringify(preferences));
@@ -226,26 +230,30 @@ function subscribeRealtime() {
 }
 
 function nav() {
-  const tabs = [
+  const primaryTabs = [
     ['classifica', 'trophy', 'Classifica'],
     ['registro', 'journal', 'Registro'],
     ['player', 'user', 'Player'],
+  ];
+  const moreTabs = [
     ['opzioni', 'settings', 'Opzioni'],
     ['admin', 'tool', 'Gestione'],
     ['regolamento', 'book', 'Regolamento'],
     ['archivio', 'archive', 'Archivio'],
   ];
+  const isDesktop = window.matchMedia('(min-width: 840px)').matches;
+  const visibleTabs = isDesktop ? [...primaryTabs, ...moreTabs] : primaryTabs;
   const renderTab = ([id, ico, label], extraClass = '') => {
     const locked = (!isLoggedIn() && ['registro', 'player', 'opzioni'].includes(id)) || (id === 'admin' && !isPremium());
     return `
-    <button class="tab ${extraClass} ${state.activeTab === id ? 'active' : ''} ${locked ? 'locked' : ''}" data-tab="${id}" aria-label="${label}${locked ? ' - login richiesto' : ''}">
+    <button class="tab ${extraClass} ${state.activeTab === id ? 'active' : ''} ${locked ? 'locked' : ''}" data-tab="${id}" aria-label="${label}${locked ? ' - accesso riservato' : ''}">
       <span class="tab-icon" aria-hidden="true">${icon(ico)}</span><span class="tab-label">${label}</span>
       ${locked ? '<span class="tab-lock" aria-hidden="true">LOCK</span>' : ''}
     </button>`;
   };
-  return `<nav class="tabs"><div class="tabs-inner">${tabs.map((tab, index) => renderTab(tab, index > 4 ? 'tab-more-item' : '')).join('')}
-    <button class="tab more-tab ${tabs.slice(5).some(([id]) => state.activeTab === id) ? 'active' : ''}" id="moreTabsBtn" type="button" aria-expanded="false" aria-controls="moreTabsMenu"><span class="tab-icon" aria-hidden="true">${icon('more')}</span><span class="tab-label">Altro</span></button>
-  </div><div class="more-menu" id="moreTabsMenu" hidden>${tabs.slice(5).map((tab) => renderTab(tab, 'more-menu-item')).join('')}</div></nav>`;
+  const moreToggle = !isDesktop ? `<button class="tab more-tab ${moreTabs.some(([id]) => state.activeTab === id) ? 'active' : ''}" id="moreTabsBtn" type="button" aria-expanded="false" aria-controls="moreTabsMenu"><span class="tab-icon" aria-hidden="true">${icon('more')}</span><span class="tab-label">Altro</span></button>` : '';
+  const moreMenu = !isDesktop ? `<div class="more-menu" id="moreTabsMenu" hidden>${moreTabs.map((tab) => renderTab(tab, 'more-menu-item')).join('')}</div>` : '';
+  return `<nav class="tabs"><div class="tabs-inner">${visibleTabs.map((tab) => renderTab(tab)).join('')}${moreToggle}</div>${moreMenu}</nav>`;
 }
 
 function icon(name) {
@@ -514,6 +522,7 @@ function renderPlayer() {
 }
 
 function renderOpzioni() {
+  const showLegacyDockToggle = window.matchMedia('(max-width: 839px)').matches && ['new-ui', 'new-ui-dark'].includes(preferences.theme);
   return `<section class="card pad options-panel">
     <div class="section-title"><h2>Opzioni</h2><span class="tiny">Preferenze di questo dispositivo</span></div>
     <div class="settings-group theme-settings">
@@ -521,10 +530,12 @@ function renderOpzioni() {
       <div class="theme-options" role="radiogroup" aria-label="Tema dell'interfaccia">
         <label class="theme-option ${preferences.theme === 'new-ui' ? 'selected' : ''}"><input type="radio" name="theme" value="new-ui" ${preferences.theme === 'new-ui' ? 'checked' : ''}><span><strong>Nuova UI</strong><small>Interfaccia chiara e moderna</small></span></label>
         <label class="theme-option ${preferences.theme === 'new-ui-dark' ? 'selected' : ''}"><input type="radio" name="theme" value="new-ui-dark" ${preferences.theme === 'new-ui-dark' ? 'checked' : ''}><span><strong>Nuova UI Dark</strong><small>Interfaccia scura ad alto contrasto</small></span></label>
+        <label class="theme-option ${preferences.theme === 'new-ui-red' ? 'selected' : ''}"><input type="radio" name="theme" value="new-ui-red" ${preferences.theme === 'new-ui-red' ? 'checked' : ''}><span><strong>Legacy Red</strong><small>Interfaccia rossa e vivace</small></span></label>
       </div>
     </div>
     <div class="settings-group">
       <div class="settings-heading"><div><h3>Aspetto</h3><p>Personalizza l'esperienza di Fantascuola.</p></div></div>
+      ${showLegacyDockToggle ? '<label class="setting-row"><span><strong>Dock Legacy</strong><small>Tab bar in basso a dock quadrato e attaccata al bordo</small></span><input class="toggle" id="dockLegacyToggle" type="checkbox" ' + (preferences.dockLegacy ? 'checked' : '') + '></label>' : ''}
       <label class="setting-row"><span><strong>Testo in grassetto</strong><small>Rende più leggibili titoli e contenuti</small></span><input class="toggle" id="boldTextToggle" type="checkbox" ${preferences.boldText ? 'checked' : ''}></label>
       <label class="setting-row"><span><strong>Interfaccia compatta</strong><small>Riduce spazi e dimensioni delle schede</small></span><input class="toggle" id="compactToggle" type="checkbox" ${preferences.compact ? 'checked' : ''}></label>
       <label class="setting-row"><span><strong>Riduci animazioni</strong><small>Minimizza i movimenti dell'interfaccia</small></span><input class="toggle" id="motionToggle" type="checkbox" ${preferences.reduceMotion ? 'checked' : ''}></label>
@@ -892,6 +903,18 @@ function render() {
   }
 }
 
+const navResponsiveListener = () => {
+  const breakpoint = window.matchMedia('(max-width: 839px)').matches;
+  const navState = document.querySelector('.tabs') ? 'present' : 'absent';
+  if (navState === 'present' && document.querySelectorAll('[data-tab]').length) {
+    const currentType = document.getElementById('moreTabsBtn') ? 'mobile' : 'desktop';
+    const nextType = breakpoint ? 'mobile' : 'desktop';
+    if (currentType !== nextType) render();
+  }
+};
+window.addEventListener('resize', navResponsiveListener);
+window.matchMedia('(max-width: 839px)').addEventListener?.('change', navResponsiveListener);
+
 function attachHandlers() {
   const classificaSearch = document.getElementById('classificaSearch');
   const classificaSort = document.getElementById('classificaSort');
@@ -976,9 +999,12 @@ function attachHandlers() {
   document.querySelectorAll('input[name="theme"]').forEach((themeInput) => themeInput.addEventListener('change', (e) => {
     preferences.theme = e.target.value;
     preferences.darkMode = preferences.theme === 'dark';
+    if (!['new-ui', 'new-ui-dark'].includes(preferences.theme)) preferences.dockLegacy = false;
     document.querySelectorAll('.theme-option').forEach((option) => option.classList.toggle('selected', option.contains(e.target)));
     savePreferences();
   }));
+  const dockLegacyToggle = document.getElementById('dockLegacyToggle');
+  if (dockLegacyToggle) dockLegacyToggle.addEventListener('change', (e) => { preferences.dockLegacy = e.target.checked; savePreferences(); });
   const boldTextToggle = document.getElementById('boldTextToggle');
   if (boldTextToggle) boldTextToggle.addEventListener('change', (e) => { preferences.boldText = e.target.checked; savePreferences(); });
   const compactToggle = document.getElementById('compactToggle');

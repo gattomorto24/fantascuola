@@ -348,6 +348,47 @@ body:not(.compact-ui) .player-content { gap: calc(14px * var(--element-spacing))
 :root[data-theme="new-ui"] .new-ui-header-live[data-connection="syncing"] { background: #ff9500; }
 :root[data-theme="new-ui"] .new-ui-header-live[data-connection="error"] { background: #ff3b30; }
 
+:root[data-theme="new-ui-red"] {
+  color-scheme: light;
+  --bg: #fff5f3;
+  --surface: #ffffff;
+  --surface-soft: #fff0ee;
+  --line: #f4c0b7;
+  --text: #3e1715;
+  --muted: #9b554d;
+  --accent: #e53935;
+  --accent-soft: #ffe7e5;
+  --good: #2e9d5c;
+  --bad: #d93025;
+  --shadow: 0 1px 2px rgba(122, 31, 23, .06);
+  --radius: 12px;
+}
+
+:root[data-theme="new-ui-red"] body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; letter-spacing: 0; }
+:root[data-theme="new-ui-red"] h1,
+:root[data-theme="new-ui-red"] h2,
+:root[data-theme="new-ui-red"] h3 { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; letter-spacing: 0; }
+:root[data-theme="new-ui-red"] .tab.active { border-color: transparent; background: #ffe5e2; color: var(--accent); }
+:root[data-theme="new-ui-red"] .btn { border-color: var(--accent); background: var(--accent); color: #fff; }
+:root[data-theme="new-ui-red"] .btn.secondary { background: #ffe9e6; color: var(--text); }
+:root[data-theme="new-ui-red"] .theme-option.selected strong { color: var(--accent); }
+:root[data-theme="new-ui-red"] .auth-status.logged { background: #ffe9e6; color: var(--accent); }
+:root[data-theme="new-ui-red"] .rank { color: var(--accent); }
+:root[data-theme="new-ui-red"] .new-ui-header-live { background: var(--accent); }
+:root[data-theme="new-ui-red"] .tab:hover { background: #ffe7e5; color: var(--text); }
+:root[data-theme="new-ui-red"] .card,
+:root[data-theme="new-ui-red"] .row,
+:root[data-theme="new-ui-red"] .list,
+:root[data-theme="new-ui-red"] .settings-group,
+:root[data-theme="new-ui-red"] .stat,
+:root[data-theme="new-ui-red"] .account-stat,
+:root[data-theme="new-ui-red"] .advanced-stat,
+:root[data-theme="new-ui-red"] .quick-events,
+:root[data-theme="new-ui-red"] .audit-filters,
+:root[data-theme="new-ui-red"] .formula { border-color: var(--line); }
+:root[data-theme="new-ui-red"] .topbar { background: rgba(255, 245, 243, .72); }
+:root[data-theme="new-ui-red"] .new-ui-header-content { color: var(--text); }
+
 :root[data-theme="new-ui-dark"] {
   color-scheme: dark;
   --bg: #0b0d10;
@@ -456,6 +497,44 @@ body:not(.compact-ui) .player-content { gap: calc(14px * var(--element-spacing))
 :root[data-theme="new-ui-dark"] .new-ui-account-modal .account-grid { margin-top: 0; }
 :root[data-theme="new-ui-dark"] .new-ui-account-modal > .btn.danger { margin-top: 0; }
 
+body.legacy-dock .tabs {
+  position: fixed !important;
+  right: 12px !important;
+  bottom: 12px !important;
+  left: 12px !important;
+  width: auto !important;
+  height: 74px !important;
+  padding: 8px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .82) !important;
+  box-shadow: 0 12px 30px rgba(31, 36, 51, .16) !important;
+  backdrop-filter: blur(16px) !important;
+  transform: none !important;
+}
+body.legacy-dock .tabs-inner {
+  display: flex !important;
+  height: 100% !important;
+  gap: 4px !important;
+}
+body.legacy-dock .tab {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: 1 1 0 !important;
+  height: 100% !important;
+  border-radius: 12px !important;
+}
+body.legacy-dock .more-menu:not([hidden]) {
+  right: 0 !important;
+  left: auto !important;
+  width: min(280px, calc(100vw - 28px)) !important;
+}
+:root[data-theme="new-ui-dark"] body.legacy-dock .tabs {
+  border-color: #4a535f !important;
+  background: rgba(23, 26, 31, .86) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .42) !important;
+}
+
 @media (max-width: 839px) {
   .app-shell { padding: 18px 14px 116px; }
   .topbar { gap: 14px; padding-bottom: 20px; }
@@ -464,11 +543,12 @@ body:not(.compact-ui) .player-content { gap: calc(14px * var(--element-spacing))
   .account-controls { margin-top: 14px; }
   .tabs { top: auto; right: 0; bottom: 0; width: 100%; height: 82px; padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: 1px solid var(--line); border-right: 0; }
   .tabs::before { display: none; }
-  .tabs-inner { grid-template-columns: repeat(6, 1fr); gap: 2px; }
+  .tabs-inner { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
   .tab { display: grid; gap: 3px; min-height: 62px; padding: 8px 2px; place-items: center; text-align: center; font-size: 9px; }
   .tab-icon { width: 20px; height: 20px; }
   .tab-icon svg { width: 18px; height: 18px; }
-  .tab-lock { display: none; }
+  .tab.locked { opacity: .52; }
+  .tab-lock { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; padding: 2px 4px; border-radius: 999px; background: rgba(142, 142, 147, .14); color: var(--muted); font-size: 7px; font-weight: 800; letter-spacing: .06em; }
   :root[data-theme="new-ui"] .tabs { background: rgba(249, 249, 249, .96); }
   :root[data-theme="new-ui"] .tab.active { background: transparent; }
   :root[data-theme="new-ui"] .tabs {
@@ -510,7 +590,34 @@ body:not(.compact-ui) .player-content { gap: calc(14px * var(--element-spacing))
   :root[data-theme="new-ui"] .tab-label { max-width: 68px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   :root[data-theme="new-ui"] .tab-more-item { display: none; }
   :root[data-theme="new-ui"] .more-tab { display: grid; }
+  :root[data-theme="new-ui"] .more-menu .tab.locked { opacity: .52; }
   :root[data-theme="new-ui"] .more-menu:not([hidden]) {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
+    display: grid;
+    width: min(270px, calc(100vw - 42px));
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, .9);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 14px 34px rgba(31, 36, 51, .2);
+    backdrop-filter: blur(18px);
+  }
+  :root[data-theme="new-ui-red"] .tabs { top: auto; right: 0; bottom: 0; width: 100%; height: 82px; padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: 1px solid var(--line); border-right: 0; }
+  :root[data-theme="new-ui-red"] .tabs::before { display: none; }
+  :root[data-theme="new-ui-red"] .tabs-inner { display: flex; height: 100%; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  :root[data-theme="new-ui-red"] .tabs-inner::-webkit-scrollbar { display: none; }
+  :root[data-theme="new-ui-red"] .tab { display: grid; gap: 3px; min-width: 64px; min-height: 56px; flex: 1 0 64px; padding: 8px 2px; border: 0; border-radius: 47px; color: #8e8e93; font-size: 9px; font-weight: 600; place-items: center; text-align: center; }
+  :root[data-theme="new-ui-red"] .tab:hover { background: #ffe7e5; border-radius: 47px; }
+  :root[data-theme="new-ui-red"] .tab.active { background: #ffe5e2; color: var(--accent); border-radius: 47px; }
+  :root[data-theme="new-ui-red"] .tab-icon { width: 24px; height: 24px; }
+  :root[data-theme="new-ui-red"] .tab-icon svg { width: 21px; height: 21px; }
+  :root[data-theme="new-ui-red"] .tab-label { max-width: 68px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root[data-theme="new-ui-red"] .tab-more-item { display: none; }
+  :root[data-theme="new-ui-red"] .more-tab { display: grid; }
+  :root[data-theme="new-ui-red"] .more-menu .tab.locked { opacity: .52; }
+  :root[data-theme="new-ui-red"] .more-menu:not([hidden]) {
     position: absolute;
     right: 0;
     bottom: calc(100% + 10px);
@@ -574,7 +681,44 @@ body:not(.compact-ui) .player-content { gap: calc(14px * var(--element-spacing))
   :root[data-theme="new-ui-dark"] .tabs-inner::-webkit-scrollbar { display: none; }
   :root[data-theme="new-ui-dark"] .tab-more-item { display: none; }
   :root[data-theme="new-ui-dark"] .more-tab { display: grid; }
+  :root[data-theme="new-ui-dark"] .more-menu .tab.locked { opacity: .52; }
   :root[data-theme="new-ui-dark"] .tab { min-width: 64px; min-height: 56px; flex: 1 0 64px; border: 0; border-radius: 47px; color: #aeb7c3; font-size: 9px; font-weight: 600; }
+  body.legacy-dock .tabs {
+    right: 12px !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    height: 74px !important;
+    padding: 8px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 18px !important;
+    background: rgba(255, 255, 255, .82) !important;
+    backdrop-filter: blur(16px) !important;
+    box-shadow: 0 12px 30px rgba(31, 36, 51, .16) !important;
+    transform: none !important;
+  }
+  body.legacy-dock .tabs-inner {
+    display: flex !important;
+    height: 100% !important;
+    gap: 4px !important;
+  }
+  body.legacy-dock .tab {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    border-radius: 12px !important;
+  }
+  body.legacy-dock .more-menu:not([hidden]) {
+    right: 0 !important;
+    left: auto !important;
+    width: min(280px, calc(100vw - 28px)) !important;
+  }
+  :root[data-theme="new-ui-dark"] body.legacy-dock .tabs {
+    border-color: #4a535f !important;
+    background: rgba(23, 26, 31, .86) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .42) !important;
+  }
   :root[data-theme="new-ui-dark"] .tab:hover { background: rgba(55, 63, 74, .72); border-radius: 47px; }
   :root[data-theme="new-ui-dark"] .tab.active { background: transparent; color: var(--accent); border-radius: 47px; }
   :root[data-theme="new-ui-dark"] .tab-icon { width: 24px; height: 24px; }
@@ -652,6 +796,48 @@ body:not(.compact-ui) .player-content { gap: calc(14px * var(--element-spacing))
 .banner-crop-controls label { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
 .banner-crop-controls output { color: var(--accent); font-weight: 800; }
 .banner-crop-controls input { width: 100%; accent-color: var(--accent); }
+
+body.legacy-dock .tabs,
+body.legacy-dock .tabs * {
+  box-sizing: border-box;
+}
+body.legacy-dock .tabs {
+  position: fixed !important;
+  right: 12px !important;
+  bottom: 12px !important;
+  left: 12px !important;
+  width: auto !important;
+  height: 74px !important;
+  padding: 8px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .82) !important;
+  box-shadow: 0 12px 30px rgba(31, 36, 51, .16) !important;
+  backdrop-filter: blur(16px) !important;
+  transform: none !important;
+}
+body.legacy-dock .tabs-inner {
+  display: flex !important;
+  height: 100% !important;
+  gap: 4px !important;
+}
+body.legacy-dock .tab {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: 1 1 0 !important;
+  height: 100% !important;
+  border-radius: 12px !important;
+}
+body.legacy-dock .more-menu:not([hidden]) {
+  right: 0 !important;
+  left: auto !important;
+  width: min(280px, calc(100vw - 28px)) !important;
+}
+:root[data-theme="new-ui-dark"] body.legacy-dock .tabs {
+  border-color: #4a535f !important;
+  background: rgba(23, 26, 31, .86) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .42) !important;
+}
 .player-redesign .player-hero::after {
   position: absolute;
   z-index: -2;
