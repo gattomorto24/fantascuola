@@ -2,197 +2,530 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+
     <meta name="theme-color" content="#0b1020" />
+
+    <!-- =========================================================
+         INFORMAZIONI APP
+    ========================================================== -->
+
     <title>Fantascuola</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+
+    <meta name="application-name" content="Fantascuola" />
+    <meta name="apple-mobile-web-app-title" content="Fantascuola" />
+
+    <!-- Permette un comportamento più simile a un'app su iPhone -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
+    <!-- Barra di stato iPhone -->
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <!-- =========================================================
+         LOGO / FAVICON
+    ========================================================== -->
+
+    <!--
+      Icona mostrata nella scheda del browser
+      e nei preferiti.
+    -->
+    <link
+      rel="icon"
+      type="image/png"
+      href="https://github.com/gattomorto24/fantascuola/blob/main/logo.png?raw=true"
+    />
+
+    <!-- Icona alternativa -->
+    <link
+      rel="shortcut icon"
+      type="image/png"
+      href="https://github.com/gattomorto24/fantascuola/blob/main/logo.png?raw=true"
+    />
+
+    <!--
+      Icona usata da iPhone/iPad quando fai:
+      Condividi → Aggiungi alla schermata Home
+    -->
+    <link
+      rel="apple-touch-icon"
+      href="https://github.com/gattomorto24/fantascuola/blob/main/logo.png?raw=true"
+    />
+
+    <!-- =========================================================
+         FONT
+    ========================================================== -->
+
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0"
+      rel="stylesheet"
+    />
+
+    <!-- =========================================================
+         CSS PRINCIPALE
+    ========================================================== -->
+
+    <link
+      rel="stylesheet"
+      href="styles.css"
+    />
+
     <style>
-      /* Servizio Clienti Account - integrazione minima senza toccare styles.css */
+      /* =========================================================
+         SERVIZIO CLIENTI ACCOUNT
+         Integrazione minima senza toccare styles.css
+      ========================================================== */
+
       .account-support {
         margin-top: 18px;
         border-top: 1px solid rgba(128, 128, 128, .2);
         padding-top: 18px;
       }
+
       .account-support-toggle {
         width: 100%;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 16px;
+
         border: 0;
         border-radius: 18px;
+
         padding: 16px 18px;
-        background: color-mix(in srgb, var(--accent, #e65f3f) 10%, transparent);
+
+        background:
+          color-mix(
+            in srgb,
+            var(--accent, #e65f3f) 10%,
+            transparent
+          );
+
         color: inherit;
+
         text-align: left;
+
         cursor: pointer;
+
         font: inherit;
       }
+
       .account-support-toggle span:first-child {
         display: grid;
         gap: 3px;
       }
+
       .account-support-toggle strong {
         font-size: 16px;
       }
+
       .account-support-toggle small {
         opacity: .68;
       }
+
       .account-support-chevron {
         font-size: 24px;
         line-height: 1;
         opacity: .75;
       }
+
       .account-support-panel {
         display: grid;
         gap: 18px;
         margin-top: 14px;
       }
+
       .account-support-toolbar,
       .account-support-two-col {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+        grid-template-columns:
+          minmax(0, 1fr)
+          minmax(0, 1fr);
+
         gap: 12px;
+
         align-items: end;
       }
+
       .account-support-toolbar {
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns:
+          minmax(0, 1fr)
+          auto;
       }
+
       .account-support-create,
       .account-support-users {
-        border: 1px solid rgba(128, 128, 128, .18);
+        border:
+          1px solid
+          rgba(128, 128, 128, .18);
+
         border-radius: 18px;
+
         padding: 16px;
-        background: rgba(127, 127, 127, .04);
+
+        background:
+          rgba(127, 127, 127, .04);
       }
+
       .account-support-list {
         display: grid;
         gap: 10px;
       }
+
       .account-support-user {
         display: flex;
+
         align-items: center;
+
         justify-content: space-between;
+
         gap: 14px;
+
         padding: 12px;
+
         border-radius: 16px;
-        background: rgba(127, 127, 127, .06);
+
+        background:
+          rgba(127, 127, 127, .06);
       }
+
       .account-support-user-main {
         display: flex;
+
         align-items: center;
+
         gap: 12px;
+
         min-width: 0;
       }
+
       .account-support-avatar {
         width: 42px;
         height: 42px;
+
         flex: 0 0 42px;
+
         border-radius: 14px;
+
         display: grid;
+
         place-items: center;
+
         font-weight: 800;
-        background: color-mix(in srgb, var(--accent, #e65f3f) 18%, transparent);
+
+        background:
+          color-mix(
+            in srgb,
+            var(--accent, #e65f3f) 18%,
+            transparent
+          );
       }
+
       .account-support-user-actions {
         display: flex;
+
         gap: 8px;
+
         flex-wrap: wrap;
+
         justify-content: flex-end;
       }
+
       .account-support-badges {
         display: flex;
+
         gap: 6px;
+
         flex-wrap: wrap;
+
         margin-top: 5px;
         margin-bottom: 4px;
       }
+
       .support-badge {
         display: inline-flex;
+
         align-items: center;
+
         min-height: 21px;
+
         padding: 2px 7px;
+
         border-radius: 999px;
+
         font-size: 10px;
+
         font-weight: 800;
+
         letter-spacing: .04em;
-        background: rgba(127, 127, 127, .12);
+
+        background:
+          rgba(127, 127, 127, .12);
       }
-      .support-badge.ok { background: rgba(46, 160, 67, .16); }
-      .support-badge.warn { background: rgba(245, 166, 35, .18); }
-      .support-badge.plus { background: color-mix(in srgb, var(--accent, #e65f3f) 18%, transparent); }
+
+      .support-badge.ok {
+        background:
+          rgba(46, 160, 67, .16);
+      }
+
+      .support-badge.warn {
+        background:
+          rgba(245, 166, 35, .18);
+      }
+
+      .support-badge.plus {
+        background:
+          color-mix(
+            in srgb,
+            var(--accent, #e65f3f) 18%,
+            transparent
+          );
+      }
+
       .account-support-switch {
         min-height: 52px;
+
         border-radius: 14px;
+
         padding: 10px 12px;
-        background: rgba(127, 127, 127, .06);
+
+        background:
+          rgba(127, 127, 127, .06);
       }
+
       .account-support-error,
       .account-support-danger-note {
         border-radius: 14px;
+
         padding: 11px 12px;
+
         font-size: 13px;
       }
+
       .account-support-error {
-        background: rgba(210, 60, 60, .13);
+        background:
+          rgba(210, 60, 60, .13);
       }
+
       .account-support-danger-note {
-        background: rgba(245, 166, 35, .12);
+        background:
+          rgba(245, 166, 35, .12);
       }
+
       .account-support-modal {
-        width: min(680px, calc(100vw - 24px));
+        width:
+          min(
+            680px,
+            calc(100vw - 24px)
+          );
       }
+
       .account-support-modal-actions {
         display: grid;
-        grid-template-columns: auto 1fr auto;
+
+        grid-template-columns:
+          auto
+          1fr
+          auto;
+
         gap: 10px;
       }
+
+      /* =========================================================
+         MOBILE
+      ========================================================== */
+
       @media (max-width: 720px) {
+
         .account-support-toolbar,
         .account-support-two-col,
         .account-support-modal-actions {
           grid-template-columns: 1fr;
         }
+
         .account-support-user {
           align-items: stretch;
           flex-direction: column;
         }
+
         .account-support-user-actions {
           justify-content: stretch;
         }
+
         .account-support-user-actions .btn {
           flex: 1 1 auto;
         }
       }
     </style>
   </head>
+
   <body>
+
     <div class="app-shell">
+
+      <!-- =======================================================
+           HEADER
+      ======================================================== -->
+
       <header class="topbar">
+
         <div>
-          <p class="eyebrow">Fantascuola</p>
-          <h1>Leaderboard live, gestione rapida, tutto dal telefono.</h1>
+
+          <p class="eyebrow">
+            Fantascuola
+          </p>
+
+          <h1>
+            Leaderboard live, gestione rapida, tutto dal telefono.
+          </h1>
+
           <div class="account-controls">
-            <span class="auth-status guest" id="authStatus">GUEST</span>
-            <button class="account-btn" id="accountBtn" type="button"><span class="material-symbols-rounded" aria-hidden="true">person</span><span>Account</span></button>
-            <button class="account-btn logout-btn" id="headerLogoutBtn" type="button" hidden>Logout</button>
+
+            <span
+              class="auth-status guest"
+              id="authStatus"
+            >
+              GUEST
+            </span>
+
+            <button
+              class="account-btn"
+              id="accountBtn"
+              type="button"
+            >
+
+              <span
+                class="material-symbols-rounded"
+                aria-hidden="true"
+              >
+                person
+              </span>
+
+              <span>
+                Account
+              </span>
+
+            </button>
+
+            <button
+              class="account-btn logout-btn"
+              id="headerLogoutBtn"
+              type="button"
+              hidden
+            >
+              Logout
+            </button>
+
           </div>
+
         </div>
-        <div class="status-chip" id="connectionStatus">Connessione in attesa</div>
+
+        <!-- =====================================================
+             STATO CONNESSIONE
+        ====================================================== -->
+
+        <div
+          class="status-chip"
+          id="connectionStatus"
+        >
+          Connessione in attesa
+        </div>
+
+        <!-- =====================================================
+             NUOVA UI HEADER
+        ====================================================== -->
+
         <div class="new-ui-header-content">
-          <button class="new-ui-header-profile" id="newUiAccountBtn" type="button" aria-label="Apri impostazioni account"><span class="material-symbols-rounded" aria-hidden="true">person</span></button>
-          <strong>Fantascuola</strong>
-          <span class="new-ui-header-live" id="newUiLive" data-connection="waiting"><span class="material-symbols-rounded new-ui-live-icon" aria-hidden="true">sensors</span><span class="new-ui-live-text">ATTESA</span></span>
+
+          <button
+            class="new-ui-header-profile"
+            id="newUiAccountBtn"
+            type="button"
+            aria-label="Apri impostazioni account"
+          >
+
+            <span
+              class="material-symbols-rounded"
+              aria-hidden="true"
+            >
+              person
+            </span>
+
+          </button>
+
+          <strong>
+            Fantascuola
+          </strong>
+
+          <span
+            class="new-ui-header-live"
+            id="newUiLive"
+            data-connection="waiting"
+          >
+
+            <span
+              class="material-symbols-rounded new-ui-live-icon"
+              aria-hidden="true"
+            >
+              sensors
+            </span>
+
+            <span class="new-ui-live-text">
+              ATTESA
+            </span>
+
+          </span>
+
         </div>
+
       </header>
-      <main id="app" class="app"></main>
+
+      <!-- =======================================================
+           APP
+      ======================================================== -->
+
+      <main
+        id="app"
+        class="app"
+      ></main>
+
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="main.js"></script>
+    <!-- =========================================================
+         SCRIPT
+    ========================================================== -->
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+    ></script>
+
+    <script
+      type="module"
+      src="main.js"
+    ></script>
+
   </body>
 </html>
