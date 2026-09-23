@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <style>
       /* Servizio Clienti Account - integrazione minima senza toccare styles.css */
@@ -177,15 +178,15 @@
           <h1>Leaderboard live, gestione rapida, tutto dal telefono.</h1>
           <div class="account-controls">
             <span class="auth-status guest" id="authStatus">GUEST</span>
-            <button class="account-btn" id="accountBtn" type="button">Account</button>
+            <button class="account-btn" id="accountBtn" type="button"><span class="material-symbols-rounded" aria-hidden="true">person</span><span>Account</span></button>
             <button class="account-btn logout-btn" id="headerLogoutBtn" type="button" hidden>Logout</button>
           </div>
         </div>
         <div class="status-chip" id="connectionStatus">Connessione in attesa</div>
         <div class="new-ui-header-content">
-          <button class="new-ui-header-profile" id="newUiAccountBtn" type="button" aria-label="Apri impostazioni account"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSl8GV9O7uRG0uFzUPKtyQTiJTADBr7FVWaXLfraFrRu1J6bEFTQET_e9cc&amp;s=10" alt=""></button>
+          <button class="new-ui-header-profile" id="newUiAccountBtn" type="button" aria-label="Apri impostazioni account"><span class="material-symbols-rounded" aria-hidden="true">person</span></button>
           <strong>Fantascuola</strong>
-          <span class="new-ui-header-live" id="newUiLive" data-connection="waiting"><i></i><span>ATTESA</span></span>
+          <span class="new-ui-header-live" id="newUiLive" data-connection="waiting"><span class="material-symbols-rounded new-ui-live-icon" aria-hidden="true">sensors</span><span class="new-ui-live-text">ATTESA</span></span>
         </div>
       </header>
       <main id="app" class="app"></main>
