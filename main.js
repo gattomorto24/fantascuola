@@ -492,12 +492,18 @@ function renderRegolamento() {
           <div class="rule-list"><div><strong>Ritardo</strong><span>-2 pt</span></div><div><strong>Assenza</strong><span>-3 pt</span></div><div><strong>Nota generica</strong><span>-4 pt</span></div><div><strong>Nota disciplinare / sospensione</strong><span>-6 pt</span></div></div>
         </article>
         <article class="rule-block">
-          <span class="rule-number">03</span><h3>Bonus speciali</h3>
+          <span class="rule-number">03</span><h3>Autogestione presenze</h3>
+          <p>Quando il manager attiva Autogestione, ogni player deve dichiarare entro le 14:00 se è presente o assente.</p>
+          <div class="rule-list"><div><strong>Presenza dichiarata</strong><span>+1 pt</span></div><div><strong>Streak dal 7° giorno</strong><span>+2 pt</span></div><div><strong>Streak dal 30° giorno</strong><span>+3 pt</span></div><div><strong>Assenza dichiarata</strong><span>-1 pt</span></div><div><strong>Assenza dal manager</strong><span>-3 pt</span></div><div><strong>Presenza falsata</strong><span>-5 pt</span></div></div>
+          <p class="rule-note">Se il player dimentica, il manager registra la presenza senza bonus. Una dichiarazione falsa può essere punita con la motivazione “Falsata la presenza”. La streak si interrompe se manca una dichiarazione valida.</p>
+        </article>
+        <article class="rule-block">
+          <span class="rule-number">04</span><h3>Bonus speciali</h3>
           <p>I bonus vengono aggiunti individualmente dal Founder per premiare azioni o eventi speciali.</p>
           <div class="rule-list"><div><strong>Interrogazione volontaria</strong><span>+3 pt</span></div><div><strong>Salvataggio della classe</strong><span>+5 pt</span></div><div><strong>Bonus custom</strong><span>Variabile</span></div></div>
         </article>
         <article class="rule-block rule-total">
-          <span class="rule-number">04</span><h3>Formula finale</h3>
+          <span class="rule-number">05</span><h3>Formula finale</h3>
           <p>Il punteggio totale viene aggiornato automaticamente ad ogni evento:</p>
           <div class="formula">Totale = somma dei voti + bonus + malus</div>
           <p class="rule-note">Le decisioni registrate sono definitive e il punteggio considera tutte le variazioni dall'inizio dell'anno.</p>
