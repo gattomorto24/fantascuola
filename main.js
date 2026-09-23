@@ -16,6 +16,7 @@ const state = {
   events: [],
   auditLogs: [],
   archive: [],
+  autogestione: { attiva: false, presenze: [], available: true },
   archiveDate: '',
   auditFilter: { actor: '', action: '', direction: '', date: '' },
   selectedStudentId: localStorage.getItem('fantascuola_student_id') || '',
@@ -52,6 +53,11 @@ const fmt = new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium', timeStyle: '
 function dateKey(value) {
   const date = new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+function italyNow() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23', minute: '2-digit' }).formatToParts(new Date());
+  const part = (type) => parts.find((item) => item.type === type)?.value;
+  return { day: `${part('year')}-${part('month')}-${part('day')}`, hour: Number(part('hour')), minute: Number(part('minute')) };
 }
 
 function setStatus(text) {
@@ -147,7 +153,7 @@ async function loadData() {
   state.loading = true;
   setStatus('Sincronizzazione live...');
   await supabase.rpc('capture_daily_snapshot');
-  const [studentsRes, leaderboardRes, votesRes, bonusRes, accountRes, auditRes, archiveRes] = await Promise.all([
+  const [studentsRes, leaderboardRes, votesRes, bonusRes, accountRes, auditRes, archiveRes, autogestioneRes, presenzeRes] = await Promise.all([
     supabase.from('studenti').select('*').order('nome'),
     supabase.from('classifica').select('*').order('punti_totali', { ascending: false }),
     supabase.from('voti').select('id, studente_id, voto, created_at').order('created_at', { ascending: false }).limit(100),
@@ -159,6 +165,8 @@ async function loadData() {
       ? supabase.from('audit_logs').select('id, actor_email, action, entity, details, points_delta, studente_id, created_at').order('created_at', { ascending: false }).limit(250)
       : Promise.resolve({ data: [], error: null }),
     supabase.from('classifica_archivio').select('*').order('snapshot_date', { ascending: false }).order('rank', { ascending: true }).limit(1000),
+    supabase.from('autogestione_impostazioni').select('attiva').eq('id', true).maybeSingle(),
+    state.session ? supabase.from('autogestione_presenze').select('*').order('giorno', { ascending: false }).limit(120) : Promise.resolve({ data: [], error: null }),
   ]);
   state.students = studentsRes.data || [];
   state.leaderboard = leaderboardRes.data || [];
@@ -169,12 +177,18 @@ async function loadData() {
   state.account = accountRes.data || null;
   state.auditLogs = auditRes.data || [];
   state.archive = archiveRes.data || [];
+  state.autogestione = {
+    attiva: Boolean(autogestioneRes.data?.attiva),
+    presenze: presenzeRes.data || [],
+    available: ![autogestioneRes.error, presenzeRes.error].some((error) => error && /autogestione_/i.test(error.message || '')),
+  };
   if (!state.archiveDate && state.archive.length) state.archiveDate = state.archive[0].snapshot_date;
   state.selectedStudentId = state.account?.studente_id || '';
   state.profile = state.students.find((s) => s.id === state.selectedStudentId) || null;
   state.loading = false;
-  state.error = [studentsRes.error, leaderboardRes.error, votesRes.error, bonusRes.error, accountRes.error, auditRes.error, archiveRes.error]
-    .filter((error) => error && !error.message?.includes('account_profiles'))
+  programmaPromemoriaAutogestione();
+  state.error = [studentsRes.error, leaderboardRes.error, votesRes.error, bonusRes.error, accountRes.error, auditRes.error, archiveRes.error, autogestioneRes.error, presenzeRes.error]
+    .filter((error) => error && !error.message?.includes('account_profiles') && !/autogestione_/i.test(error.message || ''))
     .map((e) => e.message).join(' • ');
   setStatus(state.error ? 'Errore di sincronizzazione' : 'Live');
   render();
@@ -193,6 +207,8 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'voti' }, loadData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bonus_malus' }, loadData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, loadData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'autogestione_impostazioni' }, loadData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'autogestione_presenze' }, loadData)
     .subscribe((status) => setStatus(status === 'SUBSCRIBED' ? 'Live' : `Realtime ${status}`));
 }
 
@@ -391,6 +407,17 @@ function renderPlayer() {
   const absences = personalBonuses.filter((item) => /assenza/i.test(item.motivo)).length;
   const delays = personalBonuses.filter((item) => /ritard/i.test(item.motivo)).length;
   const dayText = (day) => new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium' }).format(new Date(`${day}T12:00:00`));
+  const oggi = italyNow();
+  const presenzaOggi = state.autogestione.presenze.find((presenza) => presenza.giorno === oggi.day && presenza.studente_id === state.profile.id);
+  const entroLeDue = oggi.hour < 14;
+  const promemoriaAttivi = localStorage.getItem('fantascuola_autogestione_promemoria') === 'true';
+  const autogestioneCard = state.autogestione.attiva ? `
+      <div class="autogestione-card">
+        <div class="section-title"><div><h2 style="font-size:16px;">Autogestione</h2><p class="tiny">Registra la presenza entro le 14:00.</p></div><span class="autogestione-deadline ${entroLeDue ? '' : 'expired'}">${entroLeDue ? 'ENTRO LE 14' : 'SCADUTO'}</span></div>
+        ${presenzaOggi ? `<div class="autogestione-confirmed"><strong>${presenzaOggi.stato === 'presente' ? 'Presenza registrata' : presenzaOggi.stato === 'assente' ? 'Assenza registrata' : 'Presenza da verificare'}</strong><span>${pointsLabel(presenzaOggi.punti)} pt · ${presenzaOggi.fonte === 'player' ? 'segnata da te' : 'segnata dal manager'}</span></div>` : `<div class="autogestione-actions"><button class="btn" data-autogestione-stato="presente" type="button" ${entroLeDue ? '' : 'disabled'}>Sono presente</button><button class="btn secondary" data-autogestione-stato="assente" type="button" ${entroLeDue ? '' : 'disabled'}>Sono assente · −1 pt</button></div>`}
+        <div class="autogestione-reminder"><span>Promemoria browser alle 13:45</span><button class="btn secondary row-action" id="autogestioneReminderBtn" type="button">${promemoriaAttivi ? 'Attivo' : 'Attiva'}</button></div>
+        <p class="tiny">Presente: +1 pt, +2 dal 7° giorno consecutivo e +3 dal 30°. Se dimentichi, il manager registrerà la presenza senza bonus; un’assenza inserita dal manager vale −3 pt.</p>
+      </div>` : '';
   return `
     <section class="card player-card">
       <div style="display:flex;gap:14px;align-items:center;">
@@ -406,6 +433,7 @@ function renderPlayer() {
         <div class="stat"><strong>${personalVotes.length}</strong><span>Voti</span></div>
         <div class="stat"><strong>${personalBonuses.reduce((sum, item) => sum + Number(item.punti), 0).toFixed(1)}</strong><span>Bonus/Malus</span></div>
       </div>
+      ${autogestioneCard}
       <div class="advanced-stats"><div class="section-title"><h2 style="font-size:16px;">Statistiche avanzate</h2><span class="tiny">Quando disponibili</span></div><div class="advanced-grid"><div class="advanced-stat"><span>Media punti giornaliera</span><strong>${dayStats.length ? (totalPoints / dayStats.length).toFixed(1) : '—'}</strong></div><div class="advanced-stat"><span>Giorno più proficuo</span><strong>${bestDay ? `+${bestDay.gain.toFixed(1)} pt` : '—'}</strong><small>${bestDay ? dayText(bestDay.day) : 'Nessun dato'}</small></div><div class="advanced-stat"><span>Giorno con più perdite</span><strong>${worstDay ? `${worstDay.loss.toFixed(1)} pt` : '—'}</strong><small>${worstDay ? dayText(worstDay.day) : 'Nessun dato'}</small></div><div class="advanced-stat"><span>Assenze / Ritardi</span><strong>${absences} / ${delays}</strong><small>Eventi individuali</small></div></div></div>
       <div class="card pad" style="background:rgba(255,255,255,0.04);">
         <div class="section-title"><h2 style="font-size:16px;">Storico personale</h2></div>
@@ -677,6 +705,10 @@ function renderAdmin() {
         <div><strong>Nuova stagione</strong><p>Conserva i player e azzera voti, bonus, malus e classifica.</p></div>
         <button class="btn danger" id="resetSeasonBtn" type="button">Azzera stagione</button>
       </div>
+      <div class="autogestione-manager">
+        <div class="section-title"><div><h2 style="font-size:18px;">Autogestione</h2><p class="tiny">I player dichiarano presenza o assenza entro le 14:00.</p></div><label class="setting-row autogestione-toggle"><span><strong>${state.autogestione.attiva ? 'Attiva' : 'Disattivata'}</strong><small>Solo manager</small></span><input class="toggle" id="autogestioneToggle" type="checkbox" ${state.autogestione.attiva ? 'checked' : ''}></label></div>
+        ${state.autogestione.attiva ? `<div class="autogestione-manager-controls"><label class="field"><span class="field-label">Player</span><select id="autogestioneManagerStudent">${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Esito</span><select id="autogestioneManagerState"><option value="presente">Presente dimenticata · 0 pt</option><option value="assente">Assente · −3 pt</option><option value="falsata">Falsata la presenza · −5 pt</option></select></label><button class="btn secondary" id="autogestioneManagerBtn" type="button">Registra / punisci</button></div><p class="tiny">“Falsata la presenza” è la motivazione preimpostata per una dichiarazione non leale.</p>` : '<p class="tiny">Attivala per consentire ai player di registrare autonomamente la presenza.</p>'}
+      </div>
       <form id="addStudentForm" class="grid">
         <div class="field"><label>Nome</label><input name="nome" required placeholder="Es. Marco Rossi"></div>
         <div class="field"><label>Avatar URL</label><input name="avatar_url" placeholder="https://..."></div>
@@ -824,6 +856,13 @@ function attachHandlers() {
   if (addDelaysBtn) addDelaysBtn.addEventListener('click', () => addQuickAttendance('Ritardo', -2));
   const addAbsencesBtn = document.getElementById('addAbsencesBtn');
   if (addAbsencesBtn) addAbsencesBtn.addEventListener('click', () => addQuickAttendance('Assenza', -3));
+  const autogestioneToggle = document.getElementById('autogestioneToggle');
+  if (autogestioneToggle) autogestioneToggle.addEventListener('change', (event) => setAutogestioneAttiva(event.target.checked));
+  document.querySelectorAll('[data-autogestione-stato]').forEach((button) => button.addEventListener('click', () => registraAutogestionePlayer(button.dataset.autogestioneStato)));
+  const autogestioneManagerBtn = document.getElementById('autogestioneManagerBtn');
+  if (autogestioneManagerBtn) autogestioneManagerBtn.addEventListener('click', registraAutogestioneManager);
+  const autogestioneReminderBtn = document.getElementById('autogestioneReminderBtn');
+  if (autogestioneReminderBtn) autogestioneReminderBtn.addEventListener('click', attivaPromemoriaAutogestione);
   const saveAccountBtn = document.getElementById('saveAccountBtn');
   if (saveAccountBtn) saveAccountBtn.addEventListener('click', saveAccountSettings);
   const accountLogoutBtn = document.getElementById('accountLogoutBtn');
@@ -1211,6 +1250,58 @@ async function addQuickAttendance(label, points) {
   await loadData();
 }
 
+async function setAutogestioneAttiva(attiva) {
+  if (!isPremium()) return alert('Solo i manager possono modificare Autogestione.');
+  const { error } = await supabase.rpc('autogestione_set_attiva', { p_attiva: attiva });
+  if (error) return alert(error.message);
+  await logAction('update', 'autogestione', `Autogestione ${attiva ? 'attivata' : 'disattivata'}`);
+  await loadData();
+}
+
+async function registraAutogestionePlayer(stato) {
+  const { data, error } = await supabase.rpc('autogestione_player_registra', { p_stato: stato });
+  if (error) return alert(error.message);
+  const punti = Number(data?.punti || 0);
+  alert(stato === 'presente' ? `Presenza registrata: ${pointsLabel(punti)} pt.` : `Assenza registrata: ${pointsLabel(punti)} pt.`);
+  await loadData();
+}
+
+async function registraAutogestioneManager() {
+  if (!isPremium()) return alert('Solo i manager possono registrare o verificare le presenze.');
+  const studenteId = document.getElementById('autogestioneManagerStudent')?.value;
+  const stato = document.getElementById('autogestioneManagerState')?.value;
+  if (!studenteId || !stato) return alert('Seleziona player ed esito.');
+  const { error } = await supabase.rpc('autogestione_manager_registra', { p_studente: studenteId, p_stato: stato, p_punti: null });
+  if (error) return alert(error.message);
+  const student = state.students.find((item) => item.id === studenteId);
+  await logAction('create', 'autogestione', `${stato === 'falsata' ? 'Falsata la presenza' : `Presenza ${stato} registrata dal manager`} per ${student?.nome || 'player'}`);
+  await loadData();
+}
+
+async function attivaPromemoriaAutogestione() {
+  if (!('Notification' in window)) return alert('Questo browser non supporta le notifiche.');
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return alert('Autorizza le notifiche del browser per ricevere il promemoria.');
+  localStorage.setItem('fantascuola_autogestione_promemoria', 'true');
+  programmaPromemoriaAutogestione();
+  renderDashboard();
+}
+
+let autogestioneReminderTimer;
+function programmaPromemoriaAutogestione() {
+  clearTimeout(autogestioneReminderTimer);
+  if (!state.autogestione.attiva || !state.profile || localStorage.getItem('fantascuola_autogestione_promemoria') !== 'true' || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const italy = italyNow();
+  const currentMinutes = italy.hour * 60 + italy.minute;
+  const delay = (13 * 60 + 45 - currentMinutes) * 60 * 1000 - now.getSeconds() * 1000 - now.getMilliseconds();
+  if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return;
+  autogestioneReminderTimer = setTimeout(() => {
+    const alreadyDone = state.autogestione.presenze.some((item) => item.studente_id === state.profile?.id && item.giorno === italy.day);
+    if (!alreadyDone) new Notification('Fantascuola', { body: 'Ricorda di segnare presenza o assenza entro le 14:00.' });
+  }, delay);
+}
+
 if (!SUPABASE_ANON_KEY) {
   app.innerHTML = `<section class="card hero"><h2 style="margin:0;">Manca la Supabase anon key</h2><p>Ricarica la pagina e incolla la chiave anon del progetto per connettere l'app.</p></section>`;
   setStatus('Chiave mancante');
@@ -1232,5 +1323,6 @@ if (!SUPABASE_ANON_KEY) {
     loadData();
   });
   await loadData();
+  programmaPromemoriaAutogestione();
   subscribeRealtime();
 }
