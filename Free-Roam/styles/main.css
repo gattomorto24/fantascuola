@@ -738,3 +738,34 @@ body.gameplay-active canvas {
 .network-disconnected .compact-hud {
   opacity: .16;
 }
+
+
+/* Single in-game avatar flow */
+.menu-avatar-only {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 9px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 14px;
+  background: rgba(255,255,255,.045);
+}
+
+.menu-avatar-only > span {
+  color: #8da7b5;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.menu-avatar-only > strong {
+  color: #f2fbf8;
+  font-size: 14px;
+}
+
+.menu-avatar-only > small {
+  color: #abc2d0;
+  font-size: 11px;
+  line-height: 1.35;
+}

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { NameTag } from './NameTag.js';
+import { settings } from '../config/settings.js';
 
 export class Player {
   constructor(scene, avatars, remote = false) {
@@ -37,6 +38,7 @@ export class Player {
     }
 
     this.visual = visual;
+    visual.object.scale.setScalar(settings.player.avatarScale);
     this.visualAvatarId = visual.avatarId;
     this.avatarId = visual.networkAvatarId;
     this.avatarConfig = visual.avatarConfig || null;

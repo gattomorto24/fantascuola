@@ -12,14 +12,14 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="../logo.png">
   <link rel="preload" as="image" href="./assets/models/Unknown.png">
-  <link rel="stylesheet" href="./styles/main.css?v=map-solid-v2">
+  <link rel="stylesheet" href="./styles/main.css?v=avatar-only-v1">
   <link rel="stylesheet" href="./styles/touch.css">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=map-solid-v2"></script>
+  <script type="module" src="./js/main.js?v=avatar-only-v1"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -73,38 +73,15 @@
         <input id="player-name" type="text" maxlength="32" autocomplete="nickname" placeholder="Il tuo nome">
       </label>
 
-      <label class="menu-field" for="avatar-choice">
-        Avatar
-        <select id="avatar-choice">
-          <option value="pixel-custom" selected>Pixel personalizzato · consigliato</option>
-          <option value="pixel">Pixel base</option>
-          <option value="default">Default / Placeholder</option>
-          <option value="local">GLB dal dispositivo (solo locale)</option>
-          <option value="github">Pubblica da GitHub Releases</option>
-        </select>
-      </label>
+      <div class="menu-avatar-only">
+        <span>Avatar</span>
+        <strong>Personaggio FantaScuola</strong>
+        <small>Il tuo avatar viene creato direttamente nel gioco e sincronizzato con gli altri giocatori.</small>
+      </div>
 
       <button id="open-avatar-creator" class="secondary-button avatar-creator-open" type="button">
         CREA / MODIFICA AVATAR
       </button>
-
-      <label class="menu-field" id="avatar-file-field" for="avatar-file" hidden>
-        File avatar .glb (massimo 50 MB, solo locale)
-        <input id="avatar-file" type="file" accept=".glb,model/gltf-binary">
-      </label>
-
-      <div id="avatar-github-field" hidden>
-        <label class="menu-field" for="avatar-github-url">
-          Link del GLB nella Release
-          <input id="avatar-github-url" type="url" placeholder="https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/avatar.glb">
-        </label>
-        <label class="menu-field" for="avatar-github-name">
-          Nome avatar
-          <input id="avatar-github-name" type="text" maxlength="40" placeholder="Es. Il mio personaggio">
-        </label>
-      </div>
-
-      <button id="publish-avatar" class="secondary-button" type="button" hidden>PUBBLICA AVATAR DA GITHUB</button>
       <p id="menu-status" class="menu-status" role="status">Controllo account…</p>
       <progress id="menu-progress" hidden></progress>
       <button id="enter" type="button" disabled>ENTRA NEL FREE ROAM</button>
