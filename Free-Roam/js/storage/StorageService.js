@@ -1,6 +1,6 @@
 import { settings } from '../config/settings.js';
 import { cleanAssetName } from '../utils/text.js';
-import { resolveGithubAsset } from '../assets/GithubAssets.js';
+import { resolveGithubAsset } from '../assets/GithubAssets.js?v=hf-bucket-v1';
 import { normalizePixelAvatarConfig } from '../avatars/AvatarConfig.js';
 
 export class StorageService {
@@ -68,29 +68,26 @@ export class StorageService {
   }
 
   async uploadMap(releaseUrl, name, onStage = () => {}) {
-    onStage('Verifica mappa nella Release GitHub maps…');
+    onStage('Verifica mappa nel Bucket Hugging Face…');
     const asset = await resolveGithubAsset(releaseUrl, 'map');
     const id = crypto.randomUUID();
     onStage('Salvataggio metadati mappa…');
     // Compatibilità con il database Free Roam già in produzione:
-    // alcune installazioni non hanno ancora la colonna asset_url e mantengono
-    // il vecchio vincolo file_size <= 50 MB. Per le mappe GitHub Release
-    // salviamo quindi l'URL diretto in storage_path e la dimensione reale
-    // dentro metadata, senza caricare alcun file su Supabase Storage.
-    const legacySafeFileSize = Math.min(asset.fileSize, 50 * 1024 * 1024);
+    // il GLB resta su Hugging Face; Supabase salva solo metadati e URL.
+    const realFileSize = Number.isSafeInteger(asset.fileSize) ? asset.fileSize : null;
+    const legacySafeFileSize = Math.min(realFileSize || 1, 50 * 1024 * 1024);
     const { data, error } = await this.client.from('free_roam_maps').insert({
       id,
       uploaded_by: this.userId,
       name: cleanAssetName(name) || asset.fileName,
       file_name: asset.fileName,
-      storage_path: `${asset.assetUrl}?fantascuola_map=${id}`,
+      storage_path: `external/huggingface/${id}/${asset.fileName}`,
       file_size: legacySafeFileSize,
       spawn: settings.world.defaultSpawn,
       metadata: {
-        source: 'github-release',
-        release_tag: 'maps',
+        source: 'huggingface-bucket',
         asset_url: asset.assetUrl,
-        original_file_size: asset.fileSize,
+        original_file_size: realFileSize,
       },
     }).select('*').single();
     if (error) throw error;
