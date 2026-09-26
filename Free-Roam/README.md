@@ -19,8 +19,9 @@ Un avatar GLB locale resta sul dispositivo e gli altri vedono il placeholder. Co
 ## Pubblicazione dei GLB su GitHub
 
 1. Nel repository `gattomorto24/fantascuola`, crea una Release con tag esatto `free-roam-assets` e allega i file `.glb` con nomi semplici (lettere, numeri, punti, `_` o `-`). Aggiungi gli asset alla stessa Release quando ne servono altri.
-2. Imposta GitHub Pages con origine **GitHub Actions**. La workflow `.github/workflows/free-roam-pages.yml` pubblica il sito e copia i GLB della Release in `Free-Roam/release-assets/`. Dopo aver aggiunto un asset a una Release già pubblicata, avvia manualmente la workflow se non è partita da sola.
-3. Attendi la fine del deploy, poi incolla nel gioco o nel pannello manager il link originale della Release, per esempio `https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/scuola.glb`. Il pannello controlla che la copia su GitHub Pages esista e che rispetti il limite prima di salvare i metadati.
+2. Quando GitHub Actions può eseguire job, imposta GitHub Pages con origine **GitHub Actions** e crea la variabile di repository Actions `FREE_ROAM_ASSETS_DEPLOY_ENABLED` con valore `true`. Finché la variabile non è impostata, il job personalizzato viene saltato e il normale deploy Pages da branch continua a pubblicare il codice del sito.
+3. Avvia manualmente la workflow `.github/workflows/free-roam-pages.yml` dopo l'attivazione. La workflow pubblica il sito e copia i GLB della Release in `Free-Roam/release-assets/`; in seguito si avvia anche ai push e alla pubblicazione della Release. Dopo aver aggiunto un asset a una Release già pubblicata, avviala manualmente se non è partita da sola.
+4. Attendi la fine del deploy, poi incolla nel gioco o nel pannello manager il link originale della Release, per esempio `https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/scuola.glb`. Il pannello controlla che la copia su GitHub Pages esista e che rispetti il limite prima di salvare i metadati.
 
 GitHub Pages ammette un sito pubblicato fino a circa 1 GB: una mappa da 500 MB consuma circa metà dello spazio disponibile. Mantieni nella Release solo gli asset che devono restare raggiungibili. I GLB nuovi non dipendono dal limite globale dei file di Supabase Storage.
 

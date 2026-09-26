@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name != 'release' || github.event.release.tag_name == 'free-roam-assets'
+    if: vars.FREE_ROAM_ASSETS_DEPLOY_ENABLED == 'true' && (github.event_name != 'release' || github.event.release.tag_name == 'free-roam-assets')
     runs-on: ubuntu-latest
     environment:
       name: github-pages
