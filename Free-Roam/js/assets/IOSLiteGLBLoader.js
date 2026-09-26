@@ -242,19 +242,27 @@ function parseHeader(bytes) {
   return { totalLength, jsonLength };
 }
 
-function materialColorFromName(name = '') {
+function materialColorFromName(name = '', index = 0) {
   const value = String(name).toLowerCase();
 
-  if (/grass|erba|leaf|leaves|tree|veget|hedge|bush|palm/.test(value)) return [0.35, 0.58, 0.30, 1];
-  if (/road|asphalt|street|strada|parking|pavement/.test(value)) return [0.30, 0.32, 0.34, 1];
-  if (/roof|tile|tetto|terracotta/.test(value)) return [0.56, 0.30, 0.23, 1];
-  if (/wood|trunk|bark|legno/.test(value)) return [0.37, 0.24, 0.15, 1];
-  if (/glass|window|vetro/.test(value)) return [0.44, 0.58, 0.64, 0.72];
-  if (/metal|fence|rail|gate|cancello/.test(value)) return [0.24, 0.27, 0.28, 1];
-  if (/soil|earth|dirt|terra/.test(value)) return [0.38, 0.31, 0.20, 1];
-  if (/wall|stucco|plaster|building|facade|muro/.test(value)) return [0.72, 0.68, 0.58, 1];
+  if (/grass|erba|leaf|leaves|tree|veget|hedge|bush|palm/.test(value)) return [0.24, 0.48, 0.20, 1];
+  if (/road|asphalt|street|strada|parking|pavement/.test(value)) return [0.23, 0.25, 0.27, 1];
+  if (/roof|tile|tetto|terracotta/.test(value)) return [0.58, 0.25, 0.16, 1];
+  if (/wood|trunk|bark|legno/.test(value)) return [0.31, 0.18, 0.10, 1];
+  if (/glass|window|vetro/.test(value)) return [0.25, 0.45, 0.58, 1];
+  if (/metal|fence|rail|gate|cancello/.test(value)) return [0.18, 0.20, 0.21, 1];
+  if (/soil|earth|dirt|terra/.test(value)) return [0.39, 0.28, 0.15, 1];
+  if (/wall|stucco|plaster|building|facade|muro/.test(value)) return [0.72, 0.64, 0.48, 1];
 
-  return [0.68, 0.69, 0.66, 1];
+  // Molti export fotogrammetrici usano nomi generici (Material.001, ecc.).
+  // Senza texture diventavano tutti quasi bianchi. Una palette deterministica
+  // conserva invece contrasto e leggibilità senza aggiungere memoria texture.
+  const palette = [
+    [0.56, 0.50, 0.40, 1], [0.42, 0.47, 0.40, 1], [0.50, 0.42, 0.34, 1],
+    [0.36, 0.40, 0.42, 1], [0.62, 0.55, 0.43, 1], [0.40, 0.46, 0.50, 1],
+    [0.46, 0.38, 0.31, 1], [0.48, 0.51, 0.38, 1],
+  ];
+  return palette[index % palette.length];
 }
 
 function stripHeavyVisuals(source) {
@@ -292,8 +300,8 @@ function stripHeavyVisuals(source) {
       && originalFactor.length >= 3
       && originalFactor.slice(0, 3).every((value) => Number(value) >= 0.94);
     const baseColorFactor = hadBaseTexture && (!originalFactor || originalIsNeutral)
-      ? materialColorFromName(sourceMaterial?.name || `material-${index}`)
-      : (originalFactor || [0.68, 0.69, 0.66, 1]);
+      ? materialColorFromName(sourceMaterial?.name || `material-${index}`, index)
+      : (originalFactor || materialColorFromName(sourceMaterial?.name || `material-${index}`, index));
 
     return {
       name: sourceMaterial?.name || `Materiale mobile ${index + 1}`,
