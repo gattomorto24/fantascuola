@@ -94,6 +94,7 @@ export class MapLoader {
     for (let index = startIndex; index < strategies.length; index += 1) {
       const strategy = strategies[index];
       try {
+        options.onAttempt?.(index, strategy.id);
         onStage(`Tentativo ${index + 1}/${strategies.length} · ${strategy.label}…`, index / strategies.length);
         await nextFrame();
 
