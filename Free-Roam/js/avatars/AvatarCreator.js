@@ -12,6 +12,7 @@ export class AvatarCreator {
     this.previewVisual = null;
     this.dragPointer = null;
     this.lastX = 0;
+    this.previewYaw = 0;
     this.raf = 0;
 
     this.preview = root?.querySelector('#avatar-preview');
@@ -63,7 +64,8 @@ export class AvatarCreator {
     });
     canvas.addEventListener('pointermove', (event) => {
       if (event.pointerId !== this.dragPointer || !this.previewVisual) return;
-      this.previewVisual.object.rotation.y += (event.clientX - this.lastX) * 0.012;
+      this.previewYaw += (event.clientX - this.lastX) * 0.012;
+      this.previewVisual.object.rotation.y = this.previewYaw;
       this.lastX = event.clientX;
     });
     const end = (event) => { if (event.pointerId === this.dragPointer) this.dragPointer = null; };
@@ -90,6 +92,7 @@ export class AvatarCreator {
 
   open(config) {
     this.config = normalizePixelAvatarConfig(config);
+    this.previewYaw = 0;
     this.root.hidden = false;
     this.refresh();
     this.resize();
@@ -111,7 +114,7 @@ export class AvatarCreator {
 
     if (this.previewVisual) this.scene.remove(this.previewVisual.object);
     this.previewVisual = createPixelAvatar(this.config);
-    this.previewVisual.object.rotation.y = 0;
+    this.previewVisual.object.rotation.y = this.previewYaw;
     this.scene.add(this.previewVisual.object);
   }
 
