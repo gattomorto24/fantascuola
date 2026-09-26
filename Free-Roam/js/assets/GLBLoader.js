@@ -56,17 +56,13 @@ async function fetchFullGLB(url, onProgress, onStage = () => {}) {
   onStage('Assemblaggio GLB completo…');
   await nextFrame();
 
-  const bytes = new Uint8Array(loaded);
-  let offset = 0;
-  for (let i = 0; i < chunks.length; i += 1) {
-    bytes.set(chunks[i], offset);
-    offset += chunks[i].byteLength;
-    // Evita un unico task lunghissimo durante la copia finale.
-    if (i % 16 === 15) await nextFrame();
-  }
-
+  // Il browser espone il corpo come chunk separati. Blob li concatena senza
+  // costruire manualmente un secondo Uint8Array gigantesco durante la copia.
+  // arrayBuffer() crea poi il buffer contiguo richiesto da GLTFLoader.
+  const blob = new Blob(chunks, { type: 'model/gltf-binary' });
   chunks.length = 0;
-  return bytes.buffer;
+  await nextFrame();
+  return await blob.arrayBuffer();
 }
 
 async function parseFullGLB(buffer, resourcePath, onStage = () => {}) {
