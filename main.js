@@ -171,7 +171,6 @@ function savePreferences() {
 
 async function loadData() {
   state.loading = true;
-  setStatus('Sincronizzazione live...');
   await supabase.rpc('capture_daily_snapshot');
   const [studentsRes, leaderboardRes, votesRes, bonusRes, accountRes, auditRes, archiveRes, autogestioneRes, presenzeRes] = await Promise.all([
     supabase.from('studenti').select('*').order('nome'),
@@ -210,7 +209,7 @@ async function loadData() {
   state.error = [studentsRes.error, leaderboardRes.error, votesRes.error, bonusRes.error, accountRes.error, auditRes.error, archiveRes.error, autogestioneRes.error, presenzeRes.error]
     .filter((error) => error && !error.message?.includes('account_profiles') && !/autogestione_/i.test(error.message || ''))
     .map((e) => e.message).join(' • ');
-  setStatus(state.error ? 'Errore di sincronizzazione' : 'Live');
+  setStatus(state.error ? 'Errore di sincronizzazione' : realtimeConnected ? 'Live' : 'Connessione in corso...');
   render();
 }
 
@@ -220,16 +219,54 @@ async function loadAccountProfile() {
   return supabase.from('account_profiles').select('id, user_id, studente_id, display_name, is_premium').eq('user_id', state.session.user.id).maybeSingle();
 }
 
+let realtimeChannel = null;
+let realtimeRetryTimer = null;
+let realtimeRetryDelay = 1000;
+let realtimeConnected = false;
+let realtimeRefreshTimer = null;
+
+function scheduleRealtimeRefresh() {
+  if (realtimeRefreshTimer) return;
+  realtimeRefreshTimer = setTimeout(() => {
+    realtimeRefreshTimer = null;
+    loadData();
+  }, 300);
+}
+
 function subscribeRealtime() {
+  if (realtimeChannel) return;
   const channel = supabase
     .channel('fantascuola-live')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'studenti' }, loadData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'voti' }, loadData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'bonus_malus' }, loadData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, loadData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'autogestione_impostazioni' }, loadData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'autogestione_presenze' }, loadData)
-    .subscribe((status) => setStatus(status === 'SUBSCRIBED' ? 'Live' : `Realtime ${status}`));
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'studenti' }, scheduleRealtimeRefresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'voti' }, scheduleRealtimeRefresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bonus_malus' }, scheduleRealtimeRefresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, scheduleRealtimeRefresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'autogestione_impostazioni' }, scheduleRealtimeRefresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'autogestione_presenze' }, scheduleRealtimeRefresh);
+  realtimeChannel = channel;
+  channel.subscribe((status) => {
+    if (realtimeChannel !== channel) return;
+    if (status === 'SUBSCRIBED') {
+      realtimeConnected = true;
+      realtimeRetryDelay = 1000;
+      setStatus('Live');
+      return;
+    }
+    if (!['CLOSED', 'CHANNEL_ERROR', 'TIMED_OUT'].includes(status)) return;
+    realtimeConnected = false;
+    setStatus('Riconnessione in corso...');
+    if (realtimeRetryTimer) return;
+    const delay = realtimeRetryDelay;
+    realtimeRetryDelay = Math.min(realtimeRetryDelay * 2, 30000);
+    realtimeRetryTimer = setTimeout(async () => {
+      realtimeRetryTimer = null;
+      if (realtimeChannel !== channel) return;
+      realtimeChannel = null;
+      try { await supabase.removeChannel(channel); }
+      catch (error) { console.warn('[FantaScuola] Chiusura canale realtime:', error); }
+      subscribeRealtime();
+    }, delay);
+  });
 }
 
 function nav() {
@@ -894,7 +931,25 @@ function renderDashboard() {
     regolamento: renderRegolamento(),
     archivio: renderArchivio(),
   }[state.activeTab] || renderClassifica();
-  app.innerHTML = `${!state.account || (!isPremium() && !state.account.studente_id) ? renderAccountSetup() : ''}${body}${nav()}`;
+  const markup = `${!state.account || (!isPremium() && !state.account.studente_id) ? renderAccountSetup() : ''}${body}${nav()}`;
+  const currentManagement = app.querySelector('.management-page');
+  if (state.activeTab === 'admin' && currentManagement && isPremium()) {
+    const next = document.createElement('div');
+    next.innerHTML = markup;
+    const nextManagement = next.querySelector('.management-page');
+    const currentContent = currentManagement.querySelector('.management-content');
+    const nextContent = nextManagement?.querySelector('.management-content');
+    if (nextContent && currentContent) {
+      currentManagement.querySelector('.management-header').replaceWith(nextManagement.querySelector('.management-header'));
+      const oldPanels = [...currentContent.children];
+      const newPanels = [...nextContent.children];
+      oldPanels.forEach((panel, index) => {
+        if (panel.getAttribute('aria-label') === 'Gestione Free Roam') return;
+        panel.replaceWith(newPanels[index]);
+      });
+      app.querySelector('.tabs')?.replaceWith(next.querySelector('.tabs'));
+    } else app.innerHTML = markup;
+  } else app.innerHTML = markup;
   renderHeaderAccount();
   attachHandlers();
 }
@@ -1533,7 +1588,8 @@ if (!SUPABASE_ANON_KEY) {
   applyPreferences();
   const { data: sessionData } = await supabase.auth.getSession();
   state.session = sessionData.session;
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    const userChanged = state.session?.user?.id !== session?.user?.id;
     state.session = session;
     if (!session) {
       state.account = null;
@@ -1544,7 +1600,7 @@ if (!SUPABASE_ANON_KEY) {
       state.accountAdmin.editingUserId = '';
       state.accountAdmin.error = '';
     }
-    loadData();
+    if (userChanged || event === 'USER_UPDATED') loadData();
   });
   await loadData();
   programmaPromemoriaAutogestione();
