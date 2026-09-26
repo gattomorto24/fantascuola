@@ -25,11 +25,27 @@ export class Game {
     this.storage = storage;
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(65, 1, 0.1, 500);
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, settings.rendering.pixelRatioMax));
+    this.camera = new THREE.PerspectiveCamera(65, 1, 0.1, 260);
+
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+      alpha: false,
+    });
+
+    const coarsePointer = globalThis.matchMedia?.('(pointer: coarse)').matches === true;
+    const nativeRatio = Math.max(1, globalThis.devicePixelRatio || 1);
+    this.pixelRatioCap = Math.min(
+      nativeRatio,
+      coarsePointer ? settings.rendering.pixelRatioMobileMax : settings.rendering.pixelRatioMax,
+    );
+    this.pixelRatio = Math.max(settings.rendering.pixelRatioMin, this.pixelRatioCap);
+    this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.append(this.renderer.domElement);
+
+    this.resolutionElapsed = 0;
+    this.resolutionFrames = 0;
 
     this.world = new WorldManager(this.scene);
     this.avatars = new AvatarManager(storage);
@@ -72,30 +88,72 @@ export class Game {
     document.body.classList.add('gameplay-active');
     this.player.setName(this.displayName);
 
-    onStage('Caricamento avatar…');
+    onStage('Preparazione personaggio…', 3);
     const visual = await this.player.setAvatar(this.avatarSelection, (event) => {
-      if (event.total) onStage(`Caricamento avatar: ${Math.round(event.loaded / event.total * 100)}%`);
+      if (event.total) {
+        const pct = event.loaded / event.total;
+        onStage(`Caricamento avatar · ${Math.round(pct * 100)}%`, 3 + pct * 7);
+      }
     });
     if (visual?.warning) this.hud.setAssetStatus(visual.warning);
     this.hud.setAvatar(this.player.visualAvatarId);
 
+    onStage('Ricerca mappa attiva…', 11);
+
     if (this.storage) {
       try {
-        onStage('Ricerca mappa attiva…');
         const manifest = await this.storage.activeMap();
         if (manifest) {
-          onStage('Caricamento mappa GLB…');
-          const result = await this.world.loadWorld(manifest, this.storage, (event) => {
-            if (event.total) onStage(`Caricamento mappa: ${Math.round(event.loaded / event.total * 100)}%`);
-          });
+          onStage('Connessione alla mappa…', 14);
+
+          const result = await this.world.loadWorld(
+            manifest,
+            this.storage,
+            (event) => {
+              if (event.total) {
+                const pct = Math.max(0, Math.min(1, event.loaded / event.total));
+                // Il download arriva al massimo all'88%: dopo restano parsing,
+                // ottimizzazione, collisioni e compilazione shader.
+                onStage(
+                  `Download mappa · ${Math.round(pct * 100)}%`,
+                  14 + pct * 74,
+                );
+              } else {
+                onStage('Download mappa…', 18);
+              }
+            },
+            (stage, localProgress = null) => {
+              if (stage.includes('Ottimizzazione')) onStage(stage, 90);
+              else if (stage.includes('Creazione collisioni')) {
+                const pct = Number.isFinite(localProgress) ? localProgress : 0;
+                onStage(stage, 92 + pct * 5);
+              } else if (stage.includes('Download')) {
+                onStage(stage, 14);
+              }
+            },
+          );
+
           if (result.warning) this.hud.setAssetStatus(result.warning);
+          else if (!result.fallback) {
+            const triangles = result.renderStats?.triangles || 0;
+            const meshes = result.renderStats?.meshes || 0;
+            console.info(
+              `[Free Roam] Mappa pronta: ${meshes} mesh, ~${triangles.toLocaleString('it-IT')} triangoli, collisioni indicizzate.`,
+            );
+          }
+        } else {
+          onStage('Pianura di test pronta', 94);
         }
       } catch (error) {
         console.warn('[Free Roam] Mappa attiva non disponibile:', error);
         this.hud.setAssetStatus('Mappa online non disponibile. Uso la pianura di test.');
+        onStage('Uso mappa di fallback…', 94);
       }
+    } else {
+      onStage('Uso mappa locale di fallback…', 94);
     }
 
+    onStage('Avvio sessione multiplayer…', 97);
     this.multiplayer = new MultiplayerManager(
       this.client,
       this.identity,
@@ -130,7 +188,11 @@ export class Game {
       },
     );
 
-    this.player.root.position.set(...spawnForPlayer(this.world.spawn, this.multiplayer.playerId));
+    const spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
+    const spawnGround = this.world.groundHeightAt(spawn[0], spawn[2], spawn[1], 3, 20);
+    if (Number.isFinite(spawnGround)) spawn[1] = spawnGround;
+    this.player.root.position.set(...spawn);
+
     this.followCamera.update(0, { cameraX: 0, cameraY: 0, zoom: 0 }, this.player.root.position);
     this.hud.setMap(this.world.mapName);
 
@@ -140,9 +202,56 @@ export class Game {
       this.hud.setAssetStatus(`Stress test locale attivo: ${stressCount} giocatori simulati.`);
     }
 
+    onStage('Preparazione grafica…', 98);
+    try {
+      if (typeof this.renderer.compileAsync === 'function') {
+        await this.renderer.compileAsync(this.scene, this.camera);
+      } else {
+        this.renderer.compile(this.scene, this.camera);
+      }
+    } catch (error) {
+      console.warn('[Free Roam] Precompilazione shader saltata:', error);
+    }
+
+    // Disegna già un frame completo dietro la schermata di caricamento:
+    // quando questa sparisce non compare un frame vuoto o incompleto.
+    this.renderer.render(this.scene, this.camera);
+
     this.loop.start();
     this.input.showTouchControls();
     this.multiplayer.connect();
+    onStage('Mondo pronto', 100);
+  }
+
+  updateAdaptiveResolution(delta) {
+    if (!settings.rendering.adaptiveResolution || this.pixelRatioCap <= settings.rendering.pixelRatioMin) return;
+
+    this.resolutionElapsed += delta;
+    this.resolutionFrames += 1;
+
+    if (this.resolutionElapsed < 2.25) return;
+
+    const fps = this.resolutionFrames / this.resolutionElapsed;
+    const target = settings.rendering.targetFps;
+    let next = this.pixelRatio;
+
+    if (fps < target - 8) next -= 0.15;
+    else if (fps > target + 7) next += 0.1;
+
+    next = Math.max(
+      settings.rendering.pixelRatioMin,
+      Math.min(this.pixelRatioCap, Math.round(next * 20) / 20),
+    );
+
+    if (Math.abs(next - this.pixelRatio) >= 0.05) {
+      this.pixelRatio = next;
+      this.renderer.setPixelRatio(next);
+      this.resize();
+      console.info(`[Free Roam] Risoluzione dinamica: ${next.toFixed(2)}x · ${Math.round(fps)} FPS`);
+    }
+
+    this.resolutionElapsed = 0;
+    this.resolutionFrames = 0;
   }
 
   update(delta) {
@@ -152,6 +261,7 @@ export class Game {
     this.multiplayer?.update(delta);
     this.stress?.update(delta);
     this.hud.update(delta, this.player, this.remotes.size);
+    this.updateAdaptiveResolution(delta);
   }
 
   resize() {
@@ -159,7 +269,7 @@ export class Game {
     const height = Math.max(1, this.container.clientHeight);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height);
+    this.renderer.setSize(width, height, false);
   }
 
   async dispose() {
