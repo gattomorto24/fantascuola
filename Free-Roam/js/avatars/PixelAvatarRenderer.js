@@ -1,44 +1,7 @@
 import * as THREE from 'three';
+import { DEFAULT_PIXEL_AVATAR, PIXEL_AVATAR_OPTIONS, normalizePixelAvatarConfig, pixelAvatarLabel, isPixelAvatarConfig } from './AvatarConfig.js';
 
-export const PIXEL_AVATAR_OPTIONS = Object.freeze({
-  skinTone: Object.freeze([
-    { id: 'light', label: 'Chiara', color: 0xf1c7a5 },
-    { id: 'medium', label: 'Media', color: 0xd9a078 },
-    { id: 'amber', label: 'Ambrata', color: 0xb8734f },
-    { id: 'dark', label: 'Scura', color: 0x70452f },
-  ]),
-  hairColor: Object.freeze([
-    { id: 'blonde', label: 'Biondo', color: 0xd9b760 },
-    { id: 'light-brown', label: 'Castano chiaro', color: 0x9a673f },
-    { id: 'brown', label: 'Castano', color: 0x5d3827 },
-    { id: 'black', label: 'Nero', color: 0x18191c },
-  ]),
-  shirtColor: Object.freeze([
-    { id: 'red', label: 'Rosso', color: 0xd83a45 },
-    { id: 'yellow', label: 'Giallo', color: 0xe4b72e },
-    { id: 'blue', label: 'Blu', color: 0x2877d7 },
-  ]),
-  pantsColor: Object.freeze([
-    { id: 'red', label: 'Rosso', color: 0xb52d38 },
-    { id: 'yellow', label: 'Giallo', color: 0xc99a1d },
-    { id: 'blue', label: 'Blu', color: 0x245ca8 },
-  ]),
-  shoesColor: Object.freeze([
-    { id: 'black', label: 'Nere', color: 0x17191e },
-    { id: 'white', label: 'Bianche', color: 0xf1f3f5 },
-  ]),
-});
-
-export const DEFAULT_PIXEL_AVATAR = Object.freeze({
-  version: 1,
-  type: 'pixel',
-  skinTone: 'medium',
-  hairStyle: 'basic',
-  hairColor: 'brown',
-  shirtColor: 'blue',
-  pantsColor: 'red',
-  shoesColor: 'white',
-});
+export { DEFAULT_PIXEL_AVATAR, PIXEL_AVATAR_OPTIONS, normalizePixelAvatarConfig, pixelAvatarLabel, isPixelAvatarConfig };
 
 const geometries = new Map();
 const materials = new Map();
