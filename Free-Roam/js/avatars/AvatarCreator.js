@@ -75,8 +75,13 @@ export class AvatarCreator {
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
 
-    this.resizeObserver = new ResizeObserver(() => this.resize());
-    this.resizeObserver.observe(this.preview);
+    if (globalThis.ResizeObserver) {
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      this.resizeObserver.observe(this.preview);
+    } else {
+      this.onResize = () => this.resize();
+      globalThis.addEventListener?.('resize', this.onResize);
+    }
   }
 
   cycle(key, direction) {
@@ -134,6 +139,7 @@ export class AvatarCreator {
   dispose() {
     cancelAnimationFrame(this.raf);
     this.resizeObserver?.disconnect();
+    if (this.onResize) globalThis.removeEventListener?.('resize', this.onResize);
     this.renderer?.dispose();
     this.renderer?.domElement.remove();
   }
