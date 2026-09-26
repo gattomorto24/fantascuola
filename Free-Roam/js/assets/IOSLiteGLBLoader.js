@@ -3,7 +3,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
 const BIN_CHUNK = 0x004e4942;
-const MOBILE_GEOMETRY_BUDGET = 300 * 1024 * 1024;
+const MOBILE_GEOMETRY_BUDGET = 280 * 1024 * 1024;
+const RANGE_CHUNK_BYTES = 8 * 1024 * 1024;
 
 const loader = new GLTFLoader();
 const decoder = new TextDecoder();
@@ -323,14 +324,14 @@ function mergeRanges(assignments, binStart, maxGap = 2048) {
   return groups;
 }
 
-function buildGLB(doc, binBytes) {
+function createGLBContainer(doc, requestedBinLength) {
   const jsonRaw = encoder.encode(JSON.stringify(doc));
   const jsonLength = align4(jsonRaw.byteLength);
-  const binLength = align4(binBytes.byteLength);
+  const binLength = align4(requestedBinLength);
   const totalLength = 12 + 8 + jsonLength + 8 + binLength;
 
-  const out = new Uint8Array(totalLength);
-  const view = new DataView(out.buffer);
+  const bytes = new Uint8Array(totalLength);
+  const view = new DataView(bytes.buffer);
 
   view.setUint32(0, GLB_MAGIC, true);
   view.setUint32(4, 2, true);
@@ -338,15 +339,18 @@ function buildGLB(doc, binBytes) {
 
   view.setUint32(12, jsonLength, true);
   view.setUint32(16, JSON_CHUNK, true);
-  out.set(jsonRaw, 20);
-  out.fill(0x20, 20 + jsonRaw.byteLength, 20 + jsonLength);
+  bytes.set(jsonRaw, 20);
+  bytes.fill(0x20, 20 + jsonRaw.byteLength, 20 + jsonLength);
 
   const binHeader = 20 + jsonLength;
   view.setUint32(binHeader, binLength, true);
   view.setUint32(binHeader + 4, BIN_CHUNK, true);
-  out.set(binBytes, binHeader + 8);
 
-  return out.buffer;
+  return {
+    buffer: bytes.buffer,
+    bytes,
+    binDataStart: binHeader + 8,
+  };
 }
 
 function parseGLB(buffer) {
@@ -383,36 +387,49 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
     `iPhone · geometria ${Math.round(totalGeometryBytes / 1024 / 1024)} MB, texture escluse…`,
   );
 
-  const finalBin = new Uint8Array(binLength);
   const groups = mergeRanges(assignments, binStart);
   const totalDownload = groups.reduce((sum, group) => sum + (group.end - group.start + 1), 0);
+  const compact = createGLBContainer(doc, binLength);
   let loaded = 0;
 
   for (const group of groups) {
-    const bytes = await fetchRange(url, group.start, group.end);
+    for (let chunkStart = group.start; chunkStart <= group.end; chunkStart += RANGE_CHUNK_BYTES) {
+      const chunkEnd = Math.min(group.end, chunkStart + RANGE_CHUNK_BYTES - 1);
+      const rangeBytes = await fetchRange(url, chunkStart, chunkEnd);
 
-    for (const { item, start } of group.entries) {
-      const sourceOffset = start - group.start;
-      const sourceEnd = sourceOffset + item.byteLength;
-      finalBin.set(bytes.subarray(sourceOffset, sourceEnd), item.newOffset);
+      for (const { item, start, end } of group.entries) {
+        const overlapStart = Math.max(chunkStart, start);
+        const overlapEnd = Math.min(chunkEnd, end);
+        if (overlapStart > overlapEnd) continue;
+
+        const sourceOffset = overlapStart - chunkStart;
+        const copyLength = overlapEnd - overlapStart + 1;
+        const destinationOffset = compact.binDataStart
+          + item.newOffset
+          + (overlapStart - start);
+
+        compact.bytes.set(
+          rangeBytes.subarray(sourceOffset, sourceOffset + copyLength),
+          destinationOffset,
+        );
+      }
+
+      loaded += rangeBytes.byteLength;
+      onProgress({
+        lengthComputable: true,
+        loaded,
+        total: totalDownload,
+        originalTotal: totalLength,
+        sourceBinLength,
+        mobileLite: true,
+      });
+
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     }
-
-    loaded += bytes.byteLength;
-    onProgress({
-      lengthComputable: true,
-      loaded,
-      total: totalDownload,
-      originalTotal: totalLength,
-      sourceBinLength,
-      mobileLite: true,
-    });
-
-    await new Promise((resolve) => requestAnimationFrame(resolve));
   }
 
   onStage('iPhone · parsing geometria…');
-  const compactBuffer = buildGLB(doc, finalBin);
-  const gltf = await parseGLB(compactBuffer);
+  const gltf = await parseGLB(compact.buffer);
 
   gltf.userData = {
     ...(gltf.userData || {}),
