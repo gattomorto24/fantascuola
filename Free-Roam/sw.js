@@ -1,4 +1,4 @@
-const CACHE = 'fantascuola-free-roam-v03';
+const CACHE = 'fantascuola-free-roam-v061';
 const SHELL = ['./', './index.html', './manifest.webmanifest', '../logo.png'];
 
 self.addEventListener('install', (event) => {
