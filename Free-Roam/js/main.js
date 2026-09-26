@@ -4,7 +4,7 @@ import { StorageService } from './storage/StorageService.js';
 import { cleanDisplayName } from './utils/text.js';
 import { validateGLBFile } from './assets/GLBLoader.js';
 import { AvatarCreator } from './avatars/AvatarCreator.js';
-import { DEFAULT_PIXEL_AVATAR, normalizePixelAvatarConfig } from './avatars/PixelAvatarRenderer.js';
+import { DEFAULT_PIXEL_AVATAR, normalizePixelAvatarConfig } from './avatars/AvatarConfig.js';
 import { setupMobileExperience } from './ui/MobileExperience.js';
 
 const enter = document.getElementById('enter');
