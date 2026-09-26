@@ -11,17 +11,38 @@
 
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="../logo.png">
-  <link rel="stylesheet" href="./styles/main.css">
+  <link rel="preload" as="image" href="./assets/models/Unknown.png">
+  <link rel="stylesheet" href="./styles/main.css?v=map-solid-v1">
   <link rel="stylesheet" href="./styles/touch.css">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js"></script>
+  <script type="module" src="./js/main.js?v=map-solid-v1"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
+
+  <section id="world-loading" class="world-loading" hidden aria-live="polite" aria-label="Caricamento Free Roam">
+    <div class="world-loading-brand">
+      <span>FANTASCUOLA</span>
+      <strong>FREE ROAM</strong>
+    </div>
+    <div class="world-loading-bottom">
+      <div class="world-loading-copy">
+        <div>
+          <span class="world-loading-kicker">CARICAMENTO MAPPA</span>
+          <strong id="world-loading-status">Preparazione del mondo…</strong>
+          <small id="world-loading-detail">Caricamento risorse</small>
+        </div>
+        <strong id="world-loading-percent" class="world-loading-percent">0%</strong>
+      </div>
+      <div class="world-loading-track" aria-hidden="true">
+        <span id="world-loading-bar"></span>
+      </div>
+    </div>
+  </section>
 
   <section id="install-screen" class="install-screen" hidden aria-labelledby="install-title">
     <div class="install-card">
