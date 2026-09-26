@@ -128,6 +128,25 @@ export class Game {
 
     onStage('Ricerca mappa attiva…', 11);
 
+    // Recovery persistente: se iOS termina brutalmente la pagina durante il parsing
+    // non esiste un'eccezione JS da catturare. Registriamo PRIMA il tentativo; al
+    // riavvio successivo saltiamo automaticamente la strategia che probabilmente
+    // ha causato il memory-kill. Dopo un caricamento riuscito il marker viene pulito.
+    let mapRecoveryStartIndex = 0;
+    if (this.isTouchDevice) {
+      try {
+        const pending = JSON.parse(localStorage.getItem('free-roam:map-attempt-pending') || 'null');
+        if (pending && Date.now() - Number(pending.at || 0) < 15 * 60 * 1000) {
+          mapRecoveryStartIndex = Math.min(2, Math.max(0, Number(pending.index || 0) + 1));
+          onStage(`Ripristino dopo interruzione · provo fallback ${mapRecoveryStartIndex + 1}…`, 13);
+        }
+        localStorage.setItem('free-roam:map-attempt-pending', JSON.stringify({
+          index: mapRecoveryStartIndex,
+          at: Date.now(),
+        }));
+      } catch {}
+    }
+
     if (this.storage) {
       try {
         const manifest = await this.storage.activeMap();
@@ -171,7 +190,20 @@ export class Game {
                 onStage(stage, 14);
               }
             },
-            { isMobile: this.isTouchDevice },
+            {
+              isMobile: this.isTouchDevice,
+              startIndex: mapRecoveryStartIndex,
+              onAttempt: (index, strategy) => {
+                if (!this.isTouchDevice) return;
+                try {
+                  localStorage.setItem('free-roam:map-attempt-pending', JSON.stringify({
+                    index,
+                    strategy,
+                    at: Date.now(),
+                  }));
+                } catch {}
+              },
+            },
           );
 
           if (result.warning) this.hud.setAssetStatus(result.warning);
@@ -193,6 +225,7 @@ export class Game {
             }
 
             try {
+              localStorage.removeItem('free-roam:map-attempt-pending');
               localStorage.setItem('free-roam:last-map-strategy', JSON.stringify({
                 strategy: strategyInfo.strategy || result.strategy || 'unknown',
                 fullQuality: Boolean(strategyInfo.fullQuality),
