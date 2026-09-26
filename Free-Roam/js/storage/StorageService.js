@@ -83,7 +83,7 @@ export class StorageService {
       uploaded_by: this.userId,
       name: cleanAssetName(name) || asset.fileName,
       file_name: asset.fileName,
-      storage_path: asset.assetUrl,
+      storage_path: `${asset.assetUrl}?fantascuola_map=${id}`,
       file_size: legacySafeFileSize,
       spawn: settings.world.defaultSpawn,
       metadata: {
