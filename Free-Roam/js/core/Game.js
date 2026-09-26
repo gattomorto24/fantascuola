@@ -25,16 +25,23 @@ export class Game {
     this.storage = storage;
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(65, 1, 0.1, 260);
-
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance',
-      alpha: false,
-    });
 
     const coarsePointer = globalThis.matchMedia?.('(pointer: coarse)').matches === true;
     this.isTouchDevice = coarsePointer || Number(globalThis.navigator?.maxTouchPoints || 0) > 0;
+
+    this.camera = new THREE.PerspectiveCamera(
+      65,
+      1,
+      0.1,
+      this.isTouchDevice ? 190 : 260,
+    );
+
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: !this.isTouchDevice,
+      powerPreference: this.isTouchDevice ? 'low-power' : 'high-performance',
+      alpha: false,
+    });
+
     const nativeRatio = Math.max(1, globalThis.devicePixelRatio || 1);
     this.pixelRatioCap = Math.min(
       nativeRatio,
@@ -150,7 +157,11 @@ export class Game {
               }
             },
             (stage, localProgress = null) => {
-              if (stage.includes('Ottimizzazione')) onStage(stage, 90);
+              if (stage.includes('analisi mappa leggera')) onStage(stage, 15);
+              else if (stage.includes('geometria') && stage.includes('texture escluse')) onStage(stage, 18);
+              else if (stage.includes('parsing geometria')) onStage(stage, 88);
+              else if (stage.includes('ottimizzazione geometria')) onStage(stage, 90);
+              else if (stage.includes('Ottimizzazione')) onStage(stage, 90);
               else if (stage.includes('Creazione collisioni')) {
                 const pct = Number.isFinite(localProgress) ? localProgress : 0;
                 onStage(stage, 92 + pct * 5);
@@ -164,6 +175,17 @@ export class Game {
           else if (!result.fallback) {
             const triangles = result.renderStats?.triangles || 0;
             const meshes = result.renderStats?.meshes || 0;
+
+            if (result.mobileLite) {
+              const downloaded = Number(result.mobileLiteInfo?.downloadedBytes || 0);
+              const original = Number(result.mobileLiteInfo?.originalBytes || 0);
+              const saved = original > 0 ? Math.max(0, 1 - downloaded / original) : 0;
+
+              this.hud.setAssetStatus(
+                `Modalità iPhone: geometria ottimizzata, texture pesanti escluse · -${Math.round(saved * 100)}% download.`,
+              );
+            }
+
             console.info(
               `[Free Roam] Mappa pronta: ${meshes} mesh, ~${triangles.toLocaleString('it-IT')} triangoli, collisioni indicizzate.`,
             );
@@ -229,15 +251,19 @@ export class Game {
       this.hud.setAssetStatus(`Stress test locale attivo: ${stressCount} giocatori simulati.`);
     }
 
-    onStage('Preparazione grafica…', 98);
-    try {
-      if (typeof this.renderer.compileAsync === 'function') {
-        await this.renderer.compileAsync(this.scene, this.camera);
-      } else {
-        this.renderer.compile(this.scene, this.camera);
+    onStage(this.isTouchDevice ? 'Ottimizzazione memoria mobile…' : 'Preparazione grafica…', 98);
+    if (!this.isTouchDevice) {
+      try {
+        if (typeof this.renderer.compileAsync === 'function') {
+          await this.renderer.compileAsync(this.scene, this.camera);
+        } else {
+          this.renderer.compile(this.scene, this.camera);
+        }
+      } catch (error) {
+        console.warn('[Free Roam] Precompilazione shader saltata:', error);
       }
-    } catch (error) {
-      console.warn('[Free Roam] Precompilazione shader saltata:', error);
+    } else {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     }
 
     // Disegna già un frame completo dietro la schermata di caricamento:
