@@ -1,11 +1,6 @@
 import * as THREE from 'three';
-import {
-  DEFAULT_PIXEL_AVATAR,
-  PIXEL_AVATAR_OPTIONS,
-  createPixelAvatar,
-  normalizePixelAvatarConfig,
-  pixelAvatarLabel,
-} from './PixelAvatarRenderer.js';
+import { createPixelAvatar } from './PixelAvatarRenderer.js';
+import { DEFAULT_PIXEL_AVATAR, PIXEL_AVATAR_OPTIONS, normalizePixelAvatarConfig, pixelAvatarLabel } from './AvatarConfig.js';
 
 const ORDER = ['skinTone', 'hairColor', 'shirtColor', 'pantsColor', 'shoesColor'];
 
