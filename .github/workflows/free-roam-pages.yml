@@ -20,10 +20,8 @@ jobs:
   test-free-roam:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - name: Checkout repository
+        run: git clone --depth 1 "https://github.com/$GITHUB_REPOSITORY.git" .
       - name: Install Free Roam test dependencies
         working-directory: Free-Roam
         run: npm install --ignore-scripts --no-audit --no-fund
