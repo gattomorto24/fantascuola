@@ -9,15 +9,15 @@
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/admin/manager.js"></script>
+  <script type="module" src="./js/admin/manager.js?v=maps-1gib-v2"></script>
 </head>
 <body>
   <section class="panel">
-    <div class="heading"><div><span>FREE ROAM</span><h2>Mappa Free Roam</h2><p>Pubblica il GLB nella Release GitHub maps, poi incolla il link diretto e rendilo attivo per tutti.</p></div></div>
+    <div class="heading"><div><span>FREE ROAM</span><h2>Mappa Free Roam</h2><p>Pubblica il GLB nella Release GitHub maps, incolla il link diretto e attivalo per tutti. Limite mappe: 1 GB.</p></div></div>
     <div class="map-details"><div><span>Mappa attiva</span><strong id="active-name">Pianura di test</strong></div><div><span>File</span><strong id="active-file">—</strong></div><div><span>Dimensione</span><strong id="active-size">—</strong></div><div><span>Data caricamento</span><strong id="active-date">—</strong></div></div>
     <form id="map-form">
       <label>Nome mappa<input id="map-name" type="text" maxlength="80" placeholder="Es. Scuola" required></label>
-      <label>Link GLB della Release maps (massimo 1024 MB)<input id="map-url" type="url" placeholder="https://github.com/gattomorto24/fantascuola/releases/download/maps/mappa.glb" required></label>
+      <label>Link GLB della Release maps (fino a 1 GB)<input id="map-url" type="url" placeholder="https://github.com/gattomorto24/fantascuola/releases/download/maps/mappa.glb" required></label>
       <div class="actions"><button id="upload" type="submit" disabled>ATTIVA MAPPA DA GITHUB</button><button id="deactivate" type="button" class="secondary" disabled>DISATTIVA MAPPA PERSONALIZZATA</button></div>
     </form>
     <progress id="upload-progress" hidden></progress>
