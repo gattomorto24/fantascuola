@@ -64,9 +64,10 @@ export class MapLoader {
 
     onStage('Ottimizzazione grafica…');
     await new Promise((resolve) => requestAnimationFrame(resolve));
-    this.stats = optimizeStaticObject(object);
+    const stats = optimizeStaticObject(object);
 
     this.dispose();
+    this.stats = stats;
     this.object = object;
     this.scene.add(object);
     return object;
