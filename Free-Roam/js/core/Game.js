@@ -157,17 +157,13 @@ export class Game {
               }
             },
             (stage, localProgress = null) => {
-              if (stage.includes('analisi mappa leggera')) onStage(stage, 15);
-              else if (stage.includes('geometria') && stage.includes('texture escluse')) onStage(stage, 18);
-              else if (stage.includes('preparo la mappa completa')) onStage(stage, 86);
-              else if (stage.includes('server senza Range')) onStage(stage, 20);
-              else if (stage.includes('mappa sorgente salvata')) onStage(stage, 84);
-              else if (stage.includes('parsing geometria')) onStage(stage, 89);
-              else if (stage.includes('ottimizzazione geometria')) onStage(stage, 91);
-              else if (stage.includes('Ottimizzazione')) onStage(stage, 91);
+              if (stage.includes('Download texture e geometria')) onStage(stage, 70);
+              else if (stage.includes('Assemblaggio GLB')) onStage(stage, 88);
+              else if (stage.includes('Decodifica texture')) onStage(stage, 90);
+              else if (stage.includes('Ottimizzazione')) onStage(stage, 92);
               else if (stage.includes('Creazione collisioni')) {
                 const pct = Number.isFinite(localProgress) ? localProgress : 0;
-                onStage(stage, 93 + pct * 4);
+                onStage(stage, 94 + pct * 3);
               } else if (stage.includes('Download')) {
                 onStage(stage, 14);
               }
@@ -179,11 +175,10 @@ export class Game {
             const triangles = result.renderStats?.triangles || 0;
             const meshes = result.renderStats?.meshes || 0;
 
-            if (result.mobileLite) {
-              const downloaded = Number(result.mobileLiteInfo?.downloadedBytes || 0);
-              const original = Number(result.mobileLiteInfo?.originalBytes || 0);
+            if (result.mobileLiteInfo?.fullQuality) {
+              const downloaded = Number(result.mobileLiteInfo.downloadedBytes || 0);
               this.hud.setAssetStatus(
-                `Modalità iPhone: stessa geometria/collisioni del mondo PC, texture pesanti escluse · caricamento disk-backed per ridurre i picchi RAM.`,
+                `Mappa completa: geometria, UV, materiali e texture originali · ${Math.round(downloaded / 1024 / 1024)} MB caricati.`,
               );
             }
 
