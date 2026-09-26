@@ -1,5 +1,4 @@
 import { loadGLB } from '../assets/GLBLoader.js';
-import { isIOSLike, loadIOSLiteGLB } from '../assets/IOSLiteGLBLoader.js';
 
 function optimizeStaticObject(root) {
   let meshes = 0;
@@ -42,11 +41,6 @@ function optimizeStaticObject(root) {
   return { meshes, triangles };
 }
 
-function canUseIOSLite(url) {
-  return isIOSLike()
-    && String(url).startsWith('https://huggingface.co/buckets/');
-}
-
 export class MapLoader {
   constructor(scene) {
     this.scene = scene;
@@ -57,16 +51,11 @@ export class MapLoader {
   }
 
   async load(url, manifest, onProgress, onStage = () => {}) {
-    const useLite = canUseIOSLite(url);
-    let gltf;
-
-    if (useLite) {
-      onStage('iPhone · modalità mappa leggera…');
-      gltf = await loadIOSLiteGLB(url, onProgress, onStage);
-    } else {
-      onStage('Download mappa…');
-      gltf = await loadGLB(url, onProgress);
-    }
+    // Cross-platform strict mode: mobile carica lo stesso GLB completo del desktop.
+    // Nessuna rimozione di texture/materiali/attributi: il mondo visivo è identico.
+    const useLite = false;
+    onStage('Download mappa completa · texture originali…');
+    const gltf = await loadGLB(url, onProgress);
 
     const object = gltf.scene;
 
@@ -77,7 +66,7 @@ export class MapLoader {
     object.scale.setScalar(Number(manifest.scale) || 1);
     object.rotation.y = Number(manifest.rotation) || 0;
 
-    onStage(useLite ? 'iPhone · ottimizzazione geometria…' : 'Ottimizzazione grafica…');
+    onStage('Ottimizzazione grafica…');
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     const stats = optimizeStaticObject(object);
