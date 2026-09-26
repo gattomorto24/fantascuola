@@ -104,8 +104,12 @@ function stripHeavyVisuals(source) {
     const pbr = sourceMaterial?.pbrMetallicRoughness || {};
     const originalFactor = Array.isArray(pbr.baseColorFactor) ? pbr.baseColorFactor : null;
     const hadBaseTexture = Boolean(pbr.baseColorTexture);
-    const baseColorFactor = originalFactor
-      || (hadBaseTexture ? materialColorFromName(sourceMaterial?.name || `material-${index}`) : [0.68, 0.69, 0.66, 1]);
+    const originalIsNeutral = originalFactor
+      && originalFactor.length >= 3
+      && originalFactor.slice(0, 3).every((value) => Number(value) >= 0.94);
+    const baseColorFactor = hadBaseTexture && (!originalFactor || originalIsNeutral)
+      ? materialColorFromName(sourceMaterial?.name || `material-${index}`)
+      : (originalFactor || [0.68, 0.69, 0.66, 1]);
 
     return {
       name: sourceMaterial?.name || `Materiale mobile ${index + 1}`,
@@ -222,7 +226,7 @@ function geometryBytes(doc, usedViews) {
   return total;
 }
 
-function simplifyForMobile(source) {
+export function prepareIOSLiteDocument(source) {
   const doc = remapAccessors(stripHeavyVisuals(source));
   const usedViews = collectBufferViews(doc);
   const totalGeometryBytes = geometryBytes(doc, usedViews);
@@ -372,7 +376,7 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
   if (sourceBinType !== BIN_CHUNK) throw new Error('Chunk binario GLB non trovato.');
 
   const binStart = binHeaderStart + 8;
-  const { doc, usedViews, totalGeometryBytes } = simplifyForMobile(sourceDoc);
+  const { doc, usedViews, totalGeometryBytes } = prepareIOSLiteDocument(sourceDoc);
   const { assignments, binLength } = remapBufferViews(doc, usedViews);
 
   onStage(
