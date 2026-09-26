@@ -14,7 +14,8 @@ function showMap(map) {
   active = map;
   elements.name.textContent = map?.name || 'Pianura di test';
   elements.file.textContent = map?.file_name || '—';
-  elements.size.textContent = map ? `${(map.file_size / 1024 / 1024).toFixed(1)} MB` : '—';
+  const realSize = Number(map?.metadata?.original_file_size || map?.file_size || 0);
+  elements.size.textContent = map && realSize ? `${(realSize / 1024 / 1024).toFixed(1)} MB` : '—';
   elements.date.textContent = map?.created_at ? new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(map.created_at)) : '—';
   elements.upload.textContent = map ? 'SOSTITUISCI MAPPA DA GITHUB' : 'ATTIVA MAPPA DA GITHUB';
   setBusy(busy);
@@ -39,7 +40,7 @@ async function initialize() {
     client.channel('free-roam-map-manager')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'free_roam_settings' }, refreshMap)
       .subscribe();
-    status('Incolla il link diretto di un GLB pubblicato nella Release maps (massimo 1024 MB).');
+    status('Incolla il link diretto di un GLB pubblicato nella Release maps (fino a 1 GB).');
   } catch (error) { console.warn('[Free Roam] Pannello manager:', error); status(error.message || String(error)); }
 }
 

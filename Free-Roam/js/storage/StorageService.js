@@ -72,15 +72,26 @@ export class StorageService {
     const asset = await resolveGithubAsset(releaseUrl, 'map');
     const id = crypto.randomUUID();
     onStage('Salvataggio metadati mappa…');
+    // Compatibilità con il database Free Roam già in produzione:
+    // alcune installazioni non hanno ancora la colonna asset_url e mantengono
+    // il vecchio vincolo file_size <= 50 MB. Per le mappe GitHub Release
+    // salviamo quindi l'URL diretto in storage_path e la dimensione reale
+    // dentro metadata, senza caricare alcun file su Supabase Storage.
+    const legacySafeFileSize = Math.min(asset.fileSize, 50 * 1024 * 1024);
     const { data, error } = await this.client.from('free_roam_maps').insert({
       id,
       uploaded_by: this.userId,
       name: cleanAssetName(name) || asset.fileName,
       file_name: asset.fileName,
-      storage_path: null,
-      asset_url: asset.assetUrl,
-      file_size: asset.fileSize,
+      storage_path: `${asset.assetUrl}?fantascuola_map=${id}`,
+      file_size: legacySafeFileSize,
       spawn: settings.world.defaultSpawn,
+      metadata: {
+        source: 'github-release',
+        release_tag: 'maps',
+        asset_url: asset.assetUrl,
+        original_file_size: asset.fileSize,
+      },
     }).select('*').single();
     if (error) throw error;
     onStage('Attivazione mappa…');

@@ -16,9 +16,12 @@ export class WorldManager {
   async loadWorld(manifest, storage, onProgress) {
     this.mapLoader.dispose(); this.grid.visible = true;
     this.mapName = 'Pianura di test'; this.spawn = [...settings.world.defaultSpawn];
-    if (!manifest?.enabled || (!manifest.storage_path && !manifest.asset_url) || !storage) return { fallback: true };
+    const directUrl = manifest?.asset_url
+      || manifest?.metadata?.asset_url
+      || (/^https:\/\//i.test(manifest?.storage_path || '') ? manifest.storage_path : null);
+    if (!manifest?.enabled || (!manifest.storage_path && !directUrl) || !storage) return { fallback: true };
     try {
-      const url = manifest.asset_url || await storage.signedUrl('free-roam-maps', manifest.storage_path);
+      const url = directUrl || await storage.signedUrl('free-roam-maps', manifest.storage_path);
       await this.mapLoader.load(url, manifest, onProgress);
       this.grid.visible = false; this.mapName = manifest.name || 'Mappa GLB';
       const spawn = Array.isArray(manifest.spawn) ? manifest.spawn.map(Number) : [];

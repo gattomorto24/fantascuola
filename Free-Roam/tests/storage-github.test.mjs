@@ -74,16 +74,20 @@ test('avatar usa Pages mentre mappa salva URL diretto della Release maps', async
 
     assert.equal(rows.length, 2);
     assert.deepEqual(rows.map(([table]) => table), ['free_roam_avatars', 'free_roam_maps']);
-    assert.deepEqual(rows.map(([, row]) => row.storage_path), [null, null]);
+    assert.equal(rows[0][1].storage_path, null);
+    assert.match(rows[1][1].storage_path, /^https:\/\/github[.]com\/gattomorto24\/fantascuola\/releases\/download\/maps\/mondo[.]glb\?fantascuola_map=/);
 
     assert.equal(
       rows[0][1].asset_url,
       'https://gattomorto24.github.io/fantascuola/Free-Roam/release-assets/eroe.glb',
     );
-    assert.equal(rows[1][1].asset_url, `${mapRelease}mondo.glb`);
+    assert.equal('asset_url' in rows[1][1], false);
 
     assert.equal(rows[0][1].file_size, 1024);
-    assert.equal(rows[1][1].file_size, 816976060);
+    assert.equal(rows[1][1].file_size, 50 * 1024 * 1024);
+    assert.equal(rows[1][1].metadata.asset_url, `${mapRelease}mondo.glb`);
+    assert.equal(rows[1][1].metadata.original_file_size, 816976060);
+    assert.equal(rows[1][1].metadata.release_tag, 'maps');
 
     assert.deepEqual(calls, [
       ['free_roam_activate_map', { p_map_id: rows[1][1].id }],
