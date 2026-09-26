@@ -1,4 +1,5 @@
 import { loadGLB } from '../assets/GLBLoader.js';
+import { isIOSLike, loadIOSLiteGLB } from '../assets/IOSLiteGLBLoader.js';
 
 function optimizeStaticObject(root) {
   let meshes = 0;
@@ -32,8 +33,6 @@ function optimizeStaticObject(root) {
       }
     }
 
-    // La mappa è statica: evita di ricalcolare le matrici di centinaia/migliaia
-    // di oggetti a ogni frame. Player e avatar non fanno parte di questo root.
     node.updateMatrix();
     node.matrixAutoUpdate = false;
     if ('matrixWorldAutoUpdate' in node) node.matrixWorldAutoUpdate = false;
@@ -43,16 +42,32 @@ function optimizeStaticObject(root) {
   return { meshes, triangles };
 }
 
+function canUseIOSLite(url) {
+  return isIOSLike()
+    && String(url).startsWith('https://huggingface.co/buckets/');
+}
+
 export class MapLoader {
   constructor(scene) {
     this.scene = scene;
     this.object = null;
     this.stats = null;
+    this.mobileLite = false;
+    this.mobileLiteInfo = null;
   }
 
   async load(url, manifest, onProgress, onStage = () => {}) {
-    onStage('Download mappa…');
-    const gltf = await loadGLB(url, onProgress);
+    const useLite = canUseIOSLite(url);
+    let gltf;
+
+    if (useLite) {
+      onStage('iPhone · modalità mappa leggera…');
+      gltf = await loadIOSLiteGLB(url, onProgress, onStage);
+    } else {
+      onStage('Download mappa…');
+      gltf = await loadGLB(url, onProgress);
+    }
+
     const object = gltf.scene;
 
     let hasMesh = false;
@@ -62,26 +77,37 @@ export class MapLoader {
     object.scale.setScalar(Number(manifest.scale) || 1);
     object.rotation.y = Number(manifest.rotation) || 0;
 
-    onStage('Ottimizzazione grafica…');
+    onStage(useLite ? 'iPhone · ottimizzazione geometria…' : 'Ottimizzazione grafica…');
     await new Promise((resolve) => requestAnimationFrame(resolve));
+
     const stats = optimizeStaticObject(object);
 
     this.dispose();
     this.stats = stats;
+    this.mobileLite = Boolean(gltf.userData?.mobileLite);
+    this.mobileLiteInfo = gltf.userData || null;
     this.object = object;
     this.scene.add(object);
     return object;
   }
 
   dispose() {
-    if (!this.object) return;
+    if (!this.object) {
+      this.mobileLite = false;
+      this.mobileLiteInfo = null;
+      return;
+    }
+
     this.scene.remove(this.object);
     this.object.traverse((node) => {
       node.geometry?.dispose();
       if (Array.isArray(node.material)) node.material.forEach((material) => material.dispose());
       else node.material?.dispose();
     });
+
     this.object = null;
     this.stats = null;
+    this.mobileLite = false;
+    this.mobileLiteInfo = null;
   }
 }

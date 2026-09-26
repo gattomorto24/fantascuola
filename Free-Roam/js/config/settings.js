@@ -1,7 +1,7 @@
 export const settings = Object.freeze({
   rendering: {
     pixelRatioMax: 1.5,
-    pixelRatioMobileMax: 1.25,
+    pixelRatioMobileMax: 1,
     pixelRatioMin: 1,
     adaptiveResolution: true,
     targetFps: 50,
