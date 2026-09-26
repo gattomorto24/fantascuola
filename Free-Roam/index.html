@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FantaScuola — Free Roam</title>
+  <link rel="stylesheet" href="./styles/main.css">
+  <script type="importmap">
+    {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
+  </script>
+  <script defer src="./vendor/supabase.js"></script>
+  <script type="module" src="./js/main.js"></script>
+</head>
+<body>
+  <main id="game" aria-label="Free Roam"></main>
+  <section id="welcome" class="welcome">
+    <div class="welcome-card">
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.2</p>
+      <h1>FantaScuola<br><span>Free Roam</span></h1>
+      <p>Entra nel mondo con il tuo nome. WASD per muoverti, Shift per correre, Spazio per saltare. Trascina il mouse per la camera.</p>
+      <label class="menu-field" for="player-name">Nome giocatore <input id="player-name" type="text" maxlength="32" autocomplete="nickname" placeholder="Il tuo nome"></label>
+      <label class="menu-field" for="avatar-choice">Avatar <select id="avatar-choice"><option value="default">Default / Placeholder</option><option value="pixel">Pixel</option><option value="local">GLB dal dispositivo (solo locale)</option></select></label>
+      <label class="menu-field" id="avatar-file-field" for="avatar-file" hidden>File avatar .glb <input id="avatar-file" type="file" accept=".glb,model/gltf-binary"></label>
+      <button id="publish-avatar" class="secondary-button" type="button" hidden>Pubblica avatar online</button>
+      <p id="menu-status" class="menu-status" role="status">Controllo account…</p>
+      <progress id="menu-progress" hidden></progress>
+      <button id="enter" type="button" disabled>ENTRA NEL FREE ROAM</button>
+      <a href="../index.html">Torna a FantaScuola</a>
+      <p id="startup-error" class="error" role="alert" hidden></p>
+    </div>
+  </section>
+  <aside id="hud" class="hud" aria-live="off" hidden>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.2</small></strong><a href="../index.html">Esci</a></div>
+    <dl><div><dt>FPS</dt><dd id="fps">—</dd></div><div><dt>Multiplayer</dt><dd id="network">Offline</dd></div><div><dt>Giocatori</dt><dd id="players">1</dd></div><div><dt>Coordinate</dt><dd id="position">0, 0, 0</dd></div><div><dt>Stato</dt><dd id="movement">Idle</dd></div><div><dt>Mappa</dt><dd id="map-name">Pianura di test</dd></div><div><dt>Avatar</dt><dd id="avatar-name">Default</dd></div><div><dt>Ping</dt><dd id="latency">—</dd></div></dl>
+    <p id="network-detail" class="network-detail">Modalità locale</p>
+    <p id="asset-status" class="asset-status" hidden></p>
+  </aside>
+</body>
+</html>

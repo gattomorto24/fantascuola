@@ -1,0 +1,8 @@
+export const settings = Object.freeze({
+  rendering: { pixelRatioMax: 2, maxDelta: 0.05, hudInterval: 0.25 },
+  player: { walkSpeed: 4.2, runSpeed: 7.2, acceleration: 18, deceleration: 22, jumpForce: 7.5, gravity: 20, rotationSpeed: 11, height: 1.8 },
+  camera: { distance: 6, minDistance: 2.5, maxDistance: 12, minPitch: -0.25, maxPitch: 1.15, lookHeight: 1.45, sensitivity: 0.004, zoomStep: 0.005, smoothing: 9 },
+  network: { sendHz: 10, interpolation: 10, staleSeconds: 15, presenceRefreshSeconds: 5 },
+  assets: { maxAvatarFileSize: 15 * 1024 * 1024, maxMapFileSize: 50 * 1024 * 1024, signedUrlSeconds: 3600 },
+  world: { defaultSpawn: [0, 1, 0], mapFallback: 'test-world' },
+});

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestione Free Roam</title>
+  <link rel="stylesheet" href="./styles/manager.css">
+  <script defer src="./vendor/supabase.js"></script>
+  <script type="module" src="./js/admin/manager.js"></script>
+</head>
+<body>
+  <section class="panel">
+    <div class="heading"><div><span>FREE ROAM</span><h2>Mappa Free Roam</h2><p>Carica una mappa GLB e rendila attiva per tutti i giocatori.</p></div></div>
+    <div class="map-details"><div><span>Mappa attiva</span><strong id="active-name">Pianura di test</strong></div><div><span>File</span><strong id="active-file">—</strong></div><div><span>Dimensione</span><strong id="active-size">—</strong></div><div><span>Data caricamento</span><strong id="active-date">—</strong></div></div>
+    <form id="map-form">
+      <label>Nome mappa<input id="map-name" type="text" maxlength="80" placeholder="Es. Scuola" required></label>
+      <label>File GLB<input id="map-file" type="file" accept=".glb,model/gltf-binary" required></label>
+      <div class="actions"><button id="upload" type="submit" disabled>CARICA NUOVA MAPPA GLB</button><button id="deactivate" type="button" class="secondary" disabled>DISATTIVA MAPPA PERSONALIZZATA</button></div>
+    </form>
+    <progress id="upload-progress" hidden></progress>
+    <p id="manager-status" role="status">Controllo autorizzazioni…</p>
+  </section>
+</body>
+</html>
