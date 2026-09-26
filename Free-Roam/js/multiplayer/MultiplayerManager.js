@@ -1,108 +1,169 @@
+import { WebSocketTransport } from './WebSocketTransport.js';
+
 const STATES = new Set(['Idle', 'Walking', 'Running', 'Jumping']);
 const AVATAR_REF = /^(default|pixel|published:[0-9a-f-]{36})$/i;
 const validNumber = (value) => Number.isFinite(value) && Math.abs(value) < 100000;
+
 export function validSnapshot(value, maxAge = 60000) {
   return !!value && typeof value.playerId === 'string' && value.playerId.length > 0 && value.playerId.length <= 120 &&
     typeof value.displayName === 'string' && value.displayName.length > 0 && value.displayName.length <= 32 && !/[<>\u0000-\u001f]/.test(value.displayName) &&
-    typeof value.avatarId === 'string' && AVATAR_REF.test(value.avatarId) &&
+    typeof value.avatarId === 'string' && (AVATAR_REF.test(value.avatarId) || value.avatarId.length <= 160) &&
     value.position && validNumber(value.position.x) && validNumber(value.position.y) && validNumber(value.position.z) &&
     validNumber(value.rotation) && STATES.has(value.movementState) &&
     Number.isFinite(value.timestamp) && Math.abs(Date.now() - value.timestamp) < maxAge;
 }
 
 export class MultiplayerManager {
-  constructor(client, identity, localPlayer, remotes, config, onStatus) {
-    this.client = client; this.identity = identity; this.localPlayer = localPlayer; this.remotes = remotes; this.config = config; this.onStatus = onStatus;
+  constructor(_client, identity, localPlayer, remotes, config, onStatus, onLatency = () => {}) {
+    this.identity = identity;
+    this.localPlayer = localPlayer;
+    this.remotes = remotes;
+    this.config = config;
+    this.onStatus = onStatus;
+    this.onLatency = onLatency;
+
     this.playerId = `${identity.userId}:${crypto.randomUUID()}`;
-    this.online = false; this.elapsed = 0; this.presenceElapsed = 0; this.channel = null;
-    this.disposed = false; this.retryTimer = null; this.retryDelay = config.reconnectBaseMs ?? 1000;
+    this.online = false;
+    this.disposed = false;
+    this.transport = null;
+    this.retryTimer = null;
+    this.connectTimer = null;
+    this.retryDelay = config.reconnectBaseMs ?? 1000;
+    this.elapsed = 0;
+    this.pingElapsed = 0;
   }
+
+  snapshot() {
+    const p = this.localPlayer;
+    return {
+      playerId: this.playerId,
+      displayName: this.identity.displayName,
+      avatarId: p.avatarId,
+      position: { x: p.root.position.x, y: p.root.position.y, z: p.root.position.z },
+      rotation: p.root.rotation.y,
+      movementState: p.movementState,
+      timestamp: Date.now(),
+    };
+  }
+
   connect() {
-    if (!this.client || !this.identity || this.channel || this.disposed) return;
-    // Presence owns membership. Broadcast carries only temporary transforms; nothing writes positions to Postgres.
-    const channel = this.client.channel('free-roam:v1', { config: { presence: { key: this.playerId }, broadcast: { self: false } } });
-    this.channel = channel;
-    channel.on('presence', { event: 'sync' }, () => this.syncPresence());
-    channel.on('broadcast', { event: 'state' }, ({ payload }) => this.receive(payload));
-    channel.subscribe(async (status) => {
-      if (this.channel !== channel || this.disposed) return;
-      if (status === 'SUBSCRIBED') {
-        try {
-          const result = await channel.track(this.snapshot());
-          if (this.channel !== channel || this.disposed || this.retryTimer) return;
-          if (result !== 'ok') throw new Error(`Presence track: ${result}`);
-          this.retryDelay = this.config.reconnectBaseMs ?? 1000;
-          this.online = true; this.onStatus(true, 'Connesso a Supabase Realtime');
-          this.syncPresence();
-        } catch (error) {
-          console.warn('[Free Roam] Presence non disponibile:', error);
-          this.reconnect(channel);
+    if (this.disposed || this.transport) return;
+
+    const transport = new WebSocketTransport(this.config.serverUrl, {
+      onOpen: () => {
+        if (this.disposed || this.transport !== transport) return;
+        clearTimeout(this.connectTimer);
+        this.connectTimer = null;
+        this.retryDelay = this.config.reconnectBaseMs ?? 1000;
+        this.online = true;
+        transport.send({ type: 'join', player: this.snapshot() });
+        this.onStatus(true, 'Connesso al server dedicato');
+      },
+
+      onMessage: (message) => this.receiveMessage(message),
+
+      onError: () => {
+        if (!this.disposed && this.transport === transport) {
+          this.onStatus(false, 'Errore di rete');
         }
-      } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-        console.warn('[Free Roam] Realtime:', status);
-        this.reconnect(channel);
-      }
+      },
+
+      onClose: (_event, manualClose) => {
+        if (this.transport === transport) this.transport = null;
+        clearTimeout(this.connectTimer);
+        this.connectTimer = null;
+        this.online = false;
+        if (this.disposed || manualClose) return;
+        this.remotes.clear();
+        this.onStatus(false, 'Riconnessione al server…');
+        this.scheduleReconnect();
+      },
     });
+
+    this.transport = transport;
+    transport.connect();
+
+    this.connectTimer = setTimeout(() => {
+      if (this.transport === transport && !transport.connected && !this.disposed) {
+        transport.close(4000, 'connect timeout');
+        this.transport = null;
+        this.onStatus(false, 'Server non raggiungibile · nuovo tentativo…');
+        this.scheduleReconnect();
+      }
+    }, this.config.connectTimeoutMs ?? 8000);
   }
-  reconnect(channel) {
-    if (this.channel !== channel || this.disposed || this.retryTimer) return;
-    this.online = false; this.remotes.clear(); this.onStatus(false, 'Riconnessione multiplayer…');
+
+  scheduleReconnect() {
+    if (this.disposed || this.retryTimer) return;
     const delay = this.retryDelay;
-    this.retryDelay = Math.min(this.retryDelay * 2, 30000);
-    this.retryTimer = setTimeout(async () => {
+    this.retryDelay = Math.min(this.retryDelay * 2, this.config.reconnectMaxMs ?? 15000);
+    this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      if (this.channel !== channel || this.disposed) return;
-      this.channel = null;
-      try { await this.client.removeChannel(channel); }
-      catch (error) { console.warn('[Free Roam] Chiusura canale:', error); }
       this.connect();
     }, delay);
   }
-  snapshot() {
-    const p = this.localPlayer;
-    return { playerId: this.playerId, displayName: this.identity.displayName, avatarId: p.avatarId,
-      position: { x: p.root.position.x, y: p.root.position.y, z: p.root.position.z },
-      rotation: p.root.rotation.y, movementState: p.movementState, timestamp: Date.now() };
-  }
-  syncPresence() {
-    if (!this.channel) return;
-    const present = new Set();
-    for (const metas of Object.values(this.channel.presenceState())) {
-      for (const meta of metas) {
-        if (!validSnapshot(meta, Infinity) || meta.playerId === this.playerId) continue;
-        present.add(meta.playerId); this.remotes.receive(meta);
+
+  receiveMessage(message) {
+    if (!message || typeof message !== 'object') return;
+
+    if (message.type === 'snapshot' && Array.isArray(message.players)) {
+      const present = new Set();
+      for (const snapshot of message.players) {
+        if (!validSnapshot(snapshot, Infinity) || snapshot.playerId === this.playerId) continue;
+        present.add(snapshot.playerId);
+        this.remotes.receive(snapshot);
       }
+      this.remotes.reconcile(present);
+      return;
     }
-    this.remotes.reconcile(present);
+
+    if ((message.type === 'join' || message.type === 'state') && validSnapshot(message.player, Infinity)) {
+      if (message.player.playerId !== this.playerId) this.remotes.receive(message.player);
+      return;
+    }
+
+    if (message.type === 'leave' && typeof message.playerId === 'string') {
+      this.remotes.remove(message.playerId);
+      return;
+    }
+
+    if (message.type === 'pong' && Number.isFinite(message.ts)) {
+      this.onLatency(Math.max(0, Math.round(performance.now() - message.ts)));
+      return;
+    }
+
+    if (message.type === 'error') {
+      console.warn('[Free Roam] Server:', message.msg || 'errore');
+    }
   }
-  receive(payload) {
-    if (!this.online || !validSnapshot(payload) || payload.playerId === this.playerId) return;
-    // Ignore states from clients no longer present in the channel.
-    const known = Object.values(this.channel.presenceState()).some((metas) => metas.some((meta) => meta.playerId === payload.playerId));
-    if (known) this.remotes.receive(payload);
-  }
+
   update(delta) {
     this.remotes.update(delta);
-    if (!this.online) return;
+    if (!this.online || !this.transport?.connected) return;
+
     this.elapsed += delta;
-    this.presenceElapsed += delta;
-    if (this.presenceElapsed >= this.config.presenceRefreshSeconds) {
-      this.presenceElapsed = 0;
-      this.channel.track(this.snapshot()).catch((error) => console.warn('[Free Roam] Presence refresh:', error));
+    this.pingElapsed += delta;
+
+    if (this.elapsed >= 1 / this.config.sendHz) {
+      this.elapsed = 0;
+      this.transport.send({ type: 'state', player: this.snapshot() });
     }
-    if (this.elapsed < 1 / this.config.sendHz) return;
-    this.elapsed = 0;
-    this.channel.send({ type: 'broadcast', event: 'state', payload: this.snapshot() })
-      .then((result) => { if (result !== 'ok') console.warn('[Free Roam] Broadcast:', result); })
-      .catch((error) => console.warn('[Free Roam] Broadcast fallito:', error));
+
+    if (this.pingElapsed >= (this.config.pingSeconds ?? 5)) {
+      this.pingElapsed = 0;
+      this.transport.send({ type: 'ping', ts: performance.now() });
+    }
   }
+
   async disconnect() {
     this.disposed = true;
-    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.online = false;
+    clearTimeout(this.retryTimer);
+    clearTimeout(this.connectTimer);
     this.retryTimer = null;
-    this.online = false; this.remotes.clear();
-    const channel = this.channel;
-    this.channel = null;
-    if (channel) await this.client.removeChannel(channel);
+    this.connectTimer = null;
+    this.transport?.close();
+    this.transport = null;
+    this.remotes.clear();
   }
 }
