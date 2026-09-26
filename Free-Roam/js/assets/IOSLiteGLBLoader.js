@@ -3,7 +3,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
 const BIN_CHUNK = 0x004e4942;
-const MOBILE_GEOMETRY_BUDGET = 220 * 1024 * 1024;
 const RANGE_CHUNK_BYTES = 8 * 1024 * 1024;
 
 const loader = new GLTFLoader();
@@ -361,12 +360,10 @@ export function prepareIOSLiteDocument(source) {
 
   if (!usedViews.size) throw new Error('La mappa non contiene geometria caricabile in modalità iPhone.');
 
-  if (totalGeometryBytes > MOBILE_GEOMETRY_BUDGET) {
-    throw new Error(
-      `La sola geometria pesa ${Math.round(totalGeometryBytes / 1024 / 1024)} MB: serve una versione mobile della mappa più leggera.`,
-    );
-  }
-
+  // Non rifiutiamo la mappa in base alla sola dimensione della geometria:
+  // Free Roam deve mantenere lo stesso spazio/collisioni su desktop e mobile.
+  // Su iOS alleggeriamo soltanto la rappresentazione visiva (texture/materiali),
+  // preservando mesh, trasformazioni e coordinate della mappa originale.
   return { doc, usedViews, totalGeometryBytes };
 }
 
@@ -527,7 +524,15 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
 
   const groups = mergeRanges(assignments, binStart);
   const totalDownload = groups.reduce((sum, group) => sum + (group.end - group.start + 1), 0);
-  const compact = createGLBContainer(doc, binLength);
+  onStage('iPhone · preparo la mappa completa senza texture pesanti…');
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  let compact;
+  try {
+    compact = createGLBContainer(doc, binLength);
+  } catch (error) {
+    throw new Error(`Memoria insufficiente durante la preparazione della mappa iPhone: ${error.message || error}`);
+  }
   let loaded = 0;
 
   for (const group of groups) {
@@ -562,6 +567,8 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
         mobileLite: true,
       });
 
+      // Cedi periodicamente il main thread a Safari: evita che una mappa molto
+      // grande faccia sembrare la pagina bloccata durante copia/preparazione.
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
   }
