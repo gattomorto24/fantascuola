@@ -2,8 +2,11 @@ import * as THREE from 'three';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const rayOrigin = new THREE.Vector3();
-const boxSize = new THREE.Vector3();
+const rayDirection = new THREE.Vector3();
+const testPosition = new THREE.Vector3();
 const resolved = new THREE.Vector3();
+const worldNormal = new THREE.Vector3();
+const normalMatrix = new THREE.Matrix3();
 
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
@@ -12,6 +15,11 @@ function nextFrame() {
 function finiteBox(box) {
   return Number.isFinite(box.min.x) && Number.isFinite(box.min.y) && Number.isFinite(box.min.z)
     && Number.isFinite(box.max.x) && Number.isFinite(box.max.y) && Number.isFinite(box.max.z);
+}
+
+function triangleCount(geometry) {
+  if (geometry.index) return Math.floor(geometry.index.count / 3);
+  return Math.floor((geometry.attributes?.position?.count || 0) / 3);
 }
 
 export class WorldCollision {
@@ -65,15 +73,26 @@ export class WorldCollision {
 
       const size = box.getSize(new THREE.Vector3());
       const footprint = Math.max(size.x, size.z);
+      const triangles = triangleCount(geometry);
+
       const terrainLike = (size.x > 70 && size.z > 70)
         || (size.y <= 1.2 && footprint >= 5)
         || (size.y > 0 && size.x > size.y * 12 && size.z > size.y * 12);
+
+      // Le AABB restano solo broad-phase. La collisione finale contro muri e
+      // edifici viene verificata con raycast sui triangoli reali, così aperture,
+      // vicoli e porte non vengono chiusi da "scatole invisibili".
+      const horizontalCollision = size.y > 0.45
+        && triangles > 0
+        && triangles <= 250000
+        && footprint <= 70;
 
       const proxy = {
         mesh,
         box,
         terrainLike,
-        obstacle: !terrainLike && size.y > 0.45,
+        horizontalCollision,
+        triangles,
       };
 
       const index = this.proxies.push(proxy) - 1;
@@ -87,6 +106,7 @@ export class WorldCollision {
 
     this.ready = this.proxies.length > 0;
     onProgress(1);
+
     return {
       meshes: this.proxies.length,
       indexedCells: this.cells.size,
@@ -102,6 +122,7 @@ export class WorldCollision {
 
     const width = maxX - minX + 1;
     const depth = maxZ - minZ + 1;
+
     if (width * depth > this.maxCellsPerMesh) {
       this.globalIndices.push(index);
       return;
@@ -147,6 +168,7 @@ export class WorldCollision {
     const qz = Math.round(z / this.groundCacheStep);
     const qy = Math.round(referenceY / 2);
     const cacheKey = `${qx}:${qz}:${qy}`;
+
     if (this.groundCache.has(cacheKey)) return this.groundCache.get(cacheKey);
 
     const indices = this.candidateIndices(x, z, 0.8);
@@ -154,18 +176,12 @@ export class WorldCollision {
     const maximumY = referenceY + maxStep + 0.12;
 
     const candidates = [];
-    let boxFallback = null;
-
     for (const index of indices) {
       const proxy = this.proxies[index];
       const box = proxy.box;
 
       if (x < box.min.x - 0.08 || x > box.max.x + 0.08 || z < box.min.z - 0.08 || z > box.max.z + 0.08) continue;
       if (box.max.y < minimumY - 0.5 || box.min.y > maximumY + 1.5) continue;
-
-      if (box.max.y <= maximumY && box.max.y >= minimumY) {
-        if (boxFallback === null || box.max.y > boxFallback) boxFallback = box.max.y;
-      }
 
       candidates.push(proxy);
     }
@@ -197,58 +213,89 @@ export class WorldCollision {
       }
     }
 
-    if (height === null) height = boxFallback;
-
+    // Niente fallback alla bounding box: una mesh con un portone/vicolo aperto
+    // non deve creare un pavimento o tetto invisibile solo perché la sua AABB
+    // copre anche quello spazio vuoto.
     if (this.groundCache.size > 5000) this.groundCache.clear();
     this.groundCache.set(cacheKey, height);
     return height;
   }
 
-  resolveHorizontalMovement(position, movement, radius = 0.34, height = 1.8, stepHeight = 0.55) {
-    resolved.copy(position);
-    resolved.x += movement.x;
-    resolved.z += movement.z;
+  blocksRay(origin, direction, distance, radius, bodyHeight) {
+    if (distance <= 0.00001) return false;
 
-    if (!this.ready || (movement.x === 0 && movement.z === 0)) return resolved;
-
-    const searchRadius = radius + Math.max(Math.abs(movement.x), Math.abs(movement.z)) + 0.3;
-    const indices = this.candidateIndices(resolved.x, resolved.z, searchRadius);
-    const bodyBottom = position.y + stepHeight + 0.04;
-    const bodyTop = position.y + height - 0.08;
-
-    // A few passes are enough to slide a capsule-like point out of nearby static AABBs.
-    for (let pass = 0; pass < 3; pass += 1) {
-      let changed = false;
-
-      for (const index of indices) {
-        const proxy = this.proxies[index];
-        if (!proxy.obstacle) continue;
-
+    const midX = origin.x + direction.x * distance * 0.5;
+    const midZ = origin.z + direction.z * distance * 0.5;
+    const candidates = this.candidateIndices(midX, midZ, distance * 0.5 + radius + 0.45)
+      .map((index) => this.proxies[index])
+      .filter((proxy) => proxy.horizontalCollision)
+      .filter((proxy) => {
         const box = proxy.box;
-        if (box.max.y <= bodyBottom || box.min.y >= bodyTop) continue;
+        const minY = origin.y + 0.12;
+        const maxY = origin.y + bodyHeight - 0.12;
+        return box.max.y >= minY && box.min.y <= maxY;
+      })
+      .sort((a, b) => {
+        const acx = (a.box.min.x + a.box.max.x) * 0.5;
+        const acz = (a.box.min.z + a.box.max.z) * 0.5;
+        const bcx = (b.box.min.x + b.box.max.x) * 0.5;
+        const bcz = (b.box.min.z + b.box.max.z) * 0.5;
+        return Math.hypot(acx - origin.x, acz - origin.z) - Math.hypot(bcx - origin.x, bcz - origin.z);
+      })
+      .slice(0, 10);
 
-        const minX = box.min.x - radius;
-        const maxX = box.max.x + radius;
-        const minZ = box.min.z - radius;
-        const maxZ = box.max.z + radius;
+    if (!candidates.length) return false;
 
-        if (resolved.x <= minX || resolved.x >= maxX || resolved.z <= minZ || resolved.z >= maxZ) continue;
+    const meshes = candidates.map((proxy) => proxy.mesh);
+    const probeHeights = [0.42, Math.min(bodyHeight - 0.2, 1.28)];
 
-        const pushLeft = resolved.x - minX;
-        const pushRight = maxX - resolved.x;
-        const pushBack = resolved.z - minZ;
-        const pushForward = maxZ - resolved.z;
-        const minPush = Math.min(pushLeft, pushRight, pushBack, pushForward);
+    for (const height of probeHeights) {
+      rayOrigin.set(origin.x, origin.y + height, origin.z);
+      rayDirection.set(direction.x, 0, direction.z).normalize();
+      this.raycaster.set(rayOrigin, rayDirection);
+      this.raycaster.near = 0;
+      this.raycaster.far = distance + radius;
 
-        if (minPush === pushLeft) resolved.x = minX;
-        else if (minPush === pushRight) resolved.x = maxX;
-        else if (minPush === pushBack) resolved.z = minZ;
-        else resolved.z = maxZ;
+      const hits = this.raycaster.intersectObjects(meshes, false);
 
-        changed = true;
+      for (const hit of hits) {
+        if (!hit.face) return true;
+
+        normalMatrix.getNormalMatrix(hit.object.matrixWorld);
+        worldNormal.copy(hit.face.normal).applyMatrix3(normalMatrix).normalize();
+
+        // Blocca soltanto superfici abbastanza verticali. Strade, marciapiedi,
+        // tetti e rampe non devono trasformarsi in muri durante il movimento.
+        if (Math.abs(worldNormal.y) < 0.72) return true;
       }
+    }
 
-      if (!changed) break;
+    return false;
+  }
+
+  resolveHorizontalMovement(position, movement, radius = 0.34, height = 1.8) {
+    resolved.copy(position);
+
+    if (!this.ready || (movement.x === 0 && movement.z === 0)) {
+      resolved.x += movement.x;
+      resolved.z += movement.z;
+      return resolved;
+    }
+
+    // Risoluzione per assi: se un muro blocca solo X, Z continua e il player
+    // scivola lungo la parete invece di fermarsi di colpo.
+    if (movement.x !== 0) {
+      rayDirection.set(Math.sign(movement.x), 0, 0);
+      if (!this.blocksRay(resolved, rayDirection, Math.abs(movement.x), radius, height)) {
+        resolved.x += movement.x;
+      }
+    }
+
+    if (movement.z !== 0) {
+      rayDirection.set(0, 0, Math.sign(movement.z));
+      if (!this.blocksRay(resolved, rayDirection, Math.abs(movement.z), radius, height)) {
+        resolved.z += movement.z;
+      }
     }
 
     return resolved;
