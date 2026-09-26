@@ -159,12 +159,14 @@ export class Game {
             (stage, localProgress = null) => {
               if (stage.includes('analisi mappa leggera')) onStage(stage, 15);
               else if (stage.includes('geometria') && stage.includes('texture escluse')) onStage(stage, 18);
-              else if (stage.includes('parsing geometria')) onStage(stage, 88);
-              else if (stage.includes('ottimizzazione geometria')) onStage(stage, 90);
-              else if (stage.includes('Ottimizzazione')) onStage(stage, 90);
+              else if (stage.includes('preparo la mappa completa')) onStage(stage, 86);
+              else if (stage.includes('server senza Range')) onStage(stage, 20);
+              else if (stage.includes('parsing geometria')) onStage(stage, 89);
+              else if (stage.includes('ottimizzazione geometria')) onStage(stage, 91);
+              else if (stage.includes('Ottimizzazione')) onStage(stage, 91);
               else if (stage.includes('Creazione collisioni')) {
                 const pct = Number.isFinite(localProgress) ? localProgress : 0;
-                onStage(stage, 92 + pct * 5);
+                onStage(stage, 93 + pct * 4);
               } else if (stage.includes('Download')) {
                 onStage(stage, 14);
               }
@@ -182,7 +184,7 @@ export class Game {
               const saved = original > 0 ? Math.max(0, 1 - downloaded / original) : 0;
 
               this.hud.setAssetStatus(
-                `Modalità iPhone: geometria ottimizzata, texture pesanti escluse · -${Math.round(saved * 100)}% download.`,
+                `Modalità iPhone: stessa geometria/collisioni del mondo PC, texture pesanti escluse · ${Math.round(downloaded / 1024 / 1024)} MB trasferiti.`,
               );
             }
 
