@@ -1,66 +1,123 @@
-# FantaScuola Free Roam
+# FantaScuola Free Roam v0.3
 
-Modulo 3D isolato in `/Free-Roam/`. Il sito principale aggiunge il collegamento al gioco e un riquadro nel pannello gestione. Il gioco non modifica voti o punti.
+Modulo 3D isolato in `/Free-Roam/`. Il sito principale resta indipendente dal gioco.
 
-## Realtime dedicato
+## Novità v0.3
 
-Il movimento multiplayer non usa più Supabase Realtime. Il client si collega al server WebSocket dedicato:
+### Mobile / PWA
+
+- rilevamento `desktop`, `mobile-browser` e `mobile-standalone` usando touch capability, pointer type, viewport e display-mode;
+- schermata **PIÙ SPAZIO PER GIOCARE** sui browser mobile con istruzioni iOS/Android e possibilità di continuare nel browser;
+- manifest PWA e service worker scoped a `/Free-Roam/`;
+- layout standalone con `viewport-fit=cover`, safe-area e canvas a tutto schermo;
+- overlay **RUOTA IL TELEFONO** in portrait senza ricaricare la sessione.
+
+### Controlli touch
+
+Il vecchio riquadro VISUALE e il pulsante CORRI sono stati rimossi.
+
+- joystick analogico sinistro;
+- dead zone e intensità analogica;
+- sprint integrato nel ring esterno del joystick;
+- feedback visivo quando lo sprint è attivo;
+- camera tramite drag in qualsiasi zona libera del canvas;
+- Pointer Events separati per joystick, camera e salto;
+- multitouch reale: movimento + sprint + camera + salto contemporanei;
+- un solo grande pulsante Salto;
+- blocco delle gesture browser durante il gameplay, senza applicarlo ai menu.
+
+I parametri del joystick sono centralizzati in `js/config/settings.js`.
+
+### Pixel Avatar Creator
+
+Il nuovo avatar consigliato è un personaggio voxel/pixel 3D umanoide costruito proceduralmente. Include:
+
+- testa, collo, torso e bacino;
+- braccia, avambracci e mani separati;
+- cosce, gambe e piedi separati;
+- occhi neri;
+- geometria capelli visibile con ciocche/frangia;
+- 4 tonalità pelle;
+- 4 colori capelli;
+- 3 colori maglietta;
+- 3 colori pantaloni indipendenti;
+- scarpe nere o bianche;
+- animazioni procedurali leggere Idle / Walk / Run / Jump.
+
+Il creator mostra una preview 3D ruotabile. Non genera né salva GLB: salva esclusivamente una piccola configurazione JSON. Per gli utenti autenticati la configurazione viene salvata nei metadata Supabase Auth dell'account; per gli ospiti resta anche in `localStorage`.
+
+La configurazione viene inclusa nello snapshot multiplayer quando `avatarId === "pixel"`, così ogni client ricostruisce localmente lo stesso avatar. Il supporto a placeholder, GLB locale e GLB pubblicati resta disponibile.
+
+### Disconnessioni
+
+La migrazione al server WebSocket dedicato era già stata effettuata nella release precedente e v0.3 non cambia provider o architettura di trasporto.
+
+Quando la connessione cade:
+
+1. parte un breve grace period configurabile;
+2. il client tenta il reconnect automatico;
+3. se la connessione torna rapidamente non appare alcun overlay;
+4. se la perdita è reale compare una schermata fullscreen **DISCONNESSO**;
+5. **RICONNETTI** forza una sessione pulita senza ricaricare la pagina;
+6. **CONTINUA OFFLINE** chiude il realtime, rimuove i RemotePlayer e lascia movimento, camera, avatar e mappa attivi localmente.
+
+Durante l'overlay i controlli vengono disabilitati e i touch non attraversano la schermata.
+
+## Realtime
+
+Endpoint:
 
 `wss://fantascuola-realtime-production.up.railway.app/room/main`
 
-Supabase resta disponibile per account, profili, mappe, avatar e dati persistenti. Posizioni, rotazioni e stato di movimento sono temporanei e non vengono scritti in Postgres.
+Supabase resta responsabile di account e dati persistenti. Le coordinate realtime non vengono salvate nel database.
 
-Protocollo principale:
+## Stress test
 
-- `join`: registra il giocatore e riceve lo snapshot iniziale della stanza;
-- `state`: aggiorna posizione, rotazione, animazione e avatar a 10 Hz;
-- `leave`: rimuove immediatamente il giocatore disconnesso;
-- `ping/pong`: misura la latenza applicativa;
-- heartbeat WebSocket server-side: elimina connessioni morte;
-- reconnect client con backoff esponenziale.
-
-Il server limita i messaggi a 8 KB, applica rate limiting per client e accetta fino a 128 connessioni nella stanza di test. Il sorgente di riferimento è in `server/realtime.mjs`; la produzione è attualmente una Railway Function.
-
-## Avvio e deploy del client
-
-Servire la radice del repository via HTTP, per esempio con `python3 -m http.server 8765`, e aprire `http://localhost:8765/Free-Roam/`. Su GitHub Pages l'indirizzo è `https://gattomorto24.github.io/fantascuola/Free-Roam/`.
-
-Moduli ES, Three.js e supabase-js sono inclusi in `vendor/`; gli import e gli asset usano percorsi relativi, validi anche sotto il prefisso `/fantascuola/`.
-
-## Stress test grafico
-
-Aggiungere `?stress=100` all'URL del Free Roam per generare 100 RemotePlayer locali che si muovono attorno allo spawn:
+Per generare giocatori remoti locali e misurare gli FPS:
 
 `/Free-Roam/?stress=100`
 
-Questo test misura soprattutto il costo di rendering/interpolazione sul dispositivo e non crea 100 connessioni di rete reali. L'HUD continua a mostrare gli FPS.
-
-## Stress test WebSocket
-
-Da `Free-Roam/`:
+Per il test WebSocket headless:
 
 `npm install`
 
 `npm run loadtest -- 100 2 10`
 
-I parametri sono rispettivamente numero client, aggiornamenti al secondo per client e durata in secondi. Il default è volutamente prudente: 100 client a 2 Hz per 10 secondi. Per una classe reale il client normale usa 10 Hz, ma un test 100×10 Hz genera un fan-out molto maggiore e va eseguito solo quando serve.
+## Verifiche manuali consigliate
 
-## Asset e Supabase
+Desktop:
 
-Le mappe e gli avatar GLB continuano a usare l'attuale sistema di asset/persistenza. Un avatar GLB locale resta sul dispositivo; gli avatar pubblicati sono referenziati tramite ID. Le coordinate realtime non sono persistite.
+- WASD;
+- Shift;
+- Space;
+- camera mouse;
+- avatar pixel e GLB.
 
-## Architettura
+Mobile landscape:
 
-- `core`, `input`, `player`, `camera`: loop, movimento, salto, camera e giocatori;
-- `avatars`, `assets`: avatar e caricamento GLB;
-- `world`: pianura, manifest e MapLoader;
-- `multiplayer/WebSocketTransport.js`: trasporto WebSocket;
-- `multiplayer/MultiplayerManager.js`: protocollo, reconnect, snapshot, interpolazione e ping;
-- `server/realtime.mjs`: sorgente del server dedicato;
-- `debug/StressHarness.js`: bot grafici locali per misurare FPS;
-- `storage`, `admin`: dati persistenti e pannello manager;
-- `config`, `ui`: parametri centralizzati e HUD.
+- joystick analogico;
+- ring sprint;
+- camera su area libera;
+- joystick + camera insieme;
+- joystick + camera + salto;
+- safe-area;
+- nessun pull-to-refresh/scroll durante gameplay;
+- PWA/standalone.
 
-## Verifiche consigliate
+Avatar:
 
-Aprire due dispositivi/account diversi e verificare che entrambi mostrino `Online`, vedano il nome e il movimento dell'altro e che l'uscita rimuova il RemotePlayer. Poi chiudere brutalmente una scheda e verificare la rimozione tramite heartbeat. Infine provare `?stress=100` separatamente su PC, Mac e iPhone per confrontare gli FPS.
+- tutte le combinazioni pelle/capelli/maglia/pantaloni/scarpe;
+- salvataggio e riapertura;
+- avatar remoto identico;
+- animazioni Walk/Run.
+
+Network:
+
+- micro-disconnessione recuperata senza overlay;
+- disconnessione reale → fullscreen;
+- RICONNETTI;
+- CONTINUA OFFLINE.
+
+## Deploy
+
+GitHub Pages usa percorsi relativi sotto `/fantascuola/Free-Roam/`. Non usare force push.
