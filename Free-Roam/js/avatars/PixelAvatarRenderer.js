@@ -10,32 +10,6 @@ function option(group, id) {
   return PIXEL_AVATAR_OPTIONS[group].find((item) => item.id === id) || PIXEL_AVATAR_OPTIONS[group][0];
 }
 
-export function normalizePixelAvatarConfig(value = {}) {
-  const input = value && typeof value === 'object' ? value : {};
-  const safeId = (group, id, fallback) => PIXEL_AVATAR_OPTIONS[group].some((item) => item.id === id) ? id : fallback;
-  return {
-    version: 1,
-    type: 'pixel',
-    skinTone: safeId('skinTone', input.skinTone, DEFAULT_PIXEL_AVATAR.skinTone),
-    hairStyle: 'basic',
-    hairColor: safeId('hairColor', input.hairColor, DEFAULT_PIXEL_AVATAR.hairColor),
-    shirtColor: safeId('shirtColor', input.shirtColor, DEFAULT_PIXEL_AVATAR.shirtColor),
-    pantsColor: safeId('pantsColor', input.pantsColor, DEFAULT_PIXEL_AVATAR.pantsColor),
-    shoesColor: safeId('shoesColor', input.shoesColor, DEFAULT_PIXEL_AVATAR.shoesColor),
-  };
-}
-
-export function isPixelAvatarConfig(value) {
-  if (!value || typeof value !== 'object' || value.type !== 'pixel' || value.version !== 1) return false;
-  const normalized = normalizePixelAvatarConfig(value);
-  return ['skinTone', 'hairColor', 'shirtColor', 'pantsColor', 'shoesColor']
-    .every((key) => normalized[key] === value[key]);
-}
-
-export function pixelAvatarLabel(group, id) {
-  return option(group, id).label;
-}
-
 function geometry(w, h, d) {
   const key = `${w}:${h}:${d}`;
   if (!geometries.has(key)) geometries.set(key, new THREE.BoxGeometry(w, h, d));
