@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
 const BIN_CHUNK = 0x004e4942;
-const MOBILE_GEOMETRY_BUDGET = 280 * 1024 * 1024;
+const MOBILE_GEOMETRY_BUDGET = 220 * 1024 * 1024;
 const RANGE_CHUNK_BYTES = 8 * 1024 * 1024;
 
 const loader = new GLTFLoader();
@@ -123,12 +123,15 @@ function stripHeavyVisuals(source) {
       alphaMode: sourceMaterial?.alphaMode || 'OPAQUE',
       ...(sourceMaterial?.alphaCutoff !== undefined ? { alphaCutoff: sourceMaterial.alphaCutoff } : {}),
       ...(Array.isArray(sourceMaterial?.emissiveFactor) ? { emissiveFactor: sourceMaterial.emissiveFactor } : {}),
+      extensions: { KHR_materials_unlit: {} },
     };
   });
 
   const usedExtensions = new Set(doc.extensionsUsed || []);
-  doc.extensionsUsed = [...usedExtensions].filter((name) => name === 'KHR_mesh_quantization');
-  if (!doc.extensionsUsed.length) delete doc.extensionsUsed;
+  doc.extensionsUsed = [
+    ...[...usedExtensions].filter((name) => name === 'KHR_mesh_quantization'),
+    'KHR_materials_unlit',
+  ];
 
   const requiredExtensions = new Set(doc.extensionsRequired || []);
   doc.extensionsRequired = [...requiredExtensions].filter((name) => name === 'KHR_mesh_quantization');
@@ -137,22 +140,18 @@ function stripHeavyVisuals(source) {
   return doc;
 }
 
+const MOBILE_VERTEX_ATTRIBUTES = new Set(['POSITION', 'COLOR_0']);
+
 function collectUsedAccessors(doc) {
   const used = new Set();
 
   for (const mesh of doc.meshes || []) {
     for (const primitive of mesh.primitives || []) {
-      for (const accessor of Object.values(primitive.attributes || {})) {
-        if (Number.isInteger(accessor)) used.add(accessor);
+      for (const [name, accessor] of Object.entries(primitive.attributes || {})) {
+        if (MOBILE_VERTEX_ATTRIBUTES.has(name) && Number.isInteger(accessor)) used.add(accessor);
       }
 
       if (Number.isInteger(primitive.indices)) used.add(primitive.indices);
-
-      for (const target of primitive.targets || []) {
-        for (const accessor of Object.values(target || {})) {
-          if (Number.isInteger(accessor)) used.add(accessor);
-        }
-      }
     }
   }
 
@@ -167,13 +166,14 @@ function remapAccessors(doc) {
   doc.accessors = used.map((index) => deepClone(source[index]));
 
   for (const mesh of doc.meshes || []) {
+    delete mesh.weights;
     mesh.primitives = (mesh.primitives || []).filter((primitive) => {
       const attributes = primitive.attributes || {};
       if (!Number.isInteger(attributes.POSITION) || !map.has(attributes.POSITION)) return false;
 
       primitive.attributes = Object.fromEntries(
         Object.entries(attributes)
-          .filter(([, accessor]) => map.has(accessor))
+          .filter(([name, accessor]) => MOBILE_VERTEX_ATTRIBUTES.has(name) && map.has(accessor))
           .map(([name, accessor]) => [name, map.get(accessor)]),
       );
 
@@ -182,17 +182,7 @@ function remapAccessors(doc) {
         else delete primitive.indices;
       }
 
-      if (Array.isArray(primitive.targets)) {
-        primitive.targets = primitive.targets
-          .map((target) => Object.fromEntries(
-            Object.entries(target || {})
-              .filter(([, accessor]) => map.has(accessor))
-              .map(([name, accessor]) => [name, map.get(accessor)]),
-          ))
-          .filter((target) => Object.keys(target).length);
-        if (!primitive.targets.length) delete primitive.targets;
-      }
-
+      delete primitive.targets;
       return true;
     });
   }
