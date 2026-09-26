@@ -6,6 +6,7 @@ import { validateGLBFile } from './assets/GLBLoader.js';
 import { AvatarCreator } from './avatars/AvatarCreator.js';
 import { DEFAULT_PIXEL_AVATAR, normalizePixelAvatarConfig } from './avatars/AvatarConfig.js';
 import { setupMobileExperience } from './ui/MobileExperience.js';
+import { LoadingScreen } from './ui/LoadingScreen.js';
 
 const enter = document.getElementById('enter');
 const nameInput = document.getElementById('player-name');
@@ -20,6 +21,8 @@ const openCreator = document.getElementById('open-avatar-creator');
 const status = document.getElementById('menu-status');
 const progress = document.getElementById('menu-progress');
 const errorBox = document.getElementById('startup-error');
+const welcome = document.getElementById('welcome');
+const loadingScreen = new LoadingScreen(document.getElementById('world-loading'));
 
 const mobileExperience = setupMobileExperience();
 
@@ -220,6 +223,8 @@ enter.addEventListener('click', async () => {
   localStorage.setItem(`free-roam-name:${identity?.userId || 'guest'}`, displayName);
   enter.disabled = true;
   message('Ingresso nel mondo…', true);
+  loadingScreen.show();
+  welcome.hidden = true;
 
   try {
     game = new Game(document.getElementById('game'), document.getElementById('hud'), {
@@ -230,8 +235,11 @@ enter.addEventListener('click', async () => {
       storage,
     });
 
-    await game.start((stage) => message(stage, true));
-    document.getElementById('welcome').hidden = true;
+    await game.start((stage, progressValue) => {
+      message(stage, true);
+      loadingScreen.update(stage, progressValue);
+    });
+    await loadingScreen.complete();
 
     window.addEventListener('pagehide', () => {
       game?.dispose();
@@ -241,6 +249,8 @@ enter.addEventListener('click', async () => {
   } catch (error) {
     console.error('[Free Roam] Avvio fallito:', error);
     message(`Avvio fallito: ${error?.message || error || 'errore sconosciuto'}`, false, true);
+    loadingScreen.hideImmediately();
+    welcome.hidden = false;
     await game?.dispose().catch(() => {});
     game = null;
     enter.disabled = false;
