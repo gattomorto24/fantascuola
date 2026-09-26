@@ -1,5 +1,5 @@
 import { createGameClient, getGameIdentity } from '../config/supabase.js';
-import { StorageService } from '../storage/StorageService.js?v=maps-1gib-v3';
+import { StorageService } from '../storage/StorageService.js?v=hf-bucket-v1';
 
 const elements = {
   name: document.getElementById('active-name'), file: document.getElementById('active-file'), size: document.getElementById('active-size'), date: document.getElementById('active-date'),
@@ -17,7 +17,7 @@ function showMap(map) {
   const realSize = Number(map?.metadata?.original_file_size || map?.file_size || 0);
   elements.size.textContent = map && realSize ? `${(realSize / 1024 / 1024).toFixed(1)} MB` : '—';
   elements.date.textContent = map?.created_at ? new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(map.created_at)) : '—';
-  elements.upload.textContent = map ? 'SOSTITUISCI MAPPA DA GITHUB' : 'ATTIVA MAPPA DA GITHUB';
+  elements.upload.textContent = map ? 'SOSTITUISCI MAPPA' : 'ATTIVA MAPPA';
   setBusy(busy);
 }
 async function refreshMap() {
@@ -40,7 +40,7 @@ async function initialize() {
     client.channel('free-roam-map-manager')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'free_roam_settings' }, refreshMap)
       .subscribe();
-    status('Incolla il link diretto di un GLB pubblicato nella Release maps (fino a 1 GB).');
+    status('Incolla il link pubblico del GLB nel Bucket Hugging Face (fino a 1 GB).');
   } catch (error) { console.warn('[Free Roam] Pannello manager:', error); status(error.message || String(error)); }
 }
 

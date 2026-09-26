@@ -3,9 +3,14 @@ import assert from 'node:assert/strict';
 import { StorageService } from '../js/storage/StorageService.js';
 
 const avatarRelease = 'https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/';
-const mapRelease = 'https://github.com/gattomorto24/fantascuola/releases/download/maps/';
+const hfMap = 'https://huggingface.co/buckets/Tony272009/Mappa/resolve/Quartiere_Chiesa_Dettagliato.glb';
 
-test('avatar usa Pages mentre mappa salva URL diretto della Release maps', async () => {
+function headers(values = {}) {
+  const normalized = Object.fromEntries(Object.entries(values).map(([key, value]) => [key.toLowerCase(), String(value)]));
+  return { get: (name) => normalized[String(name).toLowerCase()] ?? null };
+}
+
+test('avatar resta su Pages mentre la mappa salva URL Hugging Face nei metadata', async () => {
   const originalFetch = globalThis.fetch;
   const rows = [];
   const calls = [];
@@ -14,32 +19,27 @@ test('avatar usa Pages mentre mappa salva URL diretto della Release maps', async
     if (url.includes('/releases/tags/free-roam-assets')) {
       return {
         ok: true,
+        status: 200,
+        headers: headers(),
         json: async () => ({ assets: [
           {
             name: 'eroe.glb',
             size: 1024,
             state: 'uploaded',
-            browser_download_url: `${avatarRelease}eroe.glb`,
           },
         ] }),
       };
     }
 
-    if (url.includes('/releases/tags/maps')) {
+    if (url === hfMap) {
       return {
         ok: true,
-        json: async () => ({ assets: [
-          {
-            name: 'mondo.glb',
-            size: 816976060,
-            state: 'uploaded',
-            browser_download_url: `${mapRelease}mondo.glb`,
-          },
-        ] }),
+        status: 200,
+        headers: headers({ 'content-length': 816976060 }),
       };
     }
 
-    return { ok: true };
+    return { ok: true, status: 200, headers: headers() };
   };
 
   const client = {
@@ -70,12 +70,13 @@ test('avatar usa Pages mentre mappa salva URL diretto della Release maps', async
     const service = new StorageService(client, 'utente');
 
     await service.publishAvatar(`${avatarRelease}eroe.glb`, 'Eroe');
-    await service.uploadMap(`${mapRelease}mondo.glb`, 'Mondo');
+    await service.uploadMap(hfMap, 'Mascalucia');
 
     assert.equal(rows.length, 2);
     assert.deepEqual(rows.map(([table]) => table), ['free_roam_avatars', 'free_roam_maps']);
+
     assert.equal(rows[0][1].storage_path, null);
-    assert.match(rows[1][1].storage_path, /^https:\/\/github[.]com\/gattomorto24\/fantascuola\/releases\/download\/maps\/mondo[.]glb\?fantascuola_map=/);
+    assert.match(rows[1][1].storage_path, /^external\/huggingface\/[0-9a-f-]{36}\/Quartiere_Chiesa_Dettagliato[.]glb$/i);
 
     assert.equal(
       rows[0][1].asset_url,
@@ -85,9 +86,9 @@ test('avatar usa Pages mentre mappa salva URL diretto della Release maps', async
 
     assert.equal(rows[0][1].file_size, 1024);
     assert.equal(rows[1][1].file_size, 50 * 1024 * 1024);
-    assert.equal(rows[1][1].metadata.asset_url, `${mapRelease}mondo.glb`);
+    assert.equal(rows[1][1].metadata.source, 'huggingface-bucket');
+    assert.equal(rows[1][1].metadata.asset_url, hfMap);
     assert.equal(rows[1][1].metadata.original_file_size, 816976060);
-    assert.equal(rows[1][1].metadata.release_tag, 'maps');
 
     assert.deepEqual(calls, [
       ['free_roam_activate_map', { p_map_id: rows[1][1].id }],
