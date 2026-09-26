@@ -110,8 +110,14 @@ export class Game {
             manifest,
             this.storage,
             (event) => {
-              if (event.total) {
-                const pct = Math.max(0, Math.min(1, event.loaded / event.total));
+              const expectedTotal = Number(
+                event.total
+                || manifest.metadata?.original_file_size
+                || manifest.file_size
+                || 0,
+              );
+              if (expectedTotal > 0 && Number.isFinite(event.loaded)) {
+                const pct = Math.max(0, Math.min(1, event.loaded / expectedTotal));
                 // Il download arriva al massimo all'88%: dopo restano parsing,
                 // ottimizzazione, collisioni e compilazione shader.
                 onStage(
