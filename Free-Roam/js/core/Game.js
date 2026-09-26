@@ -157,7 +157,10 @@ export class Game {
               }
             },
             (stage, localProgress = null) => {
-              if (stage.includes('Download texture e geometria')) onStage(stage, 70);
+              if (stage.includes('Tentativo')) onStage(stage, 16);
+              else if (stage.includes('Salvataggio mappa')) onStage(stage, 62);
+              else if (stage.includes('cache locale')) onStage(stage, 68);
+              else if (stage.includes('Download texture e geometria')) onStage(stage, 70);
               else if (stage.includes('Assemblaggio GLB')) onStage(stage, 88);
               else if (stage.includes('Decodifica texture')) onStage(stage, 90);
               else if (stage.includes('Ottimizzazione')) onStage(stage, 92);
@@ -168,6 +171,7 @@ export class Game {
                 onStage(stage, 14);
               }
             },
+            { isMobile: this.isTouchDevice },
           );
 
           if (result.warning) this.hud.setAssetStatus(result.warning);
@@ -175,12 +179,26 @@ export class Game {
             const triangles = result.renderStats?.triangles || 0;
             const meshes = result.renderStats?.meshes || 0;
 
-            if (result.mobileLiteInfo?.fullQuality) {
-              const downloaded = Number(result.mobileLiteInfo.downloadedBytes || 0);
+            const strategyInfo = result.mobileLiteInfo || {};
+            const strategyLabel = strategyInfo.strategyLabel || result.strategy || 'standard';
+            if (strategyInfo.fullQuality) {
+              const downloaded = Number(strategyInfo.downloadedBytes || 0);
               this.hud.setAssetStatus(
-                `Mappa completa: geometria, UV, materiali e texture originali · ${Math.round(downloaded / 1024 / 1024)} MB caricati.`,
+                `Mappa completa caricata · ${strategyLabel}${downloaded ? ` · ${Math.round(downloaded / 1024 / 1024)} MB` : ''}.`,
+              );
+            } else if (strategyInfo.strategy) {
+              this.hud.setAssetStatus(
+                `Fallback mobile attivo · ${strategyLabel}. Geometria e coordinate restano condivise col PC.`,
               );
             }
+
+            try {
+              localStorage.setItem('free-roam:last-map-strategy', JSON.stringify({
+                strategy: strategyInfo.strategy || result.strategy || 'unknown',
+                fullQuality: Boolean(strategyInfo.fullQuality),
+                at: Date.now(),
+              }));
+            } catch {}
 
             console.info(
               `[Free Roam] Mappa pronta: ${meshes} mesh, ~${triangles.toLocaleString('it-IT')} triangoli, collisioni indicizzate.`,
