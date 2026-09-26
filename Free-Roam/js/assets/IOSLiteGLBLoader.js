@@ -27,62 +27,139 @@ export function isIOSLike() {
 }
 
 const fullFileCache = new Map();
+const OPFS_CACHE_DIR = 'free-roam-map-cache';
+const OPFS_YIELD_BYTES = 16 * 1024 * 1024;
+const OPFS_HEADROOM_BYTES = 96 * 1024 * 1024;
 
-async function fetchWholeFile(url, onProgress = () => {}) {
-  if (fullFileCache.has(url)) return fullFileCache.get(url);
+function cacheFileName(url) {
+  let hash = 2166136261;
+  for (let i = 0; i < url.length; i += 1) {
+    hash ^= url.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `map-${(hash >>> 0).toString(16)}.glb`;
+}
 
-  const promise = (async () => {
-    const response = await fetch(url, {
-      method: 'GET',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-    });
+async function nextFrame() {
+  if (typeof requestAnimationFrame === 'function') {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  } else {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
 
-    if (!response.ok) {
-      throw new Error(`Download mappa fallito (HTTP ${response.status || 'errore'}).`);
+async function readCachedRange(source, start, end) {
+  const safeEnd = Math.min(end + 1, source.size);
+
+  if (source.kind === 'memory') {
+    return source.bytes.subarray(start, safeEnd);
+  }
+
+  const slice = source.file.slice(start, safeEnd);
+  return new Uint8Array(await slice.arrayBuffer());
+}
+
+async function streamResponseToOPFS(url, response, onProgress = () => {}) {
+  if (!globalThis.navigator?.storage?.getDirectory || !response.body?.getReader) {
+    return null;
+  }
+
+  const total = Number(response.headers.get('content-length')) || 0;
+
+  try {
+    const estimate = await globalThis.navigator.storage.estimate?.();
+    const quota = Number(estimate?.quota || 0);
+    const usage = Number(estimate?.usage || 0);
+    if (total > 0 && quota > 0 && quota - usage < total + OPFS_HEADROOM_BYTES) {
+      throw new Error(
+        `Spazio locale insufficiente: servono circa ${Math.ceil((total + OPFS_HEADROOM_BYTES) / 1024 / 1024)} MB liberi per preparare la mappa.`,
+      );
     }
+  } catch (error) {
+    if (error?.message?.startsWith('Spazio locale insufficiente')) throw error;
+    console.warn('[Free Roam] Stima spazio OPFS non disponibile:', error);
+  }
 
-    const total = Number(response.headers.get('content-length')) || 0;
+  try {
+    await globalThis.navigator.storage.persist?.();
+  } catch {}
 
-    if (!response.body?.getReader) {
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      onProgress({
-        lengthComputable: true,
-        loaded: bytes.byteLength,
-        total: total || bytes.byteLength,
-        fullDownloadFallback: true,
-      });
-      return bytes;
-    }
+  const root = await globalThis.navigator.storage.getDirectory();
+  const directory = await root.getDirectoryHandle(OPFS_CACHE_DIR, { create: true });
+  const name = cacheFileName(url);
+  const handle = await directory.getFileHandle(name, { create: true });
+  const writable = await handle.createWritable();
+  const reader = response.body.getReader();
 
-    const reader = response.body.getReader();
-    const chunks = [];
-    let loaded = 0;
+  let loaded = 0;
+  let yieldedAt = 0;
 
+  try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value);
+
+      await writable.write(value);
       loaded += value.byteLength;
+
       onProgress({
         lengthComputable: total > 0,
         loaded,
         total,
         fullDownloadFallback: true,
+        diskBacked: true,
       });
+
+      if (loaded - yieldedAt >= OPFS_YIELD_BYTES) {
+        yieldedAt = loaded;
+        await nextFrame();
+      }
     }
 
-    const bytes = new Uint8Array(loaded);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return bytes;
+    await writable.close();
+  } catch (error) {
+    try { await writable.abort?.(); } catch {}
+    try { await directory.removeEntry(name); } catch {}
+    throw error;
+  }
+
+  const file = await handle.getFile();
+  return {
+    kind: 'opfs',
+    directory,
+    name,
+    file,
+    size: file.size,
+  };
+}
+
+async function consumeFullResponse(url, response, onProgress = () => {}) {
+  const existing = fullFileCache.get(url);
+  if (existing) {
+    try { await response.body?.cancel(); } catch {}
+    return existing;
+  }
+
+  const promise = (async () => {
+    const total = Number(response.headers.get('content-length')) || 0;
+    const diskSource = await streamResponseToOPFS(url, response, onProgress);
+    if (diskSource) return diskSource;
+
+    // Fallback soltanto per browser vecchi/privi di OPFS. Sui moderni iPhone
+    // il percorso normale è sempre disk-backed, così l'intero GLB non vive in RAM.
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    onProgress({
+      lengthComputable: true,
+      loaded: bytes.byteLength,
+      total: total || bytes.byteLength,
+      fullDownloadFallback: true,
+      diskBacked: false,
+    });
+    return { kind: 'memory', bytes, size: bytes.byteLength };
   })();
 
   fullFileCache.set(url, promise);
+
   try {
     return await promise;
   } catch (error) {
@@ -91,51 +168,23 @@ async function fetchWholeFile(url, onProgress = () => {}) {
   }
 }
 
-async function consumeFullResponse(url, response, onProgress = () => {}) {
-  const total = Number(response.headers.get('content-length')) || 0;
-  let bytes;
+async function releaseFullFile(url) {
+  const cached = fullFileCache.get(url);
+  fullFileCache.delete(url);
+  if (!cached) return;
 
-  if (response.body?.getReader) {
-    const reader = response.body.getReader();
-    const chunks = [];
-    let loaded = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      loaded += value.byteLength;
-      onProgress({
-        lengthComputable: total > 0,
-        loaded,
-        total,
-        fullDownloadFallback: true,
-      });
+  try {
+    const source = await cached;
+    if (source?.kind === 'opfs') {
+      await source.directory.removeEntry(source.name);
     }
-    bytes = new Uint8Array(loaded);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-  } else {
-    bytes = new Uint8Array(await response.arrayBuffer());
-    onProgress({
-      lengthComputable: true,
-      loaded: bytes.byteLength,
-      total: total || bytes.byteLength,
-      fullDownloadFallback: true,
-    });
-  }
-
-  fullFileCache.set(url, Promise.resolve(bytes));
-  return bytes;
+  } catch {}
 }
 
 async function fetchRange(url, start, end, options = {}) {
   const cached = fullFileCache.get(url);
   if (cached) {
-    const bytes = await cached;
-    return bytes.subarray(start, Math.min(end + 1, bytes.byteLength));
+    return readCachedRange(await cached, start, end);
   }
 
   const response = await fetch(url, {
@@ -159,19 +208,17 @@ async function fetchRange(url, start, end, options = {}) {
       return new Uint8Array(await response.arrayBuffer());
     }
 
-    // Alcuni storage/CDN rispondono 206 ma consegnano comunque l'intero file.
-    // Trattiamolo come fallback completo invece di fallire su Safari/iOS.
-    const bytes = await consumeFullResponse(url, response, options.onFullProgress);
-    options.onRangeUnsupported?.(bytes.byteLength);
-    return bytes.subarray(start, Math.min(end + 1, bytes.byteLength));
+    options.onRangeUnsupportedStart?.();
+    const source = await consumeFullResponse(url, response, options.onFullProgress);
+    options.onRangeUnsupported?.(source.size);
+    return readCachedRange(source, start, end);
   }
 
-  // Alcuni CDN ignorano Range e rispondono 200 con l'intero GLB. Su iOS non è
-  // un errore: conserviamo quel download e ricaviamo localmente i byte richiesti.
   if (response.ok && response.status === 200) {
-    const bytes = await consumeFullResponse(url, response, options.onFullProgress);
-    options.onRangeUnsupported?.(bytes.byteLength);
-    return bytes.subarray(start, Math.min(end + 1, bytes.byteLength));
+    options.onRangeUnsupportedStart?.();
+    const source = await consumeFullResponse(url, response, options.onFullProgress);
+    options.onRangeUnsupported?.(source.size);
+    return readCachedRange(source, start, end);
   }
 
   try { await response.body?.cancel(); } catch {}
@@ -276,7 +323,10 @@ function stripHeavyVisuals(source) {
   return doc;
 }
 
-const MOBILE_VERTEX_ATTRIBUTES = new Set(['POSITION', 'COLOR_0']);
+// Su iPhone preserviamo integralmente topologia, indici, trasformazioni e POSITION.
+ // COLOR_0 è solo informazione visiva e può raddoppiare quasi il payload geometrico;
+ // i materiali mobile vengono già ricostruiti localmente, quindi non serve.
+const MOBILE_VERTEX_ATTRIBUTES = new Set(['POSITION']);
 
 function collectUsedAccessors(doc) {
   const used = new Set();
@@ -490,10 +540,14 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
   let fullDownloadBytes = 0;
   const rangeOptions = {
     onFullProgress: onProgress,
+    onRangeUnsupportedStart: () => {
+      rangeFallback = true;
+      onStage('iPhone · server senza Range: salvo la mappa sul dispositivo senza riempire la RAM…');
+    },
     onRangeUnsupported: (size) => {
       rangeFallback = true;
       fullDownloadBytes = size;
-      onStage('iPhone · server senza Range, uso download completo compatibile…');
+      onStage('iPhone · mappa sorgente salvata, estraggo solo la geometria necessaria…');
     },
   };
 
@@ -587,6 +641,6 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
 
   // Non trattenere in RAM l'intero GLB dopo il parsing: su iPhone la memoria
   // è più importante del vantaggio di una cache che qui non verrà riutilizzata.
-  fullFileCache.delete(url);
+  await releaseFullFile(url);
   return gltf;
 }

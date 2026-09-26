@@ -161,6 +161,7 @@ export class Game {
               else if (stage.includes('geometria') && stage.includes('texture escluse')) onStage(stage, 18);
               else if (stage.includes('preparo la mappa completa')) onStage(stage, 86);
               else if (stage.includes('server senza Range')) onStage(stage, 20);
+              else if (stage.includes('mappa sorgente salvata')) onStage(stage, 84);
               else if (stage.includes('parsing geometria')) onStage(stage, 89);
               else if (stage.includes('ottimizzazione geometria')) onStage(stage, 91);
               else if (stage.includes('Ottimizzazione')) onStage(stage, 91);
@@ -182,7 +183,7 @@ export class Game {
               const downloaded = Number(result.mobileLiteInfo?.downloadedBytes || 0);
               const original = Number(result.mobileLiteInfo?.originalBytes || 0);
               this.hud.setAssetStatus(
-                `Modalità iPhone: stessa geometria/collisioni del mondo PC, texture pesanti escluse · ${Math.round(downloaded / 1024 / 1024)} MB trasferiti.`,
+                `Modalità iPhone: stessa geometria/collisioni del mondo PC, texture pesanti escluse · caricamento disk-backed per ridurre i picchi RAM.`,
               );
             }
 
