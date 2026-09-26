@@ -10,6 +10,7 @@ import { RemotePlayerManager } from '../player/RemotePlayerManager.js';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js';
 import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js';
 import { DebugHud } from '../ui/DebugHud.js';
+import { DisconnectScreen } from '../ui/DisconnectScreen.js';
 import { StressHarness } from '../debug/StressHarness.js';
 import { spawnForPlayer } from '../world/spawn.js';
 
@@ -34,12 +35,27 @@ export class Game {
     this.avatars = new AvatarManager(storage);
     this.player = new Player(this.scene, this.avatars);
     this.controller = new PlayerController(this.player, this.world, settings.player);
-    this.input = new InputManager(this.renderer.domElement);
+    this.input = new InputManager(this.renderer.domElement, document.getElementById('touch-controls'), settings.touch);
     this.followCamera = new ThirdPersonCamera(this.camera, settings.camera);
     this.remotes = new RemotePlayerManager(this.scene, this.avatars, settings.network);
     this.hud = new DebugHud(hudRoot, settings.rendering.hudInterval);
     this.hud.setVisible(true);
     this.hud.setNetwork(false, 'Connessione al server dedicato…');
+
+    this.disconnectScreen = new DisconnectScreen(document.getElementById('disconnect-screen'), {
+      onReconnect: () => {
+        if (!this.multiplayer) return;
+        this.input.setEnabled(false);
+        this.disconnectScreen.setReconnecting(true);
+        this.multiplayer.reconnectNow();
+      },
+      onOffline: () => {
+        if (!this.multiplayer) return;
+        this.multiplayer.continueOffline();
+        this.disconnectScreen.hide();
+        this.input.setEnabled(true);
+      },
+    });
 
     this.resize = this.resize.bind(this);
     window.addEventListener('resize', this.resize);
@@ -53,7 +69,9 @@ export class Game {
   }
 
   async start(onStage = () => {}) {
+    document.body.classList.add('gameplay-active');
     this.player.setName(this.displayName);
+
     onStage('Caricamento avatar…');
     const visual = await this.player.setAvatar(this.avatarSelection, (event) => {
       if (event.total) onStage(`Caricamento avatar: ${Math.round(event.loaded / event.total * 100)}%`);
@@ -84,8 +102,32 @@ export class Game {
       this.player,
       this.remotes,
       settings.network,
-      (online, detail) => this.hud.setNetwork(online, detail),
+      (online, detail) => {
+        this.hud.setNetwork(online, detail);
+        if (online) {
+          this.disconnectScreen.hide();
+          this.input.setEnabled(true);
+        }
+      },
       (latency) => this.hud.setLatency(latency),
+      {
+        onDisconnected: () => {
+          this.input.setEnabled(false);
+          this.disconnectScreen.show();
+        },
+        onRecovered: () => {
+          this.disconnectScreen.hide();
+          this.input.setEnabled(true);
+        },
+        onReconnectStart: () => {
+          this.input.setEnabled(false);
+          this.disconnectScreen.setReconnecting(true);
+        },
+        onOffline: () => {
+          this.disconnectScreen.hide();
+          this.input.setEnabled(true);
+        },
+      },
     );
 
     this.player.root.position.set(...spawnForPlayer(this.world.spawn, this.multiplayer.playerId));
@@ -123,6 +165,8 @@ export class Game {
   async dispose() {
     this.loop.stop();
     window.removeEventListener('resize', this.resize);
+    document.body.classList.remove('gameplay-active', 'network-disconnected');
+    this.disconnectScreen.hide();
     this.input.dispose();
     this.stress?.dispose();
     await this.multiplayer?.disconnect();
