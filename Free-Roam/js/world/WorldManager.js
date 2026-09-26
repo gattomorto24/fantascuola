@@ -50,7 +50,7 @@ export class WorldManager {
     this.spawn = [...settings.world.defaultSpawn];
   }
 
-  async loadWorld(manifest, storage, onProgress, onStage = () => {}) {
+  async loadWorld(manifest, storage, onProgress, onStage = () => {}, options = {}) {
     this.mapLoader.dispose();
     this.resetFallback();
 
@@ -66,7 +66,7 @@ export class WorldManager {
       const url = directUrl || await storage.signedUrl('free-roam-maps', manifest.storage_path);
 
       onStage('Download e preparazione mappa…');
-      const object = await this.mapLoader.load(url, manifest, onProgress, onStage);
+      const object = await this.mapLoader.load(url, manifest, onProgress, onStage, options);
 
       onStage('Creazione collisioni…', 0);
       const collisionStats = await this.collision.build(object, (progress) => {
@@ -91,6 +91,7 @@ export class WorldManager {
         collisionStats,
         mobileLite: this.mapLoader.mobileLite,
         mobileLiteInfo: this.mapLoader.mobileLiteInfo,
+        strategy: this.mapLoader.strategy,
       };
     } catch (error) {
       console.warn('[Free Roam] Mappa GLB non caricata; uso la pianura:', error);
