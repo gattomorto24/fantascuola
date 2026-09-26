@@ -1269,3 +1269,174 @@ body.legacy-dock .more-menu:not([hidden]) {
   .management-danger { align-items: stretch; flex-direction: column; }
   .management-danger .btn { width: 100%; }
 }
+
+
+/* Free Roam launch banner */
+.free-roam-launch-banner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  min-height: 132px;
+  margin: -10px 0 30px;
+  padding: 24px 26px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 24px;
+  background:
+    linear-gradient(120deg, #780d18 0%, #d3222f 24%, #ff3545 42%, #16a34a 58%, #0f7a38 74%, #9d101f 100%);
+  background-size: 260% 260%;
+  color: #fff;
+  text-decoration: none;
+  box-shadow:
+    0 18px 46px rgba(160,20,35,.28),
+    0 0 30px rgba(60,255,125,.08),
+    inset 0 1px 0 rgba(255,255,255,.2);
+  animation: free-roam-gradient-shift 7s ease-in-out infinite;
+  isolation: isolate;
+}
+
+.free-roam-launch-banner::before {
+  position: absolute;
+  inset: -80% -20%;
+  z-index: -2;
+  background:
+    radial-gradient(circle at 25% 50%, rgba(255,55,75,.55), transparent 30%),
+    radial-gradient(circle at 75% 50%, rgba(42,255,122,.42), transparent 31%);
+  content: "";
+  filter: blur(34px);
+  animation: free-roam-neon-drift 5.5s ease-in-out infinite alternate;
+}
+
+.free-roam-launch-banner::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(105deg, rgba(255,255,255,.16), transparent 22%, transparent 72%, rgba(255,255,255,.08)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 1px, transparent 1px 11px);
+  content: "";
+  pointer-events: none;
+}
+
+.free-roam-launch-glow {
+  position: absolute;
+  top: -36px;
+  right: 18%;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(78,255,139,.24);
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+.free-roam-launch-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.free-roam-launch-kicker {
+  color: rgba(255,255,255,.72);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.free-roam-launch-copy strong {
+  display: block;
+  color: #f7fff9;
+  font-family: "Space Grotesk", "DM Sans", sans-serif;
+  font-size: clamp(30px, 5vw, 48px);
+  font-weight: 800;
+  letter-spacing: -.045em;
+  line-height: .95;
+  text-shadow:
+    0 0 7px rgba(255,255,255,.95),
+    0 0 18px rgba(68,255,135,.8),
+    0 0 34px rgba(255,44,65,.5);
+}
+
+.free-roam-launch-copy > span:last-child {
+  color: rgba(255,255,255,.86);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.free-roam-launch-button {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid rgba(255,255,255,.36);
+  border-radius: 14px;
+  background: rgba(7,18,12,.58);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(0,0,0,.2);
+  backdrop-filter: blur(12px);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.free-roam-launch-button .material-symbols-rounded {
+  font-size: 18px;
+  transition: transform .18s ease;
+}
+
+.free-roam-launch-banner:hover .free-roam-launch-button {
+  background: rgba(5,28,14,.76);
+  box-shadow: 0 12px 30px rgba(0,0,0,.28), 0 0 20px rgba(58,255,126,.16);
+  transform: translateY(-2px);
+}
+
+.free-roam-launch-banner:hover .free-roam-launch-button .material-symbols-rounded {
+  transform: translateX(3px);
+}
+
+.free-roam-launch-banner:focus-visible {
+  outline: 3px solid rgba(78,255,139,.9);
+  outline-offset: 4px;
+}
+
+@keyframes free-roam-gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes free-roam-neon-drift {
+  from { transform: translate3d(-5%, -2%, 0) scale(1); }
+  to { transform: translate3d(8%, 3%, 0) scale(1.08); }
+}
+
+@media (max-width: 700px) {
+  .free-roam-launch-banner {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    min-height: 0;
+    margin: -8px 0 24px;
+    padding: 22px;
+  }
+
+  .free-roam-launch-button {
+    width: 100%;
+  }
+}
+
+.reduce-motion .free-roam-launch-banner,
+.reduce-motion .free-roam-launch-banner::before {
+  animation: none !important;
+}
