@@ -27,7 +27,78 @@ export function isIOSLike() {
     || (platform === 'MacIntel' && touchPoints > 1);
 }
 
-async function fetchRange(url, start, end) {
+const fullFileCache = new Map();
+
+async function fetchWholeFile(url, onProgress = () => {}) {
+  if (fullFileCache.has(url)) return fullFileCache.get(url);
+
+  const promise = (async () => {
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Download mappa fallito (HTTP ${response.status || 'errore'}).`);
+    }
+
+    const total = Number(response.headers.get('content-length')) || 0;
+
+    if (!response.body?.getReader) {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      onProgress({
+        lengthComputable: true,
+        loaded: bytes.byteLength,
+        total: total || bytes.byteLength,
+        fullDownloadFallback: true,
+      });
+      return bytes;
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress({
+        lengthComputable: total > 0,
+        loaded,
+        total,
+        fullDownloadFallback: true,
+      });
+    }
+
+    const bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  })();
+
+  fullFileCache.set(url, promise);
+  try {
+    return await promise;
+  } catch (error) {
+    fullFileCache.delete(url);
+    throw error;
+  }
+}
+
+async function fetchRange(url, start, end, options = {}) {
+  const cached = fullFileCache.get(url);
+  if (cached) {
+    const bytes = await cached;
+    return bytes.subarray(start, Math.min(end + 1, bytes.byteLength));
+  }
+
   const response = await fetch(url, {
     method: 'GET',
     mode: 'cors',
@@ -36,12 +107,56 @@ async function fetchRange(url, start, end) {
     headers: { Range: `bytes=${start}-${end}` },
   });
 
-  if (response.status !== 206) {
-    try { await response.body?.cancel(); } catch {}
-    throw new Error('Il server della mappa non supporta il caricamento parziale richiesto da iPhone.');
+  if (response.status === 206) {
+    return new Uint8Array(await response.arrayBuffer());
   }
 
-  return new Uint8Array(await response.arrayBuffer());
+  // Alcuni CDN (in particolare il Bucket usato per la mappa) ignorano Range e
+  // rispondono 200 con l'intero GLB. Su iOS non è un errore: conserviamo quel
+  // download e ricaviamo localmente i byte richiesti, evitando una seconda GET.
+  if (response.ok && response.status === 200) {
+    const total = Number(response.headers.get('content-length')) || 0;
+    let bytes;
+
+    if (response.body?.getReader) {
+      const reader = response.body.getReader();
+      const chunks = [];
+      let loaded = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.byteLength;
+        options.onFullProgress?.({
+          lengthComputable: total > 0,
+          loaded,
+          total,
+          fullDownloadFallback: true,
+        });
+      }
+      bytes = new Uint8Array(loaded);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+    } else {
+      bytes = new Uint8Array(await response.arrayBuffer());
+      options.onFullProgress?.({
+        lengthComputable: true,
+        loaded: bytes.byteLength,
+        total: total || bytes.byteLength,
+        fullDownloadFallback: true,
+      });
+    }
+
+    fullFileCache.set(url, Promise.resolve(bytes));
+    options.onRangeUnsupported?.(bytes.byteLength);
+    return bytes.subarray(start, Math.min(end + 1, bytes.byteLength));
+  }
+
+  try { await response.body?.cancel(); } catch {}
+  throw new Error(`Download parziale mappa fallito (HTTP ${response.status || 'errore'}).`);
 }
 
 function parseHeader(bytes) {
@@ -354,17 +469,28 @@ function parseGLB(buffer) {
 export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () => {}) {
   onStage('iPhone · analisi mappa leggera…');
 
-  const headerBytes = await fetchRange(url, 0, 19);
+  let rangeFallback = false;
+  let fullDownloadBytes = 0;
+  const rangeOptions = {
+    onFullProgress: onProgress,
+    onRangeUnsupported: (size) => {
+      rangeFallback = true;
+      fullDownloadBytes = size;
+      onStage('iPhone · server senza Range, uso download completo compatibile…');
+    },
+  };
+
+  const headerBytes = await fetchRange(url, 0, 19, rangeOptions);
   const { totalLength, jsonLength } = parseHeader(headerBytes);
 
   const jsonStart = 20;
   const jsonEnd = jsonStart + jsonLength - 1;
-  const jsonBytes = await fetchRange(url, jsonStart, jsonEnd);
+  const jsonBytes = await fetchRange(url, jsonStart, jsonEnd, rangeOptions);
   const jsonText = decoder.decode(jsonBytes).replace(/[\u0000\u0020]+$/g, '');
   const sourceDoc = JSON.parse(jsonText);
 
   const binHeaderStart = jsonEnd + 1;
-  const binHeader = await fetchRange(url, binHeaderStart, binHeaderStart + 7);
+  const binHeader = await fetchRange(url, binHeaderStart, binHeaderStart + 7, rangeOptions);
   const binHeaderView = new DataView(binHeader.buffer, binHeader.byteOffset, binHeader.byteLength);
   const sourceBinLength = binHeaderView.getUint32(0, true);
   const sourceBinType = binHeaderView.getUint32(4, true);
@@ -387,7 +513,7 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
   for (const group of groups) {
     for (let chunkStart = group.start; chunkStart <= group.end; chunkStart += RANGE_CHUNK_BYTES) {
       const chunkEnd = Math.min(group.end, chunkStart + RANGE_CHUNK_BYTES - 1);
-      const rangeBytes = await fetchRange(url, chunkStart, chunkEnd);
+      const rangeBytes = await fetchRange(url, chunkStart, chunkEnd, rangeOptions);
 
       for (const { item, start, end } of group.entries) {
         const overlapStart = Math.max(chunkStart, start);
@@ -427,9 +553,13 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
     ...(gltf.userData || {}),
     mobileLite: true,
     originalBytes: totalLength,
-    downloadedBytes: totalDownload,
+    downloadedBytes: rangeFallback ? (fullDownloadBytes || totalLength) : totalDownload,
+    rangeFallback,
     textureless: true,
   };
 
+  // Non trattenere in RAM l'intero GLB dopo il parsing: su iPhone la memoria
+  // è più importante del vantaggio di una cache che qui non verrà riutilizzata.
+  fullFileCache.delete(url);
   return gltf;
 }
