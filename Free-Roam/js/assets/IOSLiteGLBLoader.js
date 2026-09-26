@@ -89,6 +89,8 @@ function stripHeavyVisuals(source) {
   if (Array.isArray(doc.nodes)) {
     for (const node of doc.nodes) {
       delete node.skin;
+      delete node.camera;
+      delete node.weights;
       delete node.extensions;
     }
   }
