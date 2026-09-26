@@ -58,6 +58,7 @@ export class AvatarManager {
           avatarConfig: pixel.config,
           selectionKey: this.selectionKey({ type: 'pixel', config: pixel.config }),
           sharedResources: true,
+          metrics: pixel.metrics || null,
         };
       }
 
