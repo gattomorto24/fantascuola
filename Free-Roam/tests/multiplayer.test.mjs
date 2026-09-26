@@ -1,11 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MultiplayerManager, validSnapshot } from '../js/multiplayer/MultiplayerManager.js';
+import { MultiplayerManager, validAvatarConfig, validSnapshot } from '../js/multiplayer/MultiplayerManager.js';
+
+const avatarConfig = {
+  version: 1,
+  type: 'pixel',
+  skinTone: 'medium',
+  hairStyle: 'basic',
+  hairColor: 'brown',
+  shirtColor: 'blue',
+  pantsColor: 'red',
+  shoesColor: 'white',
+};
 
 function player(x = 0) {
   return {
     root: { position: { x, y: 0, z: 0 }, rotation: { y: 0 } },
-    avatarId: 'default',
+    avatarId: 'pixel',
+    avatarConfig,
     movementState: 'Idle',
   };
 }
@@ -81,7 +93,6 @@ class FakeWebSocket {
     this.readyState = FakeWebSocket.CONNECTING;
     this.handlers = new Map();
     server.connect(this);
-    queueMicrotask(() => { this.readyState = FakeWebSocket.OPEN; });
   }
 
   addEventListener(type, fn) {
@@ -101,24 +112,29 @@ class FakeWebSocket {
 
 globalThis.WebSocket = FakeWebSocket;
 
-test('rifiuta stati remoti invalidi', () => {
+test('valida snapshot e configurazione avatar pixel', () => {
+  assert.equal(validAvatarConfig(avatarConfig), true);
+  assert.equal(validAvatarConfig({ ...avatarConfig, hairColor: 'purple' }), false);
+
   const state = {
     playerId: 'a',
     displayName: 'Tony',
-    avatarId: 'default',
+    avatarId: 'pixel',
+    avatarConfig,
     position: { x: 1, y: 0, z: 2 },
     rotation: 0,
     movementState: 'Walking',
     timestamp: Date.now(),
   };
+
   assert.equal(validSnapshot(state), true);
   assert.equal(validSnapshot({ ...state, position: { x: Infinity, y: 0, z: 0 } }), false);
   assert.equal(validSnapshot({ ...state, displayName: '<script>' }), false);
-  assert.equal(validSnapshot({ ...state, avatarId: 'x'.repeat(161) }), false);
+  assert.equal(validSnapshot({ ...state, avatarConfig: { ...avatarConfig, shoesColor: 'green' } }), false);
   assert.equal(validSnapshot({ ...state, timestamp: Date.now() - 61000 }), false);
 });
 
-test('WebSocket dedicato sincronizza ingresso, stato e uscita', async () => {
+test('WebSocket dedicato sincronizza avatar, stato e uscita', async () => {
   server.sockets.clear();
   server.players.clear();
 
@@ -130,6 +146,7 @@ test('WebSocket dedicato sincronizza ingresso, stato e uscita', async () => {
     reconnectBaseMs: 5,
     reconnectMaxMs: 20,
     connectTimeoutMs: 100,
+    disconnectGracePeriodMs: 20,
     pingSeconds: 5,
   };
 
@@ -141,7 +158,7 @@ test('WebSocket dedicato sincronizza ingresso, stato e uscita', async () => {
   await new Promise((resolve) => setTimeout(resolve, 5));
 
   assert.equal(remoteA.items.get(b.playerId)?.displayName, 'Altro');
-  assert.equal(remoteB.items.get(a.playerId)?.displayName, 'Tony');
+  assert.equal(remoteB.items.get(a.playerId)?.avatarConfig?.shirtColor, 'blue');
 
   a.localPlayer.root.position.x = 9;
   a.update(0.11);
@@ -154,31 +171,49 @@ test('WebSocket dedicato sincronizza ingresso, stato e uscita', async () => {
   await b.disconnect();
 });
 
-test('una connessione interrotta si riconnette automaticamente', async () => {
+test('micro-disconnessione si riconnette prima del grace period senza overlay', async () => {
   server.sockets.clear();
   server.players.clear();
 
-  const remoteA = remotes();
+  let disconnectedOverlay = 0;
+  let recovered = 0;
   const config = {
     serverUrl: 'wss://test/room/main',
     sendHz: 10,
-    reconnectBaseMs: 5,
-    reconnectMaxMs: 20,
+    reconnectBaseMs: 3,
+    reconnectMaxMs: 10,
     connectTimeoutMs: 100,
+    disconnectGracePeriodMs: 30,
     pingSeconds: 5,
   };
 
-  const a = new MultiplayerManager(null, { userId: crypto.randomUUID(), displayName: 'Tony' }, player(1), remoteA, config, () => {});
+  const a = new MultiplayerManager(
+    null,
+    { userId: crypto.randomUUID(), displayName: 'Tony' },
+    player(1),
+    remotes(),
+    config,
+    () => {},
+    () => {},
+    {
+      onDisconnected: () => disconnectedOverlay++,
+      onRecovered: () => recovered++,
+    },
+  );
+
   a.connect();
   await new Promise((resolve) => setTimeout(resolve, 5));
-
   const firstSocket = a.transport.socket;
   server.close(firstSocket, 1012, 'restart');
-  assert.equal(a.online, false);
 
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(a.online, true);
   assert.notEqual(a.transport.socket, firstSocket);
+  assert.equal(disconnectedOverlay, 0);
+  assert.ok(recovered >= 2);
 
+  a.continueOffline();
+  assert.equal(a.offlineMode, true);
+  assert.equal(a.online, false);
   await a.disconnect();
 });
