@@ -62,11 +62,7 @@ function makeStrategies(isMobile) {
   ];
 
   return [
-    // 1) Primo tentativo mobile: stesso identico GLB e texture del PC,
-    // ma stabilizzato in CacheStorage prima del parsing.
-    { id: 'cached-full', label: 'texture complete · cache locale', fullQuality: true, aggressive: true, load: (url, p, s) => loadGLB(url, p, { onStage: s, strategy: 'cached' }) },
-
-    // 2) Fallback: stessa geometria/coordinate, UV, normali e COLOR_0.
+    // Unico percorso mobile rimasto: stessa geometria/coordinate, UV, normali e COLOR_0.
     { id: 'geometry-color', label: 'geometria completa + colori originali', fullQuality: false, lite: true, aggressive: true, load: (url, p, s) => loadIOSLiteGLB(url, p, s) },
   ];
 }
