@@ -408,6 +408,18 @@ function renderClassifica() {
     return `<article class="classifica-podium-card ${podiumClass}"><span class="classifica-podium-rank">${rank}</span><span class="classifica-podium-label">${podiumLabel(rank)}</span><div class="classifica-podium-avatar">${avatarMarkup(student.nome, student.avatar_url)}</div><div class="classifica-podium-name">${esc(student.nome)}</div><div class="classifica-podium-score"><strong>${Number(student.punti_totali || 0).toFixed(1)}</strong><span>pt</span></div><div class="classifica-podium-gap">${distance}</div></article>`;
   }).join('')}</section>` : '';
   return `<section class="card classifica-page">
+    <a class="free-roam-launch-banner" href="Free-Roam/index.html" aria-label="Accedi a FantaScuola Free Roam">
+      <span class="free-roam-launch-glow" aria-hidden="true"></span>
+      <span class="free-roam-launch-copy">
+        <span class="free-roam-launch-kicker">NUOVA MODALITÀ</span>
+        <strong>Free Roam è Qui!</strong>
+        <span>Accedi ora al mondo 3D di FantaScuola.</span>
+      </span>
+      <span class="free-roam-launch-button">
+        ENTRA ORA
+        <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span>
+      </span>
+    </a>
     <header class="classifica-header"><div><div class="classifica-eyebrow">Classifica live</div><h2>Classifica</h2><p>Segui l'andamento della classe e scopri chi sta conquistando la vetta.</p></div><span class="classifica-live"><i></i>LIVE</span></header>
     <section class="classifica-summary"><div><span>Giocatori</span><strong>${ranked.length}</strong></div><div><span>Leader</span><strong>${esc(leader?.nome || '—')}</strong></div><div><span>Vantaggio</span><strong>${gap === null ? '—' : `+${gap.toFixed(1)} pt`}</strong></div></section>
     <div class="classifica-controls"><label class="classifica-search"><span aria-hidden="true">⌕</span><input id="classificaSearch" type="search" autocomplete="off" placeholder="Cerca un giocatore..." aria-label="Cerca un giocatore"></label><select id="classificaSort" aria-label="Ordina classifica"><option value="points">Più punti</option><option value="name">Nome A-Z</option></select></div>
