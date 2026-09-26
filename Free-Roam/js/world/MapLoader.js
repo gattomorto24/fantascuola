@@ -62,15 +62,11 @@ function makeStrategies(isMobile) {
   ];
 
   return [
-    // 1) Identico al PC. È il risultato desiderato e viene sempre tentato per primo.
-    { id: 'direct-full', label: 'texture complete · caricamento diretto', fullQuality: true, load: (url, p, s) => loadGLB(url, p, { onStage: s, strategy: 'direct' }) },
-
-    // 2) Stesso identico GLB e texture, ma prima viene stabilizzato in CacheStorage.
-    // Può aiutare quando rete + parsing si sovrappongono, senza cambiare qualità.
+    // 1) Primo tentativo mobile: stesso identico GLB e texture del PC,
+    // ma stabilizzato in CacheStorage prima del parsing.
     { id: 'cached-full', label: 'texture complete · cache locale', fullQuality: true, aggressive: true, load: (url, p, s) => loadGLB(url, p, { onStage: s, strategy: 'cached' }) },
 
-    // 3) Ultima rete di sicurezza: stessa geometria/coordinate, COLOR_0 autentico
-    // quando presente. Serve solo per evitare la pianura se iOS non regge le texture.
+    // 2) Fallback: stessa geometria/coordinate, UV, normali e COLOR_0.
     { id: 'geometry-color', label: 'geometria completa + colori originali', fullQuality: false, lite: true, aggressive: true, load: (url, p, s) => loadIOSLiteGLB(url, p, s) },
   ];
 }
