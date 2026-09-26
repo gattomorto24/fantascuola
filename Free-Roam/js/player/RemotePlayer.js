@@ -4,21 +4,39 @@ import { Player } from './Player.js';
 export class RemotePlayer extends Player {
   constructor(scene, avatars, id, config) {
     super(scene, avatars, true);
-    this.id = id; this.config = config; this.targetPosition = new THREE.Vector3();
-    this.targetRotation = 0; this.hasSnapshot = false; this.lastSeen = performance.now();
+    this.id = id;
+    this.config = config;
+    this.targetPosition = new THREE.Vector3();
+    this.targetRotation = 0;
+    this.hasSnapshot = false;
+    this.lastSeen = performance.now();
+    this.avatarRequestKey = '';
   }
+
   applySnapshot(snapshot) {
     this.targetPosition.set(snapshot.position.x, snapshot.position.y, snapshot.position.z);
     this.targetRotation = snapshot.rotation;
     this.movementState = snapshot.movementState;
     this.setName(snapshot.displayName);
     this.lastSeen = performance.now();
-    if (!this.hasSnapshot) { this.root.position.copy(this.targetPosition); this.root.rotation.y = this.targetRotation; this.hasSnapshot = true; }
-    if (snapshot.avatarId !== this.avatarRequestId) {
-      this.avatarRequestId = snapshot.avatarId;
-      this.setAvatar(snapshot.avatarId).catch((error) => console.warn('[Free Roam] Avatar remoto:', error));
+
+    if (!this.hasSnapshot) {
+      this.root.position.copy(this.targetPosition);
+      this.root.rotation.y = this.targetRotation;
+      this.hasSnapshot = true;
+    }
+
+    const selection = snapshot.avatarId === 'pixel'
+      ? { type: 'pixel', config: snapshot.avatarConfig }
+      : snapshot.avatarId;
+    const requestKey = this.avatars.selectionKey(selection);
+
+    if (requestKey !== this.avatarRequestKey) {
+      this.avatarRequestKey = requestKey;
+      this.setAvatar(selection).catch((error) => console.warn('[Free Roam] Avatar remoto:', error));
     }
   }
+
   update(delta) {
     if (!this.hasSnapshot) return;
     const alpha = 1 - Math.exp(-this.config.interpolation * delta);
