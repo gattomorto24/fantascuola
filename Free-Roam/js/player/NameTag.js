@@ -14,7 +14,7 @@ export class NameTag {
     context.fillText(name, 256, 65, 450);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-    this.sprite = new THREE.Sprite(material); this.sprite.position.y = 2.5; this.sprite.scale.set(1.9, 0.475, 1); this.root.add(this.sprite);
+    this.sprite = new THREE.Sprite(material); this.sprite.position.y = 1.34; this.sprite.scale.set(1.25, 0.3125, 1); this.root.add(this.sprite);
   }
   dispose() {
     if (!this.sprite) return;
