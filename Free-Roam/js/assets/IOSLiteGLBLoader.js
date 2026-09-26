@@ -268,6 +268,9 @@ function materialColorFromName(name = '', index = 0) {
 function stripHeavyVisuals(source) {
   const doc = deepClone(source);
 
+  // Fallback estremo: le immagini raster vengono escluse per evitare il memory-kill,
+  // ma UV (TEXCOORD_0), normali e COLOR_0 vengono preservati. In questo modo
+  // geometria/collisioni e attributi visivi restano compatibili con la mappa PC.
   delete doc.images;
   delete doc.textures;
   delete doc.samplers;
@@ -341,7 +344,7 @@ function stripHeavyVisuals(source) {
  // delle immagini originali e permette all'iPhone di mostrare i colori della mappa
  // invece di una palette inventata. NORMAL resta escluso: il percorso mobile usa
  // materiali unlit, quindi non serve per l'illuminazione.
-const MOBILE_VERTEX_ATTRIBUTES = new Set(['POSITION', 'COLOR_0']);
+const MOBILE_VERTEX_ATTRIBUTES = new Set(['POSITION', 'NORMAL', 'TEXCOORD_0', 'COLOR_0']);
 
 function collectUsedAccessors(doc) {
   const used = new Set();
@@ -669,6 +672,8 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
     rangeFallback,
     textureless: true,
     vertexColorsPreserved: true,
+    uvPreserved: true,
+    normalsPreserved: true,
   };
 
   // Non trattenere in RAM l'intero GLB dopo il parsing: su iPhone la memoria
