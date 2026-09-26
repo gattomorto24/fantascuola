@@ -44,7 +44,7 @@ function optimizeStaticObject(root) {
 
 function canUseIOSLite(url) {
   return isIOSLike()
-    && /^https://huggingface.co/buckets//i.test(String(url));
+    && String(url).startsWith('https://huggingface.co/buckets/');
 }
 
 export class MapLoader {
