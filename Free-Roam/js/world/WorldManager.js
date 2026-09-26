@@ -89,6 +89,8 @@ export class WorldManager {
         spawn: this.spawn,
         renderStats: this.mapLoader.stats,
         collisionStats,
+        mobileLite: this.mapLoader.mobileLite,
+        mobileLiteInfo: this.mapLoader.mobileLiteInfo,
       };
     } catch (error) {
       console.warn('[Free Roam] Mappa GLB non caricata; uso la pianura:', error);
