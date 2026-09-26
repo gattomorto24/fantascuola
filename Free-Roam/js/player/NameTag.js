@@ -2,7 +2,12 @@ import * as THREE from 'three';
 import { cleanDisplayName } from '../utils/text.js';
 
 export class NameTag {
-  constructor(root) { this.root = root; this.name = ''; this.sprite = null; }
+  constructor(root) {
+    this.root = root;
+    this.name = '';
+    this.sprite = null;
+    this.height = 1.34;
+  }
   setName(value) {
     const name = cleanDisplayName(value) || 'Giocatore';
     if (name === this.name) return;
@@ -14,8 +19,14 @@ export class NameTag {
     context.fillText(name, 256, 65, 450);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-    this.sprite = new THREE.Sprite(material); this.sprite.position.y = 1.34; this.sprite.scale.set(1.25, 0.3125, 1); this.root.add(this.sprite);
+    this.sprite = new THREE.Sprite(material); this.sprite.position.y = this.height; this.sprite.scale.set(1.25, 0.3125, 1); this.root.add(this.sprite);
   }
+  setHeight(value) {
+    if (!Number.isFinite(value)) return;
+    this.height = value;
+    if (this.sprite) this.sprite.position.y = value;
+  }
+
   dispose() {
     if (!this.sprite) return;
     this.root.remove(this.sprite); this.sprite.material.map.dispose(); this.sprite.material.dispose(); this.sprite = null;

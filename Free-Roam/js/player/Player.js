@@ -39,6 +39,7 @@ export class Player {
 
     this.visual = visual;
     visual.object.scale.setScalar(settings.player.avatarScale);
+    this.nameTag.setHeight(visual.metrics?.nameTagY || 1.34);
     this.visualAvatarId = visual.avatarId;
     this.avatarId = visual.networkAvatarId;
     this.avatarConfig = visual.avatarConfig || null;

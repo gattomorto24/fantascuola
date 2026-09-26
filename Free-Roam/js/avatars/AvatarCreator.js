@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createPixelAvatar } from './PixelAvatarRenderer.js';
 import { DEFAULT_PIXEL_AVATAR, PIXEL_AVATAR_OPTIONS, normalizePixelAvatarConfig, pixelAvatarLabel } from './AvatarConfig.js';
 
-const ORDER = ['skinTone', 'hairColor', 'shirtColor', 'pantsColor', 'shoesColor'];
+const ORDER = ['skinTone', 'hairVariant', 'hairColor', 'eyeColor', 'shirtPrimaryColor', 'shirtSecondaryColor', 'shirtPattern', 'pantsColor', 'pantsLength', 'shoeVariant', 'bodyType', 'heightType'];
 
 export class AvatarCreator {
   constructor(root, onSave = async () => {}) {
@@ -12,6 +12,7 @@ export class AvatarCreator {
     this.previewVisual = null;
     this.dragPointer = null;
     this.lastX = 0;
+    this.previewYaw = 0;
     this.raf = 0;
 
     this.preview = root?.querySelector('#avatar-preview');
@@ -22,7 +23,7 @@ export class AvatarCreator {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 20);
-    this.camera.position.set(0, 1.45, 5.6);
+    this.camera.position.set(0, 1.45, -5.6);
     this.camera.lookAt(0, 1.15, 0);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 1.5));
@@ -63,7 +64,8 @@ export class AvatarCreator {
     });
     canvas.addEventListener('pointermove', (event) => {
       if (event.pointerId !== this.dragPointer || !this.previewVisual) return;
-      this.previewVisual.object.rotation.y += (event.clientX - this.lastX) * 0.012;
+      this.previewYaw += (event.clientX - this.lastX) * 0.012;
+      this.previewVisual.object.rotation.y = this.previewYaw;
       this.lastX = event.clientX;
     });
     const end = (event) => { if (event.pointerId === this.dragPointer) this.dragPointer = null; };
@@ -90,6 +92,7 @@ export class AvatarCreator {
 
   open(config) {
     this.config = normalizePixelAvatarConfig(config);
+    this.previewYaw = 0;
     this.root.hidden = false;
     this.refresh();
     this.resize();
@@ -111,7 +114,7 @@ export class AvatarCreator {
 
     if (this.previewVisual) this.scene.remove(this.previewVisual.object);
     this.previewVisual = createPixelAvatar(this.config);
-    this.previewVisual.object.rotation.y = 0.18;
+    this.previewVisual.object.rotation.y = this.previewYaw;
     this.scene.add(this.previewVisual.object);
   }
 

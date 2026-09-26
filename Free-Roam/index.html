@@ -12,14 +12,14 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="../logo.png">
   <link rel="preload" as="image" href="./assets/models/Unknown.png">
-  <link rel="stylesheet" href="./styles/main.css?v=avatar-only-v1">
+  <link rel="stylesheet" href="./styles/main.css?v=avatar-v06">
   <link rel="stylesheet" href="./styles/touch.css">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=avatar-only-v1"></script>
+  <script type="module" src="./js/main.js?v=avatar-v06"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -64,7 +64,7 @@
 
   <section id="welcome" class="welcome">
     <div class="welcome-card">
-      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.5</p>
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.6</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
       <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift e Spazio. Su mobile il joystick integra movimento e sprint, puoi ruotare la camera trascinando in qualsiasi area libera e hai un solo grande tasto Salto.</p>
 
@@ -111,21 +111,60 @@
             <span>PELLE</span>
             <div><button type="button" data-avatar-prev="skinTone">‹</button><strong data-avatar-value="skinTone">Media</strong><button type="button" data-avatar-next="skinTone">›</button></div>
           </div>
+
           <div class="avatar-option">
-            <span>CAPELLI</span>
+            <span>TAGLIO CAPELLI</span>
+            <div><button type="button" data-avatar-prev="hairVariant">‹</button><strong data-avatar-value="hairVariant">Classico</strong><button type="button" data-avatar-next="hairVariant">›</button></div>
+          </div>
+
+          <div class="avatar-option">
+            <span>COLORE CAPELLI</span>
             <div><button type="button" data-avatar-prev="hairColor">‹</button><strong data-avatar-value="hairColor">Castano</strong><button type="button" data-avatar-next="hairColor">›</button></div>
           </div>
+
           <div class="avatar-option">
-            <span>MAGLIETTA</span>
-            <div><button type="button" data-avatar-prev="shirtColor">‹</button><strong data-avatar-value="shirtColor">Blu</strong><button type="button" data-avatar-next="shirtColor">›</button></div>
+            <span>OCCHI</span>
+            <div><button type="button" data-avatar-prev="eyeColor">‹</button><strong data-avatar-value="eyeColor">Neri</strong><button type="button" data-avatar-next="eyeColor">›</button></div>
           </div>
+
           <div class="avatar-option">
-            <span>PANTALONI</span>
+            <span>MAGLIETTA · COLORE 1</span>
+            <div><button type="button" data-avatar-prev="shirtPrimaryColor">‹</button><strong data-avatar-value="shirtPrimaryColor">Blu</strong><button type="button" data-avatar-next="shirtPrimaryColor">›</button></div>
+          </div>
+
+          <div class="avatar-option">
+            <span>MAGLIETTA · COLORE 2</span>
+            <div><button type="button" data-avatar-prev="shirtSecondaryColor">‹</button><strong data-avatar-value="shirtSecondaryColor">Bianco</strong><button type="button" data-avatar-next="shirtSecondaryColor">›</button></div>
+          </div>
+
+          <div class="avatar-option">
+            <span>STILE MAGLIETTA</span>
+            <div><button type="button" data-avatar-prev="shirtPattern">‹</button><strong data-avatar-value="shirtPattern">Tinta unita</strong><button type="button" data-avatar-next="shirtPattern">›</button></div>
+          </div>
+
+          <div class="avatar-option">
+            <span>PANTALONI · COLORE</span>
             <div><button type="button" data-avatar-prev="pantsColor">‹</button><strong data-avatar-value="pantsColor">Rosso</strong><button type="button" data-avatar-next="pantsColor">›</button></div>
           </div>
+
+          <div class="avatar-option">
+            <span>PANTALONI · LUNGHEZZA</span>
+            <div><button type="button" data-avatar-prev="pantsLength">‹</button><strong data-avatar-value="pantsLength">Lunghi</strong><button type="button" data-avatar-next="pantsLength">›</button></div>
+          </div>
+
           <div class="avatar-option">
             <span>SCARPE</span>
-            <div><button type="button" data-avatar-prev="shoesColor">‹</button><strong data-avatar-value="shoesColor">Bianche</strong><button type="button" data-avatar-next="shoesColor">›</button></div>
+            <div><button type="button" data-avatar-prev="shoeVariant">‹</button><strong data-avatar-value="shoeVariant">Bianche</strong><button type="button" data-avatar-next="shoeVariant">›</button></div>
+          </div>
+
+          <div class="avatar-option">
+            <span>CORPORATURA</span>
+            <div><button type="button" data-avatar-prev="bodyType">‹</button><strong data-avatar-value="bodyType">Medio</strong><button type="button" data-avatar-next="bodyType">›</button></div>
+          </div>
+
+          <div class="avatar-option">
+            <span>ALTEZZA</span>
+            <div><button type="button" data-avatar-prev="heightType">‹</button><strong data-avatar-value="heightType">Medio</strong><button type="button" data-avatar-next="heightType">›</button></div>
           </div>
 
           <button id="avatar-save" class="avatar-save" type="button">SALVA AVATAR</button>
@@ -135,7 +174,7 @@
   </section>
 
   <aside id="hud" class="hud" aria-live="off" hidden>
-    <div class="hud-top"><strong>FREE ROAM <small>v0.5</small></strong><a href="../index.html">Esci</a></div>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.6</small></strong><a href="../index.html">Esci</a></div>
     <dl>
       <div><dt>FPS</dt><dd id="fps">—</dd></div>
       <div><dt>Multiplayer</dt><dd id="network">Offline</dd></div>
