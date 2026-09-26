@@ -92,6 +92,46 @@ async function fetchWholeFile(url, onProgress = () => {}) {
   }
 }
 
+async function consumeFullResponse(url, response, onProgress = () => {}) {
+  const total = Number(response.headers.get('content-length')) || 0;
+  let bytes;
+
+  if (response.body?.getReader) {
+    const reader = response.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress({
+        lengthComputable: total > 0,
+        loaded,
+        total,
+        fullDownloadFallback: true,
+      });
+    }
+    bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+  } else {
+    bytes = new Uint8Array(await response.arrayBuffer());
+    onProgress({
+      lengthComputable: true,
+      loaded: bytes.byteLength,
+      total: total || bytes.byteLength,
+      fullDownloadFallback: true,
+    });
+  }
+
+  fullFileCache.set(url, Promise.resolve(bytes));
+  return bytes;
+}
+
 async function fetchRange(url, start, end, options = {}) {
   const cached = fullFileCache.get(url);
   if (cached) {
@@ -108,49 +148,29 @@ async function fetchRange(url, start, end, options = {}) {
   });
 
   if (response.status === 206) {
-    return new Uint8Array(await response.arrayBuffer());
-  }
+    const contentRange = String(response.headers.get('content-range') || '');
+    const match = contentRange.match(/^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i);
+    const expectedLength = end - start + 1;
+    const contentLength = Number(response.headers.get('content-length')) || 0;
+    const looksLikeRealRange = match
+      ? Number(match[1]) === start && Number(match[2]) <= end
+      : (contentLength > 0 && contentLength <= expectedLength);
 
-  // Alcuni CDN (in particolare il Bucket usato per la mappa) ignorano Range e
-  // rispondono 200 con l'intero GLB. Su iOS non è un errore: conserviamo quel
-  // download e ricaviamo localmente i byte richiesti, evitando una seconda GET.
-  if (response.ok && response.status === 200) {
-    const total = Number(response.headers.get('content-length')) || 0;
-    let bytes;
-
-    if (response.body?.getReader) {
-      const reader = response.body.getReader();
-      const chunks = [];
-      let loaded = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        loaded += value.byteLength;
-        options.onFullProgress?.({
-          lengthComputable: total > 0,
-          loaded,
-          total,
-          fullDownloadFallback: true,
-        });
-      }
-      bytes = new Uint8Array(loaded);
-      let offset = 0;
-      for (const chunk of chunks) {
-        bytes.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-    } else {
-      bytes = new Uint8Array(await response.arrayBuffer());
-      options.onFullProgress?.({
-        lengthComputable: true,
-        loaded: bytes.byteLength,
-        total: total || bytes.byteLength,
-        fullDownloadFallback: true,
-      });
+    if (looksLikeRealRange) {
+      return new Uint8Array(await response.arrayBuffer());
     }
 
-    fullFileCache.set(url, Promise.resolve(bytes));
+    // Alcuni storage/CDN rispondono 206 ma consegnano comunque l'intero file.
+    // Trattiamolo come fallback completo invece di fallire su Safari/iOS.
+    const bytes = await consumeFullResponse(url, response, options.onFullProgress);
+    options.onRangeUnsupported?.(bytes.byteLength);
+    return bytes.subarray(start, Math.min(end + 1, bytes.byteLength));
+  }
+
+  // Alcuni CDN ignorano Range e rispondono 200 con l'intero GLB. Su iOS non è
+  // un errore: conserviamo quel download e ricaviamo localmente i byte richiesti.
+  if (response.ok && response.status === 200) {
+    const bytes = await consumeFullResponse(url, response, options.onFullProgress);
     options.onRangeUnsupported?.(bytes.byteLength);
     return bytes.subarray(start, Math.min(end + 1, bytes.byteLength));
   }
