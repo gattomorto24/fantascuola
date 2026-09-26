@@ -67,6 +67,9 @@ function italyNow() {
   const part = (type) => parts.find((item) => item.type === type)?.value;
   return { day: `${part('year')}-${part('month')}-${part('day')}`, hour: Number(part('hour')), minute: Number(part('minute')) };
 }
+function isAutogestioneSunday(day) {
+  return new Date(`${day}T12:00:00Z`).getUTCDay() === 0;
+}
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -479,13 +482,14 @@ function renderPlayer() {
   const delays = personalBonuses.filter((item) => /ritard/i.test(item.motivo)).length;
   const dayText = (day) => new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium' }).format(new Date(`${day}T12:00:00`));
   const oggi = italyNow();
+  const domenica = isAutogestioneSunday(oggi.day);
   const presenzaOggi = state.autogestione.presenze.find((presenza) => presenza.giorno === oggi.day && presenza.studente_id === profile.id);
   const entroLeDue = oggi.hour < 14;
   const promemoriaAttivi = localStorage.getItem('fantascuola_autogestione_promemoria') === 'true';
   const autogestioneCard = state.autogestione.attiva && !viewingOtherPlayer ? `
       <div class="autogestione-card">
-        <div class="section-title"><div><h2 style="font-size:16px;">Autogestione</h2><p class="tiny">Registra la presenza entro le 14:00.</p></div><span class="autogestione-deadline ${entroLeDue ? '' : 'expired'}">${entroLeDue ? 'ENTRO LE 14' : 'SCADUTO'}</span></div>
-        ${presenzaOggi ? `<div class="autogestione-confirmed"><strong>${presenzaOggi.stato === 'presente' ? 'Presenza registrata' : presenzaOggi.stato === 'assente' ? 'Assenza registrata' : 'Presenza da verificare'}</strong><span>${pointsLabel(presenzaOggi.punti)} pt · ${presenzaOggi.fonte === 'player' ? 'segnata da te' : 'segnata dal manager'}</span></div>` : `<div class="autogestione-actions"><button class="btn" data-autogestione-stato="presente" type="button" ${entroLeDue ? '' : 'disabled'}>Sono presente</button><button class="btn secondary" data-autogestione-stato="assente" type="button" ${entroLeDue ? '' : 'disabled'}>Sono assente · −1 pt</button></div>`}
+        <div class="section-title"><div><h2 style="font-size:16px;">Autogestione</h2><p class="tiny">${domenica ? 'La domenica non si registra la presenza.' : 'Registra la presenza entro le 14:00, anche il sabato.'}</p></div><span class="autogestione-deadline ${entroLeDue && !domenica ? '' : 'expired'}">${domenica ? 'DOMENICA' : entroLeDue ? 'ENTRO LE 14' : 'SCADUTO'}</span></div>
+        ${presenzaOggi ? `<div class="autogestione-confirmed"><strong>${presenzaOggi.stato === 'presente' ? 'Presenza registrata' : presenzaOggi.stato === 'assente' ? 'Assenza registrata' : 'Presenza da verificare'}</strong><span>${pointsLabel(presenzaOggi.punti)} pt · ${presenzaOggi.fonte === 'player' ? 'segnata da te' : 'segnata dal manager'}</span></div>` : domenica ? '' : `<div class="autogestione-actions"><button class="btn" data-autogestione-stato="presente" type="button" ${entroLeDue ? '' : 'disabled'}>Sono presente</button><button class="btn secondary" data-autogestione-stato="assente" type="button" ${entroLeDue ? '' : 'disabled'}>Sono assente · −1 pt</button></div>`}
         <div class="autogestione-reminder"><span>Promemoria browser alle 13:45</span><button class="btn secondary row-action" id="autogestioneReminderBtn" type="button">${promemoriaAttivi ? 'Attivo' : 'Attiva'}</button></div>
         <p class="tiny">Presente: +1 pt, +2 dal 7° giorno consecutivo e +3 dal 30°. Se dimentichi, il manager registrerà la presenza senza bonus; un’assenza inserita dal manager vale −3 pt.</p>
       </div>` : '';
@@ -791,6 +795,7 @@ function renderManagedUserModal(userId) {
 
 function renderAdmin() {
   const studentOptions = state.students.map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join('');
+  const domenica = isAutogestioneSunday(italyNow().day);
   return `
     <section class="card pad grid">
       <div class="section-title"><h2>Gestione</h2><span class="tiny">CRUD live</span></div>
@@ -800,7 +805,7 @@ function renderAdmin() {
       </div>
       <div class="autogestione-manager">
         <div class="section-title"><div><h2 style="font-size:18px;">Autogestione</h2><p class="tiny">I player dichiarano presenza o assenza entro le 14:00.</p></div><label class="setting-row autogestione-toggle"><span><strong>${state.autogestione.attiva ? 'Attiva' : 'Disattivata'}</strong><small>Solo manager</small></span><input class="toggle" id="autogestioneToggle" type="checkbox" ${state.autogestione.attiva ? 'checked' : ''}></label></div>
-        ${state.autogestione.attiva ? `<div class="autogestione-manager-controls"><label class="field"><span class="field-label">Player</span><select id="autogestioneManagerStudent">${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Esito</span><select id="autogestioneManagerState"><option value="presente">Presente dimenticata · 0 pt</option><option value="assente">Assente · −3 pt</option><option value="falsata">Falsata la presenza · −5 pt</option></select></label><button class="btn secondary" id="autogestioneManagerBtn" type="button">Registra / punisci</button></div><p class="tiny">“Falsata la presenza” è la motivazione preimpostata per una dichiarazione non leale.</p>` : '<p class="tiny">Attivala per consentire ai player di registrare autonomamente la presenza.</p>'}
+        ${state.autogestione.attiva ? `<div class="autogestione-manager-controls"><label class="field"><span class="field-label">Player</span><select id="autogestioneManagerStudent">${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Esito</span><select id="autogestioneManagerState"><option value="presente">Presente dimenticata · 0 pt</option><option value="assente">Assente · −3 pt</option><option value="falsata">Falsata la presenza · −5 pt</option></select></label><button class="btn secondary" id="autogestioneManagerBtn" type="button" ${domenica ? 'disabled' : ''}>Registra / punisci</button></div><p class="tiny">${domenica ? 'La domenica non si registra la presenza.' : '“Falsata la presenza” è la motivazione preimpostata per una dichiarazione non leale.'}</p>` : '<p class="tiny">Attivala per consentire ai player di registrare autonomamente la presenza.</p>'}
       </div>
       <form id="addStudentForm" class="grid">
         <div class="field"><label>Nome</label><input name="nome" required placeholder="Es. Marco Rossi"></div>
@@ -857,6 +862,7 @@ function renderEditStudentModal() {
 
 function renderAdminClean() {
   const studentOptions = state.students.map((student) => `<option value="${student.id}">${esc(student.nome)}</option>`).join('');
+  const domenica = isAutogestioneSunday(italyNow().day);
   return `<section class="management-page"><div class="management-page-shell">
     <header class="management-header"><div><span class="management-eyebrow">Manager workspace</span><h2>Gestione</h2><p>Tutti gli strumenti operativi di Fantascuola, organizzati per lavorare più velocemente.</p></div><span class="management-live"><i></i>CRUD LIVE</span></header>
     <div class="management-content">
@@ -867,7 +873,7 @@ function renderAdminClean() {
           <div class="management-tool active" data-management-panel="vote"><div class="management-tool-head"><h4>Inserisci voto</h4><p>Registra una valutazione e aggiorna subito la classifica.</p></div><form id="addVoteForm" class="management-form management-vote-form"><label class="field"><span class="field-label">Studente</span><select name="studente_id" required>${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Voto</span><input name="voto" type="number" step="0.1" min="1" max="10" required placeholder="8.5"></label><button class="btn" type="submit">Registra voto</button></form></div>
           <div class="management-tool" data-management-panel="bonus"><div class="management-tool-head"><h4>Bonus / Malus</h4><p>Aggiungi o sottrai punti specificando sempre la motivazione.</p></div><form id="addBonusForm" class="management-form management-bonus-form"><label class="field"><span class="field-label">Studente</span><select name="studente_id" required>${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Punti</span><input name="punti" type="number" step="0.5" required placeholder="+3"></label><label class="field"><span class="field-label">Motivo</span><input name="motivo" required placeholder="Compiti extra"></label><button class="btn" type="submit">Inserisci</button></form></div>
           <div class="management-tool" data-management-panel="attendance"><div class="management-tool-head"><h4>Presenze e puntualità</h4><p>Inserimento rapido di assenze e ritardi per uno studente.</p></div><div class="management-form management-quick-form"><label class="field"><span class="field-label">Studente</span><select id="quickStudent">${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Quantità</span><input id="quickQuantity" type="number" min="1" max="20" value="1"></label><button class="btn secondary" id="addDelaysBtn" type="button">Aggiungi ritardi</button><button class="btn secondary" id="addAbsencesBtn" type="button">Aggiungi assenze</button></div></div>
-          <div class="management-tool" data-management-panel="auto"><div class="management-tool-head"><h4>Autogestione presenze</h4><p>I player dichiarano presenza o assenza entro le 14:00; il manager può correggere manualmente.</p></div><div class="management-auto-box"><label class="management-toggle-row"><span><strong>${state.autogestione.attiva ? 'Attiva' : 'Disattivata'}</strong><small>Consenti ai player di registrare autonomamente la presenza</small></span><input class="toggle" id="autogestioneToggle" type="checkbox" ${state.autogestione.attiva ? 'checked' : ''}></label>${state.autogestione.attiva ? `<div class="management-auto-form"><label class="field"><span class="field-label">Player</span><select id="autogestioneManagerStudent">${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Esito</span><select id="autogestioneManagerState"><option value="presente">Presente dimenticata · 0 pt</option><option value="assente">Assente · −3 pt</option><option value="falsata">Falsata la presenza · −5 pt</option></select></label><button class="btn secondary" id="autogestioneManagerBtn" type="button">Registra / punisci</button></div>` : ''}<p class="management-hint">${state.autogestione.attiva ? 'Registra o correggi la presenza di un player.' : 'Attivala per consentire ai player di registrare autonomamente la presenza.'}</p></div></div>
+          <div class="management-tool" data-management-panel="auto"><div class="management-tool-head"><h4>Autogestione presenze</h4><p>I player dichiarano presenza o assenza entro le 14:00; il manager può correggere manualmente.</p></div><div class="management-auto-box"><label class="management-toggle-row"><span><strong>${state.autogestione.attiva ? 'Attiva' : 'Disattivata'}</strong><small>Consenti ai player di registrare autonomamente la presenza</small></span><input class="toggle" id="autogestioneToggle" type="checkbox" ${state.autogestione.attiva ? 'checked' : ''}></label>${state.autogestione.attiva ? `<div class="management-auto-form"><label class="field"><span class="field-label">Player</span><select id="autogestioneManagerStudent">${studentOptions || '<option value="">Nessuno studente</option>'}</select></label><label class="field"><span class="field-label">Esito</span><select id="autogestioneManagerState"><option value="presente">Presente dimenticata · 0 pt</option><option value="assente">Assente · −3 pt</option><option value="falsata">Falsata la presenza · −5 pt</option></select></label><button class="btn secondary" id="autogestioneManagerBtn" type="button" ${domenica ? 'disabled' : ''}>Registra / punisci</button></div>` : ''}<p class="management-hint">${state.autogestione.attiva ? domenica ? 'La domenica non si registra la presenza.' : 'Registra o correggi la presenza di un player.' : 'Attivala per consentire ai player di registrare autonomamente la presenza.'}</p></div></div>
         </div>
       </section>
       <section class="management-panel management-players"><div class="management-panel-header"><div><h3>Giocatori</h3><p>Aggiungi nuovi player e gestisci quelli già presenti.</p></div></div><form id="addStudentForm" class="management-create-player"><label class="field"><span class="field-label">Nome</span><input name="nome" required placeholder="Es. Marco Rossi"></label><label class="field"><span class="field-label">Avatar URL</span><input name="avatar_url" placeholder="https://..."></label><button class="btn" type="submit">Aggiungi player</button></form><div class="management-player-toolbar"><strong>Elenco player</strong><span>${state.students.length} player</span></div><div class="management-player-list">${state.students.length ? state.students.map((student) => `<article class="management-player-row"><div>${avatarMarkup(student.nome, student.avatar_url, 'style="width:50px;height:50px;border-radius:14px;"')}<strong>${esc(student.nome)}</strong></div><aside><button class="btn secondary" data-edit-student="${student.id}" type="button">Modifica</button><button class="btn danger" data-delete-student="${student.id}" type="button">Elimina</button></aside></article>`).join('') : '<div class="empty">Nessun player inserito</div>'}</div></section>
@@ -1473,6 +1479,7 @@ async function setAutogestioneAttiva(attiva) {
 }
 
 async function registraAutogestionePlayer(stato) {
+  if (isAutogestioneSunday(italyNow().day)) return alert('La domenica non si registra la presenza.');
   const { data, error } = await supabase.rpc('autogestione_player_registra', { p_stato: stato });
   if (error) return alert(error.message);
   const punti = Number(data?.punti || 0);
@@ -1482,6 +1489,7 @@ async function registraAutogestionePlayer(stato) {
 
 async function registraAutogestioneManager() {
   if (!isPremium()) return alert('Solo i manager possono registrare o verificare le presenze.');
+  if (isAutogestioneSunday(italyNow().day)) return alert('La domenica non si registra la presenza.');
   const studenteId = document.getElementById('autogestioneManagerStudent')?.value;
   const stato = document.getElementById('autogestioneManagerState')?.value;
   if (!studenteId || !stato) return alert('Seleziona player ed esito.');
@@ -1507,6 +1515,7 @@ function programmaPromemoriaAutogestione() {
   if (!state.autogestione.attiva || !state.profile || localStorage.getItem('fantascuola_autogestione_promemoria') !== 'true' || Notification.permission !== 'granted') return;
   const now = new Date();
   const italy = italyNow();
+  if (isAutogestioneSunday(italy.day)) return;
   const currentMinutes = italy.hour * 60 + italy.minute;
   const delay = (13 * 60 + 45 - currentMinutes) * 60 * 1000 - now.getSeconds() * 1000 - now.getMilliseconds();
   if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return;
