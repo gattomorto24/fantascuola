@@ -34,6 +34,7 @@ export class Game {
     });
 
     const coarsePointer = globalThis.matchMedia?.('(pointer: coarse)').matches === true;
+    this.isTouchDevice = coarsePointer || Number(globalThis.navigator?.maxTouchPoints || 0) > 0;
     const nativeRatio = Math.max(1, globalThis.devicePixelRatio || 1);
     this.pixelRatioCap = Math.min(
       nativeRatio,
@@ -73,8 +74,26 @@ export class Game {
       },
     });
 
+    this.exitHoldTimer = null;
+    this.onExitKeyDown = (event) => {
+      if (this.isTouchDevice || event.code !== 'Escape' || this.exitHoldTimer) return;
+      event.preventDefault();
+      this.exitHoldTimer = setTimeout(() => {
+        this.exitHoldTimer = null;
+        window.location.href = '../index.html';
+      }, 900);
+    };
+    this.onExitKeyUp = (event) => {
+      if (event.code !== 'Escape') return;
+      clearTimeout(this.exitHoldTimer);
+      this.exitHoldTimer = null;
+    };
+
     this.resize = this.resize.bind(this);
     window.addEventListener('resize', this.resize);
+    window.addEventListener('keydown', this.onExitKeyDown, true);
+    window.addEventListener('keyup', this.onExitKeyUp, true);
+    window.addEventListener('blur', this.onExitKeyUp);
     this.resize();
 
     this.loop = new GameLoop(
@@ -226,6 +245,7 @@ export class Game {
     this.loop.start();
     this.input.showTouchControls();
     this.multiplayer.connect();
+    this.hud.startCompactCountdown(5000);
     onStage('Mondo pronto', 100);
   }
 
@@ -281,6 +301,12 @@ export class Game {
   async dispose() {
     this.loop.stop();
     window.removeEventListener('resize', this.resize);
+    window.removeEventListener('keydown', this.onExitKeyDown, true);
+    window.removeEventListener('keyup', this.onExitKeyUp, true);
+    window.removeEventListener('blur', this.onExitKeyUp);
+    clearTimeout(this.exitHoldTimer);
+    this.exitHoldTimer = null;
+    this.hud.dispose();
     document.body.classList.remove('gameplay-active', 'network-disconnected');
     this.disconnectScreen.hide();
     this.input.dispose();
