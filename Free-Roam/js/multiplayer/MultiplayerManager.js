@@ -15,7 +15,9 @@ export function validSnapshot(value, maxAge = 60000) {
     validNumber(value.rotation) && STATES.has(value.movementState) &&
     Number.isFinite(value.timestamp) && Math.abs(Date.now() - value.timestamp) < maxAge)) return false;
 
-  if (value.avatarId === 'pixel' && value.avatarConfig != null && !validAvatarConfig(value.avatarConfig)) return false;
+  const avatarConfig = value.avatar?.type === 'pixel' ? value.avatar.config : value.avatarConfig;
+  if (value.avatarId === 'pixel' && !validAvatarConfig(avatarConfig)) return false;
+  if (value.avatar && (value.avatar.type !== 'pixel' || value.avatar.version !== 1)) return false;
   return true;
 }
 
@@ -48,6 +50,9 @@ export class MultiplayerManager {
       playerId: this.playerId,
       displayName: this.identity.displayName,
       avatarId: p.avatarId,
+      avatar: p.avatarId === 'pixel' && p.avatarConfig
+        ? { type: 'pixel', version: 1, config: p.avatarConfig }
+        : { type: p.avatarId, version: 1 },
       position: { x: p.root.position.x, y: p.root.position.y, z: p.root.position.z },
       rotation: p.root.rotation.y,
       movementState: p.movementState,

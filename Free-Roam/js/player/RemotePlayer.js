@@ -26,9 +26,16 @@ export class RemotePlayer extends Player {
       this.hasSnapshot = true;
     }
 
-    const selection = snapshot.avatarId === 'pixel'
-      ? { type: 'pixel', config: snapshot.avatarConfig }
+    const remoteAvatar = snapshot.avatar || {
+      type: snapshot.avatarId,
+      version: 1,
+      config: snapshot.avatarConfig,
+    };
+    const selection = remoteAvatar.type === 'pixel'
+      ? { type: 'pixel', config: remoteAvatar.config }
       : snapshot.avatarId;
+    const remoteAvatarKey = selection.type === 'pixel' ? JSON.stringify(selection.config) : snapshot.avatarId;
+    console.debug(`[Avatar] remote ${snapshot.displayName} = ${selection.type}:${remoteAvatarKey}`);
     const requestKey = this.avatars.selectionKey(selection);
 
     if (requestKey !== this.avatarRequestKey) {

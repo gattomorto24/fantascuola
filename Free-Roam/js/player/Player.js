@@ -41,6 +41,7 @@ export class Player {
     this.avatarId = visual.networkAvatarId;
     this.avatarConfig = visual.avatarConfig || null;
     this.avatarSelectionKey = visual.selectionKey || requestedKey;
+    console.debug(`[Avatar] local = ${this.avatarId}:${this.avatarSelectionKey}`);
     this.root.add(visual.object);
     return visual;
   }
