@@ -40,7 +40,7 @@ async function initialize() {
     client.channel('free-roam-map-manager')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'free_roam_settings' }, refreshMap)
       .subscribe();
-    status('Incolla il link diretto di un GLB pubblicato nella Release maps (massimo 1024 MB).');
+    status('Incolla il link diretto di un GLB pubblicato nella Release maps (fino a 1 GB).');
   } catch (error) { console.warn('[Free Roam] Pannello manager:', error); status(error.message || String(error)); }
 }
 
