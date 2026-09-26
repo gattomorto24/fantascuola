@@ -2,10 +2,18 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FantaScuola">
   <title>FantaScuola — Free Roam</title>
+
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="../logo.png">
   <link rel="stylesheet" href="./styles/main.css">
   <link rel="stylesheet" href="./styles/touch.css">
+
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
@@ -14,18 +22,67 @@
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
+
+  <section id="install-screen" class="install-screen" hidden aria-labelledby="install-title">
+    <div class="install-card">
+      <div class="install-icon" aria-hidden="true">↗</div>
+      <p class="eyebrow">FANTASCUOLA · MOBILE</p>
+      <h1 id="install-title">PIÙ SPAZIO<br>PER GIOCARE</h1>
+      <p>FantaScuola Free Roam funziona meglio dalla schermata Home: più spazio per il gioco, niente barra del browser e un'esperienza più simile a un'app.</p>
+      <ol id="install-instructions" class="install-instructions"></ol>
+      <button id="install-native" class="install-primary" type="button" hidden>INSTALLA APP</button>
+      <button id="install-continue" class="install-secondary" type="button">CONTINUA NEL BROWSER</button>
+    </div>
+  </section>
+
+  <section id="rotate-screen" class="rotate-screen" hidden aria-live="polite">
+    <div class="rotate-device" aria-hidden="true">▭</div>
+    <strong>RUOTA IL TELEFONO</strong>
+    <span>Free Roam è pensato per giocare in orizzontale.</span>
+  </section>
+
   <section id="welcome" class="welcome">
     <div class="welcome-card">
-      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.2</p>
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.3</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
-      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift e Spazio; sul telefono usa il joystick, il riquadro visuale e i pulsanti Corsa e Salta.</p>
-      <label class="menu-field" for="player-name">Nome giocatore <input id="player-name" type="text" maxlength="32" autocomplete="nickname" placeholder="Il tuo nome"></label>
-      <label class="menu-field" for="avatar-choice">Avatar <select id="avatar-choice"><option value="default">Default / Placeholder</option><option value="pixel">Pixel</option><option value="local">GLB dal dispositivo (solo locale)</option><option value="github">Pubblica da GitHub Releases</option></select></label>
-      <label class="menu-field" id="avatar-file-field" for="avatar-file" hidden>File avatar .glb (massimo 50 MB, solo locale) <input id="avatar-file" type="file" accept=".glb,model/gltf-binary"></label>
+      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift e Spazio. Su mobile il joystick integra movimento e sprint, puoi ruotare la camera trascinando in qualsiasi area libera e hai un solo grande tasto Salto.</p>
+
+      <label class="menu-field" for="player-name">
+        Nome giocatore
+        <input id="player-name" type="text" maxlength="32" autocomplete="nickname" placeholder="Il tuo nome">
+      </label>
+
+      <label class="menu-field" for="avatar-choice">
+        Avatar
+        <select id="avatar-choice">
+          <option value="pixel-custom" selected>Pixel personalizzato · consigliato</option>
+          <option value="pixel">Pixel base</option>
+          <option value="default">Default / Placeholder</option>
+          <option value="local">GLB dal dispositivo (solo locale)</option>
+          <option value="github">Pubblica da GitHub Releases</option>
+        </select>
+      </label>
+
+      <button id="open-avatar-creator" class="secondary-button avatar-creator-open" type="button">
+        CREA / MODIFICA AVATAR
+      </button>
+
+      <label class="menu-field" id="avatar-file-field" for="avatar-file" hidden>
+        File avatar .glb (massimo 50 MB, solo locale)
+        <input id="avatar-file" type="file" accept=".glb,model/gltf-binary">
+      </label>
+
       <div id="avatar-github-field" hidden>
-        <label class="menu-field" for="avatar-github-url">Link del GLB nella Release <input id="avatar-github-url" type="url" placeholder="https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/avatar.glb"></label>
-        <label class="menu-field" for="avatar-github-name">Nome avatar <input id="avatar-github-name" type="text" maxlength="40" placeholder="Es. Il mio personaggio"></label>
+        <label class="menu-field" for="avatar-github-url">
+          Link del GLB nella Release
+          <input id="avatar-github-url" type="url" placeholder="https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/avatar.glb">
+        </label>
+        <label class="menu-field" for="avatar-github-name">
+          Nome avatar
+          <input id="avatar-github-name" type="text" maxlength="40" placeholder="Es. Il mio personaggio">
+        </label>
       </div>
+
       <button id="publish-avatar" class="secondary-button" type="button" hidden>PUBBLICA AVATAR DA GITHUB</button>
       <p id="menu-status" class="menu-status" role="status">Controllo account…</p>
       <progress id="menu-progress" hidden></progress>
@@ -34,21 +91,90 @@
       <p id="startup-error" class="error" role="alert" hidden></p>
     </div>
   </section>
+
+  <section id="avatar-creator" class="avatar-creator" hidden aria-labelledby="avatar-creator-title">
+    <button class="avatar-creator-backdrop" type="button" data-avatar-backdrop aria-label="Chiudi Avatar Creator"></button>
+    <div class="avatar-creator-card">
+      <header class="avatar-creator-header">
+        <div>
+          <p class="eyebrow">FANTASCUOLA</p>
+          <h2 id="avatar-creator-title">Avatar Creator</h2>
+        </div>
+        <button id="avatar-close" class="avatar-close" type="button" aria-label="Chiudi">×</button>
+      </header>
+
+      <div class="avatar-creator-layout">
+        <div id="avatar-preview" class="avatar-preview" aria-label="Anteprima 3D avatar">
+          <span>TRASCINA PER RUOTARE</span>
+        </div>
+
+        <div class="avatar-options">
+          <div class="avatar-option">
+            <span>PELLE</span>
+            <div><button type="button" data-avatar-prev="skinTone">‹</button><strong data-avatar-value="skinTone">Media</strong><button type="button" data-avatar-next="skinTone">›</button></div>
+          </div>
+          <div class="avatar-option">
+            <span>CAPELLI</span>
+            <div><button type="button" data-avatar-prev="hairColor">‹</button><strong data-avatar-value="hairColor">Castano</strong><button type="button" data-avatar-next="hairColor">›</button></div>
+          </div>
+          <div class="avatar-option">
+            <span>MAGLIETTA</span>
+            <div><button type="button" data-avatar-prev="shirtColor">‹</button><strong data-avatar-value="shirtColor">Blu</strong><button type="button" data-avatar-next="shirtColor">›</button></div>
+          </div>
+          <div class="avatar-option">
+            <span>PANTALONI</span>
+            <div><button type="button" data-avatar-prev="pantsColor">‹</button><strong data-avatar-value="pantsColor">Rosso</strong><button type="button" data-avatar-next="pantsColor">›</button></div>
+          </div>
+          <div class="avatar-option">
+            <span>SCARPE</span>
+            <div><button type="button" data-avatar-prev="shoesColor">‹</button><strong data-avatar-value="shoesColor">Bianche</strong><button type="button" data-avatar-next="shoesColor">›</button></div>
+          </div>
+
+          <button id="avatar-save" class="avatar-save" type="button">SALVA AVATAR</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <aside id="hud" class="hud" aria-live="off" hidden>
-    <div class="hud-top"><strong>FREE ROAM <small>v0.2</small></strong><a href="../index.html">Esci</a></div>
-    <dl><div><dt>FPS</dt><dd id="fps">—</dd></div><div><dt>Multiplayer</dt><dd id="network">Offline</dd></div><div><dt>Giocatori</dt><dd id="players">1</dd></div><div><dt>Coordinate</dt><dd id="position">0, 0, 0</dd></div><div><dt>Stato</dt><dd id="movement">Idle</dd></div><div><dt>Mappa</dt><dd id="map-name">Pianura di test</dd></div><div><dt>Avatar</dt><dd id="avatar-name">Default</dd></div><div><dt>Ping</dt><dd id="latency">—</dd></div></dl>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.3</small></strong><a href="../index.html">Esci</a></div>
+    <dl>
+      <div><dt>FPS</dt><dd id="fps">—</dd></div>
+      <div><dt>Multiplayer</dt><dd id="network">Offline</dd></div>
+      <div><dt>Giocatori</dt><dd id="players">1</dd></div>
+      <div><dt>Coordinate</dt><dd id="position">0, 0, 0</dd></div>
+      <div><dt>Stato</dt><dd id="movement">Idle</dd></div>
+      <div><dt>Mappa</dt><dd id="map-name">Pianura di test</dd></div>
+      <div><dt>Avatar</dt><dd id="avatar-name">Pixel</dd></div>
+      <div><dt>Ping</dt><dd id="latency">—</dd></div>
+    </dl>
     <p id="network-detail" class="network-detail">Modalità locale</p>
     <p id="asset-status" class="asset-status" hidden></p>
   </aside>
-  <div id="touch-controls" class="touch-controls" aria-label="Controlli di gioco per schermo touch" hidden>
-    <div id="move-pad" class="touch-pad" aria-label="Trascina per muoverti">
-      <span id="move-thumb" class="touch-thumb"></span><span class="touch-caption">MUOVI</span>
+
+  <div id="touch-controls" class="touch-controls" aria-label="Controlli di gioco touch" hidden>
+    <div id="move-pad" class="touch-pad" data-sprinting="false" aria-label="Joystick movimento e sprint">
+      <span class="touch-sprint-ring" aria-hidden="true"></span>
+      <span class="touch-move-zone" aria-hidden="true"></span>
+      <span id="move-thumb" class="touch-thumb"></span>
+      <span class="touch-sprint-label">SPRINT</span>
     </div>
-    <div id="look-pad" class="look-pad" aria-label="Trascina per ruotare la visuale"><span>VISUALE</span></div>
-    <div class="touch-actions">
-      <button id="touch-run" type="button" aria-pressed="false">CORRI</button>
-      <button id="touch-jump" type="button">SALTA</button>
-    </div>
+
+    <button id="touch-jump" class="touch-jump" type="button" aria-label="Salta">
+      <span aria-hidden="true">↑</span>
+    </button>
   </div>
+
+  <section id="disconnect-screen" class="disconnect-screen" hidden role="dialog" aria-modal="true" aria-labelledby="disconnect-title">
+    <div class="disconnect-card">
+      <p class="disconnect-kicker">FANTASCUOLA FREE ROAM</p>
+      <h2 id="disconnect-title">DISCONNESSO</h2>
+      <p id="disconnect-detail">La connessione alla sessione multiplayer è stata interrotta.</p>
+      <div class="disconnect-actions">
+        <button id="disconnect-reconnect" type="button">RICONNETTI</button>
+        <button id="disconnect-offline" type="button">CONTINUA OFFLINE</button>
+      </div>
+    </div>
+  </section>
 </body>
 </html>
