@@ -83,17 +83,19 @@ export class Game {
         window.location.href = '../index.html';
       }, 900);
     };
-    this.onExitKeyUp = (event) => {
-      if (event.code !== 'Escape') return;
+    this.cancelExitHold = () => {
       clearTimeout(this.exitHoldTimer);
       this.exitHoldTimer = null;
+    };
+    this.onExitKeyUp = (event) => {
+      if (event.code === 'Escape') this.cancelExitHold();
     };
 
     this.resize = this.resize.bind(this);
     window.addEventListener('resize', this.resize);
     window.addEventListener('keydown', this.onExitKeyDown, true);
     window.addEventListener('keyup', this.onExitKeyUp, true);
-    window.addEventListener('blur', this.onExitKeyUp);
+    window.addEventListener('blur', this.cancelExitHold);
     this.resize();
 
     this.loop = new GameLoop(
@@ -303,9 +305,8 @@ export class Game {
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('keydown', this.onExitKeyDown, true);
     window.removeEventListener('keyup', this.onExitKeyUp, true);
-    window.removeEventListener('blur', this.onExitKeyUp);
-    clearTimeout(this.exitHoldTimer);
-    this.exitHoldTimer = null;
+    window.removeEventListener('blur', this.cancelExitHold);
+    this.cancelExitHold();
     this.hud.dispose();
     document.body.classList.remove('gameplay-active', 'network-disconnected');
     this.disconnectScreen.hide();
