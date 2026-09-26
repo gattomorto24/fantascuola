@@ -23,11 +23,16 @@ export class Game {
     this.displayName = displayName;
     this.avatarSelection = avatarSelection;
     this.storage = storage;
+    this.mapVersion = 'test-world';
 
     this.scene = new THREE.Scene();
 
     const coarsePointer = globalThis.matchMedia?.('(pointer: coarse)').matches === true;
     this.isTouchDevice = coarsePointer || Number(globalThis.navigator?.maxTouchPoints || 0) > 0;
+    const userAgent = String(globalThis.navigator?.userAgent || '');
+    const iPadDesktopAgent = globalThis.navigator?.platform === 'MacIntel'
+      && Number(globalThis.navigator?.maxTouchPoints || 0) > 1;
+    this.isMobilePlatform = /iPhone|iPad|iPod|Android|Mobile/i.test(userAgent) || iPadDesktopAgent;
 
     this.camera = new THREE.PerspectiveCamera(
       65,
@@ -128,25 +133,6 @@ export class Game {
 
     onStage('Ricerca mappa attiva…', 11);
 
-    // Recovery persistente: se iOS termina brutalmente la pagina durante il parsing
-    // non esiste un'eccezione JS da catturare. Registriamo PRIMA il tentativo; al
-    // riavvio successivo saltiamo automaticamente la strategia che probabilmente
-    // ha causato il memory-kill. Dopo un caricamento riuscito il marker viene pulito.
-    let mapRecoveryStartIndex = 0;
-    if (this.isTouchDevice) {
-      try {
-        const pending = JSON.parse(localStorage.getItem('free-roam:map-attempt-pending') || 'null');
-        if (pending && Date.now() - Number(pending.at || 0) < 15 * 60 * 1000) {
-          mapRecoveryStartIndex = 0;
-          onStage(`Ripristino dopo interruzione · provo fallback ${mapRecoveryStartIndex + 1}…`, 13);
-        }
-        localStorage.setItem('free-roam:map-attempt-pending', JSON.stringify({
-          index: mapRecoveryStartIndex,
-          at: Date.now(),
-        }));
-      } catch {}
-    }
-
     if (this.storage) {
       try {
         const manifest = await this.storage.activeMap();
@@ -188,26 +174,18 @@ export class Game {
                 onStage(stage, 94 + pct * 3);
               } else if (stage.includes('Download')) {
                 onStage(stage, 14);
+              } else if (stage.includes('Zona di spawn')) {
+                onStage(stage, 20 + (Number.isFinite(localProgress) ? localProgress : 0) * 70);
               }
             },
             {
-              isMobile: this.isTouchDevice,
-              startIndex: mapRecoveryStartIndex,
-              onAttempt: (index, strategy) => {
-                if (!this.isTouchDevice) return;
-                try {
-                  localStorage.setItem('free-roam:map-attempt-pending', JSON.stringify({
-                    index,
-                    strategy,
-                    at: Date.now(),
-                  }));
-                } catch {}
-              },
+              isMobile: this.isMobilePlatform,
             },
           );
 
           if (result.warning) this.hud.setAssetStatus(result.warning);
           else if (!result.fallback) {
+            this.mapVersion = `${manifest.id}:${manifest.metadata?.mobile_source_sha256 || manifest.version || 1}`;
             const triangles = result.renderStats?.triangles || 0;
             const meshes = result.renderStats?.meshes || 0;
 
@@ -223,15 +201,6 @@ export class Game {
                 `Fallback mobile attivo · ${strategyLabel}. Geometria e coordinate restano condivise col PC.`,
               );
             }
-
-            try {
-              localStorage.removeItem('free-roam:map-attempt-pending');
-              localStorage.setItem('free-roam:last-map-strategy', JSON.stringify({
-                strategy: strategyInfo.strategy || result.strategy || 'unknown',
-                fullQuality: Boolean(strategyInfo.fullQuality),
-                at: Date.now(),
-              }));
-            } catch {}
 
             console.info(
               `[Free Roam] Mappa pronta: ${meshes} mesh, ~${triangles.toLocaleString('it-IT')} triangoli, collisioni indicizzate.`,
@@ -282,9 +251,20 @@ export class Game {
           this.input.setEnabled(true);
         },
       },
+      this.mapVersion,
     );
 
-    const spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
+    let spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
+    try {
+      await this.world.ensureAt(spawn[0], spawn[2]);
+    } catch (error) {
+      console.warn('[Free Roam] Zona di spawn non disponibile:', error);
+      this.world.useFallback();
+      this.mapVersion = 'test-world';
+      this.multiplayer.mapVersion = this.mapVersion;
+      this.hud.setAssetStatus(`Zona di spawn non disponibile: ${error.message || error}. Uso la pianura.`);
+      spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
+    }
     const spawnGround = this.world.groundHeightAt(spawn[0], spawn[2], spawn[1], 3, 20);
     if (Number.isFinite(spawnGround)) spawn[1] = spawnGround;
     this.player.root.position.set(...spawn);
@@ -357,6 +337,7 @@ export class Game {
 
   update(delta) {
     const controls = this.input.read();
+    this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
     this.controller.update(delta, controls, this.followCamera.yaw);
     this.followCamera.update(delta, controls, this.player.root.position);
     this.multiplayer?.update(delta);
@@ -390,6 +371,7 @@ export class Game {
     this.player.dispose();
     this.world.dispose();
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
   }
 }

@@ -1,0 +1,1523 @@
+{
+  "schema": 1,
+  "coordinateSpace": "world",
+  "tileSize": 16,
+  "source": {
+    "url": "https://huggingface.co/buckets/Tony272009/Mappa/resolve/Quartiere_Chiesa_Dettagliato.glb",
+    "sha256": "39a2be510f25019864988489912b41611515e978895c13bc67572f03ec8dcd06",
+    "scale": 1,
+    "rotation": 0
+  },
+  "tiles": [
+    {
+      "x": -5,
+      "z": -3,
+      "file": "tiles/-5_-3_e6459d32d598.glb",
+      "bytes": 15596
+    },
+    {
+      "x": -5,
+      "z": -2,
+      "file": "tiles/-5_-2_de66266cb003.glb",
+      "bytes": 16172
+    },
+    {
+      "x": -5,
+      "z": -1,
+      "file": "tiles/-5_-1_bf2c6576104d.glb",
+      "bytes": 16172
+    },
+    {
+      "x": -5,
+      "z": 0,
+      "file": "tiles/-5_0_c5735079aeb4.glb",
+      "bytes": 16460
+    },
+    {
+      "x": -5,
+      "z": 1,
+      "file": "tiles/-5_1_fb8b6397542e.glb",
+      "bytes": 16172
+    },
+    {
+      "x": -5,
+      "z": 2,
+      "file": "tiles/-5_2_1ba9914b9336.glb",
+      "bytes": 16172
+    },
+    {
+      "x": -5,
+      "z": 3,
+      "file": "tiles/-5_3_52bf9c5106af.glb",
+      "bytes": 100396
+    },
+    {
+      "x": -5,
+      "z": 4,
+      "file": "tiles/-5_4_e1f18179f9a7.glb",
+      "bytes": 133228
+    },
+    {
+      "x": -5,
+      "z": 5,
+      "file": "tiles/-5_5_0b1398e84b45.glb",
+      "bytes": 16172
+    },
+    {
+      "x": -5,
+      "z": 6,
+      "file": "tiles/-5_6_723684eb0e8e.glb",
+      "bytes": 16460
+    },
+    {
+      "x": -5,
+      "z": 7,
+      "file": "tiles/-5_7_0865d2a66bfb.glb",
+      "bytes": 32008
+    },
+    {
+      "x": -5,
+      "z": 8,
+      "file": "tiles/-5_8_22d11bb7878a.glb",
+      "bytes": 26292
+    },
+    {
+      "x": -4,
+      "z": -3,
+      "file": "tiles/-4_-3_2944cd61641b.glb",
+      "bytes": 58048
+    },
+    {
+      "x": -4,
+      "z": -2,
+      "file": "tiles/-4_-2_342819a61f2a.glb",
+      "bytes": 1109244
+    },
+    {
+      "x": -4,
+      "z": -1,
+      "file": "tiles/-4_-1_62e436ac549f.glb",
+      "bytes": 64276
+    },
+    {
+      "x": -4,
+      "z": 0,
+      "file": "tiles/-4_0_eb3fd3a1faa0.glb",
+      "bytes": 41496
+    },
+    {
+      "x": -4,
+      "z": 1,
+      "file": "tiles/-4_1_30a53d343651.glb",
+      "bytes": 268664
+    },
+    {
+      "x": -4,
+      "z": 2,
+      "file": "tiles/-4_2_4e20a8e36579.glb",
+      "bytes": 212640
+    },
+    {
+      "x": -4,
+      "z": 3,
+      "file": "tiles/-4_3_dd480313a297.glb",
+      "bytes": 166188
+    },
+    {
+      "x": -4,
+      "z": 4,
+      "file": "tiles/-4_4_e6c7f85e79ed.glb",
+      "bytes": 519128
+    },
+    {
+      "x": -4,
+      "z": 5,
+      "file": "tiles/-4_5_1f79b743a132.glb",
+      "bytes": 258648
+    },
+    {
+      "x": -4,
+      "z": 6,
+      "file": "tiles/-4_6_cf6a9c8eb673.glb",
+      "bytes": 1149644
+    },
+    {
+      "x": -4,
+      "z": 7,
+      "file": "tiles/-4_7_b56d157d8de3.glb",
+      "bytes": 27696
+    },
+    {
+      "x": -4,
+      "z": 8,
+      "file": "tiles/-4_8_600a546d6243.glb",
+      "bytes": 296644
+    },
+    {
+      "x": -4,
+      "z": 9,
+      "file": "tiles/-4_9_1691c255ee3f.glb",
+      "bytes": 482628
+    },
+    {
+      "x": -4,
+      "z": 10,
+      "file": "tiles/-4_10_34d75b3aef22.glb",
+      "bytes": 166848
+    },
+    {
+      "x": -4,
+      "z": 11,
+      "file": "tiles/-4_11_2a99941ce065.glb",
+      "bytes": 26436
+    },
+    {
+      "x": -3,
+      "z": -3,
+      "file": "tiles/-3_-3_e3aa220f9abf.glb",
+      "bytes": 368992
+    },
+    {
+      "x": -3,
+      "z": -2,
+      "file": "tiles/-3_-2_e994c6e28f4d.glb",
+      "bytes": 1473812
+    },
+    {
+      "x": -3,
+      "z": -1,
+      "file": "tiles/-3_-1_3e81793c560b.glb",
+      "bytes": 118548
+    },
+    {
+      "x": -3,
+      "z": 0,
+      "file": "tiles/-3_0_5efbd9f32d5c.glb",
+      "bytes": 667324
+    },
+    {
+      "x": -3,
+      "z": 1,
+      "file": "tiles/-3_1_603412f71ce7.glb",
+      "bytes": 1142332
+    },
+    {
+      "x": -3,
+      "z": 2,
+      "file": "tiles/-3_2_45edb62e8ff3.glb",
+      "bytes": 802348
+    },
+    {
+      "x": -3,
+      "z": 3,
+      "file": "tiles/-3_3_6567d703fe79.glb",
+      "bytes": 272784
+    },
+    {
+      "x": -3,
+      "z": 4,
+      "file": "tiles/-3_4_1a5f68ee8cf6.glb",
+      "bytes": 1819612
+    },
+    {
+      "x": -3,
+      "z": 5,
+      "file": "tiles/-3_5_d782ba494cd1.glb",
+      "bytes": 488440
+    },
+    {
+      "x": -3,
+      "z": 6,
+      "file": "tiles/-3_6_367759f34988.glb",
+      "bytes": 511352
+    },
+    {
+      "x": -3,
+      "z": 7,
+      "file": "tiles/-3_7_992cf3674c0e.glb",
+      "bytes": 1066272
+    },
+    {
+      "x": -3,
+      "z": 8,
+      "file": "tiles/-3_8_5361acebf775.glb",
+      "bytes": 1132512
+    },
+    {
+      "x": -3,
+      "z": 9,
+      "file": "tiles/-3_9_2e649305f901.glb",
+      "bytes": 1443560
+    },
+    {
+      "x": -3,
+      "z": 10,
+      "file": "tiles/-3_10_b1902aec461b.glb",
+      "bytes": 1373244
+    },
+    {
+      "x": -3,
+      "z": 11,
+      "file": "tiles/-3_11_a3498af2e79a.glb",
+      "bytes": 383088
+    },
+    {
+      "x": -3,
+      "z": 12,
+      "file": "tiles/-3_12_31bd56506b6c.glb",
+      "bytes": 33412
+    },
+    {
+      "x": -3,
+      "z": 13,
+      "file": "tiles/-3_13_0e1ea89a0c81.glb",
+      "bytes": 44884
+    },
+    {
+      "x": -3,
+      "z": 14,
+      "file": "tiles/-3_14_0c51e3340209.glb",
+      "bytes": 531776
+    },
+    {
+      "x": -3,
+      "z": 15,
+      "file": "tiles/-3_15_a96c4c3019bf.glb",
+      "bytes": 356456
+    },
+    {
+      "x": -3,
+      "z": 16,
+      "file": "tiles/-3_16_7997071ee909.glb",
+      "bytes": 42764
+    },
+    {
+      "x": -3,
+      "z": 17,
+      "file": "tiles/-3_17_aa959f8181ff.glb",
+      "bytes": 34608
+    },
+    {
+      "x": -3,
+      "z": 18,
+      "file": "tiles/-3_18_8b86adc0d821.glb",
+      "bytes": 34564
+    },
+    {
+      "x": -3,
+      "z": 19,
+      "file": "tiles/-3_19_32071ea2b244.glb",
+      "bytes": 34564
+    },
+    {
+      "x": -2,
+      "z": -3,
+      "file": "tiles/-2_-3_46bcfa602318.glb",
+      "bytes": 393836
+    },
+    {
+      "x": -2,
+      "z": -2,
+      "file": "tiles/-2_-2_87f3171efa36.glb",
+      "bytes": 2523260
+    },
+    {
+      "x": -2,
+      "z": -1,
+      "file": "tiles/-2_-1_6e39342ee690.glb",
+      "bytes": 2043688
+    },
+    {
+      "x": -2,
+      "z": 0,
+      "file": "tiles/-2_0_c87143aa6651.glb",
+      "bytes": 5386888
+    },
+    {
+      "x": -2,
+      "z": 1,
+      "file": "tiles/-2_1_75bff6028f42.glb",
+      "bytes": 5192268
+    },
+    {
+      "x": -2,
+      "z": 2,
+      "file": "tiles/-2_2_f4e5b40ea715.glb",
+      "bytes": 5468416
+    },
+    {
+      "x": -2,
+      "z": 3,
+      "file": "tiles/-2_3_71a28dc52d54.glb",
+      "bytes": 398388
+    },
+    {
+      "x": -2,
+      "z": 4,
+      "file": "tiles/-2_4_a8493f4f4313.glb",
+      "bytes": 986712
+    },
+    {
+      "x": -2,
+      "z": 5,
+      "file": "tiles/-2_5_89db9f243a9e.glb",
+      "bytes": 1188876
+    },
+    {
+      "x": -2,
+      "z": 6,
+      "file": "tiles/-2_6_abe9fec85a46.glb",
+      "bytes": 1069756
+    },
+    {
+      "x": -2,
+      "z": 7,
+      "file": "tiles/-2_7_d0ea4719ff7c.glb",
+      "bytes": 2153328
+    },
+    {
+      "x": -2,
+      "z": 8,
+      "file": "tiles/-2_8_abb99ec7d7d8.glb",
+      "bytes": 2765892
+    },
+    {
+      "x": -2,
+      "z": 9,
+      "file": "tiles/-2_9_a7ee4e1219c9.glb",
+      "bytes": 2081032
+    },
+    {
+      "x": -2,
+      "z": 10,
+      "file": "tiles/-2_10_13c46580c6e4.glb",
+      "bytes": 2640296
+    },
+    {
+      "x": -2,
+      "z": 11,
+      "file": "tiles/-2_11_3f76fcd84fe3.glb",
+      "bytes": 1034716
+    },
+    {
+      "x": -2,
+      "z": 12,
+      "file": "tiles/-2_12_83c15ae90eb4.glb",
+      "bytes": 1321460
+    },
+    {
+      "x": -2,
+      "z": 13,
+      "file": "tiles/-2_13_8c6db2ed3b4f.glb",
+      "bytes": 3390176
+    },
+    {
+      "x": -2,
+      "z": 14,
+      "file": "tiles/-2_14_247bc287e1eb.glb",
+      "bytes": 1265248
+    },
+    {
+      "x": -2,
+      "z": 15,
+      "file": "tiles/-2_15_33897ec37373.glb",
+      "bytes": 2842020
+    },
+    {
+      "x": -2,
+      "z": 16,
+      "file": "tiles/-2_16_a660dae635a1.glb",
+      "bytes": 1487196
+    },
+    {
+      "x": -2,
+      "z": 17,
+      "file": "tiles/-2_17_1079dd8e75c6.glb",
+      "bytes": 2584788
+    },
+    {
+      "x": -2,
+      "z": 18,
+      "file": "tiles/-2_18_35bcd30b122e.glb",
+      "bytes": 1611540
+    },
+    {
+      "x": -2,
+      "z": 19,
+      "file": "tiles/-2_19_9f67ba9cc699.glb",
+      "bytes": 33408
+    },
+    {
+      "x": -1,
+      "z": -3,
+      "file": "tiles/-1_-3_9ace6afcca34.glb",
+      "bytes": 22512
+    },
+    {
+      "x": -1,
+      "z": -2,
+      "file": "tiles/-1_-2_18694fcf4d72.glb",
+      "bytes": 1312800
+    },
+    {
+      "x": -1,
+      "z": -1,
+      "file": "tiles/-1_-1_4a9ba7aee488.glb",
+      "bytes": 1752468
+    },
+    {
+      "x": -1,
+      "z": 0,
+      "file": "tiles/-1_0_a964476bdee0.glb",
+      "bytes": 3026532
+    },
+    {
+      "x": -1,
+      "z": 1,
+      "file": "tiles/-1_1_c8d8edb91e81.glb",
+      "bytes": 3994320
+    },
+    {
+      "x": -1,
+      "z": 2,
+      "file": "tiles/-1_2_58854aacde7d.glb",
+      "bytes": 11240740
+    },
+    {
+      "x": -1,
+      "z": 3,
+      "file": "tiles/-1_3_ae26c12c3869.glb",
+      "bytes": 1044168
+    },
+    {
+      "x": -1,
+      "z": 4,
+      "file": "tiles/-1_4_4d871dd45f1b.glb",
+      "bytes": 946840
+    },
+    {
+      "x": -1,
+      "z": 5,
+      "file": "tiles/-1_5_99666ae5b720.glb",
+      "bytes": 1333896
+    },
+    {
+      "x": -1,
+      "z": 6,
+      "file": "tiles/-1_6_f7d94d1d3180.glb",
+      "bytes": 1622472
+    },
+    {
+      "x": -1,
+      "z": 7,
+      "file": "tiles/-1_7_d02f6be4b16c.glb",
+      "bytes": 2213220
+    },
+    {
+      "x": -1,
+      "z": 8,
+      "file": "tiles/-1_8_f37dd0faa3c2.glb",
+      "bytes": 2382104
+    },
+    {
+      "x": -1,
+      "z": 9,
+      "file": "tiles/-1_9_06e60d6555e2.glb",
+      "bytes": 1682632
+    },
+    {
+      "x": -1,
+      "z": 10,
+      "file": "tiles/-1_10_eea181b8ca34.glb",
+      "bytes": 2793240
+    },
+    {
+      "x": -1,
+      "z": 11,
+      "file": "tiles/-1_11_0e4c9d7b67d8.glb",
+      "bytes": 2557900
+    },
+    {
+      "x": -1,
+      "z": 12,
+      "file": "tiles/-1_12_5e04e1ba6aae.glb",
+      "bytes": 2015568
+    },
+    {
+      "x": -1,
+      "z": 13,
+      "file": "tiles/-1_13_6e3d1fd49b1a.glb",
+      "bytes": 2618404
+    },
+    {
+      "x": -1,
+      "z": 14,
+      "file": "tiles/-1_14_3363adfc023a.glb",
+      "bytes": 2107844
+    },
+    {
+      "x": -1,
+      "z": 15,
+      "file": "tiles/-1_15_b97dc5ddf296.glb",
+      "bytes": 1490972
+    },
+    {
+      "x": -1,
+      "z": 16,
+      "file": "tiles/-1_16_6dbaa305daf1.glb",
+      "bytes": 3807340
+    },
+    {
+      "x": -1,
+      "z": 17,
+      "file": "tiles/-1_17_77060080f2a3.glb",
+      "bytes": 4531092
+    },
+    {
+      "x": -1,
+      "z": 18,
+      "file": "tiles/-1_18_62224550ae2a.glb",
+      "bytes": 1731744
+    },
+    {
+      "x": -1,
+      "z": 19,
+      "file": "tiles/-1_19_fedf6cb88884.glb",
+      "bytes": 33404
+    },
+    {
+      "x": 0,
+      "z": -3,
+      "file": "tiles/0_-3_e6db1f5c5355.glb",
+      "bytes": 627156
+    },
+    {
+      "x": 0,
+      "z": -2,
+      "file": "tiles/0_-2_ebbeea663df9.glb",
+      "bytes": 1119492
+    },
+    {
+      "x": 0,
+      "z": -1,
+      "file": "tiles/0_-1_250fd1756248.glb",
+      "bytes": 1793844
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "file": "tiles/0_0_a61bbf3840b1.glb",
+      "bytes": 1283560
+    },
+    {
+      "x": 0,
+      "z": 1,
+      "file": "tiles/0_1_dd4d47fc59d0.glb",
+      "bytes": 536224
+    },
+    {
+      "x": 0,
+      "z": 2,
+      "file": "tiles/0_2_c2fd9b1cf8cd.glb",
+      "bytes": 817320
+    },
+    {
+      "x": 0,
+      "z": 3,
+      "file": "tiles/0_3_7d10445428e6.glb",
+      "bytes": 770752
+    },
+    {
+      "x": 0,
+      "z": 4,
+      "file": "tiles/0_4_7a71b2292ed9.glb",
+      "bytes": 1299832
+    },
+    {
+      "x": 0,
+      "z": 5,
+      "file": "tiles/0_5_d2cde048aeb2.glb",
+      "bytes": 1181676
+    },
+    {
+      "x": 0,
+      "z": 6,
+      "file": "tiles/0_6_12611ddbb3c3.glb",
+      "bytes": 1873812
+    },
+    {
+      "x": 0,
+      "z": 7,
+      "file": "tiles/0_7_b0ef670e62ce.glb",
+      "bytes": 2050644
+    },
+    {
+      "x": 0,
+      "z": 8,
+      "file": "tiles/0_8_45170b2df629.glb",
+      "bytes": 2889792
+    },
+    {
+      "x": 0,
+      "z": 9,
+      "file": "tiles/0_9_50b449312b5c.glb",
+      "bytes": 865188
+    },
+    {
+      "x": 0,
+      "z": 10,
+      "file": "tiles/0_10_48c9e07fcef4.glb",
+      "bytes": 3276372
+    },
+    {
+      "x": 0,
+      "z": 11,
+      "file": "tiles/0_11_649b2382a555.glb",
+      "bytes": 1049384
+    },
+    {
+      "x": 0,
+      "z": 12,
+      "file": "tiles/0_12_c90e9cf55a49.glb",
+      "bytes": 1020704
+    },
+    {
+      "x": 0,
+      "z": 13,
+      "file": "tiles/0_13_418c2ddc16ba.glb",
+      "bytes": 8363860
+    },
+    {
+      "x": 0,
+      "z": 14,
+      "file": "tiles/0_14_a893c4196f5d.glb",
+      "bytes": 2337464
+    },
+    {
+      "x": 0,
+      "z": 15,
+      "file": "tiles/0_15_40dafb57fd71.glb",
+      "bytes": 168884
+    },
+    {
+      "x": 0,
+      "z": 16,
+      "file": "tiles/0_16_f18907aa6163.glb",
+      "bytes": 752856
+    },
+    {
+      "x": 0,
+      "z": 17,
+      "file": "tiles/0_17_ac7348a22bcd.glb",
+      "bytes": 4108428
+    },
+    {
+      "x": 0,
+      "z": 18,
+      "file": "tiles/0_18_291615477907.glb",
+      "bytes": 32248
+    },
+    {
+      "x": 0,
+      "z": 19,
+      "file": "tiles/0_19_fc5da68484f0.glb",
+      "bytes": 33404
+    },
+    {
+      "x": 1,
+      "z": -3,
+      "file": "tiles/1_-3_8a0189dd914f.glb",
+      "bytes": 883900
+    },
+    {
+      "x": 1,
+      "z": -2,
+      "file": "tiles/1_-2_9a645fc329ba.glb",
+      "bytes": 2310816
+    },
+    {
+      "x": 1,
+      "z": -1,
+      "file": "tiles/1_-1_3a8ce41cc008.glb",
+      "bytes": 3324708
+    },
+    {
+      "x": 1,
+      "z": 0,
+      "file": "tiles/1_0_1d1e20a35ae1.glb",
+      "bytes": 2107680
+    },
+    {
+      "x": 1,
+      "z": 1,
+      "file": "tiles/1_1_d041b389c1c7.glb",
+      "bytes": 1575120
+    },
+    {
+      "x": 1,
+      "z": 2,
+      "file": "tiles/1_2_4b8db58e56bf.glb",
+      "bytes": 1808132
+    },
+    {
+      "x": 1,
+      "z": 3,
+      "file": "tiles/1_3_6f4a1f2d1670.glb",
+      "bytes": 678128
+    },
+    {
+      "x": 1,
+      "z": 4,
+      "file": "tiles/1_4_7494de126ecb.glb",
+      "bytes": 1025836
+    },
+    {
+      "x": 1,
+      "z": 5,
+      "file": "tiles/1_5_e5325b85aeda.glb",
+      "bytes": 323256
+    },
+    {
+      "x": 1,
+      "z": 6,
+      "file": "tiles/1_6_ab63404cc5c7.glb",
+      "bytes": 163028
+    },
+    {
+      "x": 1,
+      "z": 7,
+      "file": "tiles/1_7_7a63c8eb7a2c.glb",
+      "bytes": 443796
+    },
+    {
+      "x": 1,
+      "z": 8,
+      "file": "tiles/1_8_2fa6c78f093e.glb",
+      "bytes": 985404
+    },
+    {
+      "x": 1,
+      "z": 9,
+      "file": "tiles/1_9_66f34e398ce9.glb",
+      "bytes": 347316
+    },
+    {
+      "x": 1,
+      "z": 10,
+      "file": "tiles/1_10_020699426f26.glb",
+      "bytes": 530632
+    },
+    {
+      "x": 1,
+      "z": 11,
+      "file": "tiles/1_11_bb81865b2938.glb",
+      "bytes": 260228
+    },
+    {
+      "x": 1,
+      "z": 12,
+      "file": "tiles/1_12_9928733092e4.glb",
+      "bytes": 1274172
+    },
+    {
+      "x": 1,
+      "z": 13,
+      "file": "tiles/1_13_93e5900f9d15.glb",
+      "bytes": 2727380
+    },
+    {
+      "x": 1,
+      "z": 14,
+      "file": "tiles/1_14_356ed9ff51a1.glb",
+      "bytes": 687948
+    },
+    {
+      "x": 1,
+      "z": 15,
+      "file": "tiles/1_15_83e66077ff7e.glb",
+      "bytes": 164448
+    },
+    {
+      "x": 1,
+      "z": 16,
+      "file": "tiles/1_16_5fd47f7bd702.glb",
+      "bytes": 463656
+    },
+    {
+      "x": 1,
+      "z": 17,
+      "file": "tiles/1_17_9afa779167c2.glb",
+      "bytes": 3822916
+    },
+    {
+      "x": 1,
+      "z": 18,
+      "file": "tiles/1_18_1a2c4ffd05e1.glb",
+      "bytes": 32252
+    },
+    {
+      "x": 1,
+      "z": 19,
+      "file": "tiles/1_19_5166625d0061.glb",
+      "bytes": 33404
+    },
+    {
+      "x": 2,
+      "z": -3,
+      "file": "tiles/2_-3_b1666e9d1f66.glb",
+      "bytes": 264492
+    },
+    {
+      "x": 2,
+      "z": -2,
+      "file": "tiles/2_-2_5927e26bc9b7.glb",
+      "bytes": 677676
+    },
+    {
+      "x": 2,
+      "z": -1,
+      "file": "tiles/2_-1_900e8e752720.glb",
+      "bytes": 2617936
+    },
+    {
+      "x": 2,
+      "z": 0,
+      "file": "tiles/2_0_628573af6903.glb",
+      "bytes": 649576
+    },
+    {
+      "x": 2,
+      "z": 1,
+      "file": "tiles/2_1_c91e69858972.glb",
+      "bytes": 565000
+    },
+    {
+      "x": 2,
+      "z": 2,
+      "file": "tiles/2_2_9eb7306db2d1.glb",
+      "bytes": 644936
+    },
+    {
+      "x": 2,
+      "z": 3,
+      "file": "tiles/2_3_10ff3df45181.glb",
+      "bytes": 256304
+    },
+    {
+      "x": 2,
+      "z": 4,
+      "file": "tiles/2_4_5e34e91fcc2b.glb",
+      "bytes": 1616440
+    },
+    {
+      "x": 2,
+      "z": 5,
+      "file": "tiles/2_5_a0437830d30e.glb",
+      "bytes": 1531476
+    },
+    {
+      "x": 2,
+      "z": 6,
+      "file": "tiles/2_6_bb4faad0e5a7.glb",
+      "bytes": 1530192
+    },
+    {
+      "x": 2,
+      "z": 7,
+      "file": "tiles/2_7_2373f991695c.glb",
+      "bytes": 209164
+    },
+    {
+      "x": 2,
+      "z": 8,
+      "file": "tiles/2_8_0a332c00d344.glb",
+      "bytes": 2086196
+    },
+    {
+      "x": 2,
+      "z": 9,
+      "file": "tiles/2_9_c02fd18f12f7.glb",
+      "bytes": 597748
+    },
+    {
+      "x": 2,
+      "z": 10,
+      "file": "tiles/2_10_a68fd283a24a.glb",
+      "bytes": 2548012
+    },
+    {
+      "x": 2,
+      "z": 11,
+      "file": "tiles/2_11_904f1d5546a8.glb",
+      "bytes": 2970780
+    },
+    {
+      "x": 2,
+      "z": 12,
+      "file": "tiles/2_12_45c003666c52.glb",
+      "bytes": 1037556
+    },
+    {
+      "x": 2,
+      "z": 13,
+      "file": "tiles/2_13_9344628ad627.glb",
+      "bytes": 1731936
+    },
+    {
+      "x": 2,
+      "z": 14,
+      "file": "tiles/2_14_643f6eecf998.glb",
+      "bytes": 2840376
+    },
+    {
+      "x": 2,
+      "z": 15,
+      "file": "tiles/2_15_fcf2df3d7503.glb",
+      "bytes": 3519696
+    },
+    {
+      "x": 2,
+      "z": 16,
+      "file": "tiles/2_16_16e8ad2169d6.glb",
+      "bytes": 1703380
+    },
+    {
+      "x": 2,
+      "z": 17,
+      "file": "tiles/2_17_9d119bdda8de.glb",
+      "bytes": 2839220
+    },
+    {
+      "x": 2,
+      "z": 18,
+      "file": "tiles/2_18_3815cdc71b75.glb",
+      "bytes": 32252
+    },
+    {
+      "x": 2,
+      "z": 19,
+      "file": "tiles/2_19_ddc7aa7222e8.glb",
+      "bytes": 33404
+    },
+    {
+      "x": 3,
+      "z": -3,
+      "file": "tiles/3_-3_f6757b0808c1.glb",
+      "bytes": 23088
+    },
+    {
+      "x": 3,
+      "z": -2,
+      "file": "tiles/3_-2_c20136152663.glb",
+      "bytes": 24964
+    },
+    {
+      "x": 3,
+      "z": -1,
+      "file": "tiles/3_-1_5187ebc4585c.glb",
+      "bytes": 24960
+    },
+    {
+      "x": 3,
+      "z": 0,
+      "file": "tiles/3_0_4427c868516b.glb",
+      "bytes": 25680
+    },
+    {
+      "x": 3,
+      "z": 1,
+      "file": "tiles/3_1_c9d20efbcd27.glb",
+      "bytes": 24960
+    },
+    {
+      "x": 3,
+      "z": 2,
+      "file": "tiles/3_2_84bed9d9f3d6.glb",
+      "bytes": 24960
+    },
+    {
+      "x": 3,
+      "z": 3,
+      "file": "tiles/3_3_4f2e5d42b887.glb",
+      "bytes": 25680
+    },
+    {
+      "x": 3,
+      "z": 4,
+      "file": "tiles/3_4_45b72dff04ff.glb",
+      "bytes": 24960
+    },
+    {
+      "x": 3,
+      "z": 5,
+      "file": "tiles/3_5_88541d2167c5.glb",
+      "bytes": 545472
+    },
+    {
+      "x": 3,
+      "z": 6,
+      "file": "tiles/3_6_337159ec9fdc.glb",
+      "bytes": 490968
+    },
+    {
+      "x": 3,
+      "z": 7,
+      "file": "tiles/3_7_79a0cd8e27c1.glb",
+      "bytes": 1617512
+    },
+    {
+      "x": 3,
+      "z": 8,
+      "file": "tiles/3_8_2d06879880fb.glb",
+      "bytes": 1711692
+    },
+    {
+      "x": 3,
+      "z": 9,
+      "file": "tiles/3_9_b59d581024e0.glb",
+      "bytes": 319680
+    },
+    {
+      "x": 3,
+      "z": 10,
+      "file": "tiles/3_10_11b6f8979c8c.glb",
+      "bytes": 1434800
+    },
+    {
+      "x": 3,
+      "z": 11,
+      "file": "tiles/3_11_48cedc8032a4.glb",
+      "bytes": 2616176
+    },
+    {
+      "x": 3,
+      "z": 12,
+      "file": "tiles/3_12_044dfb9bfbef.glb",
+      "bytes": 1479664
+    },
+    {
+      "x": 3,
+      "z": 13,
+      "file": "tiles/3_13_7a48015e82ea.glb",
+      "bytes": 2917972
+    },
+    {
+      "x": 3,
+      "z": 14,
+      "file": "tiles/3_14_8fdb53056a0f.glb",
+      "bytes": 2291036
+    },
+    {
+      "x": 3,
+      "z": 15,
+      "file": "tiles/3_15_50724d66447f.glb",
+      "bytes": 2782588
+    },
+    {
+      "x": 3,
+      "z": 16,
+      "file": "tiles/3_16_1424e59a3b52.glb",
+      "bytes": 2293996
+    },
+    {
+      "x": 3,
+      "z": 17,
+      "file": "tiles/3_17_5e80a0ff2f54.glb",
+      "bytes": 2222428
+    },
+    {
+      "x": 3,
+      "z": 18,
+      "file": "tiles/3_18_cd469fbeff47.glb",
+      "bytes": 32252
+    },
+    {
+      "x": 3,
+      "z": 19,
+      "file": "tiles/3_19_50296913f04f.glb",
+      "bytes": 33404
+    },
+    {
+      "x": 4,
+      "z": -3,
+      "file": "tiles/4_-3_0a7f033b11f7.glb",
+      "bytes": 20784
+    },
+    {
+      "x": 4,
+      "z": -2,
+      "file": "tiles/4_-2_aa5cf07aa7ce.glb",
+      "bytes": 22368
+    },
+    {
+      "x": 4,
+      "z": -1,
+      "file": "tiles/4_-1_604f2a304c96.glb",
+      "bytes": 22364
+    },
+    {
+      "x": 4,
+      "z": 0,
+      "file": "tiles/4_0_add03fe131f5.glb",
+      "bytes": 22944
+    },
+    {
+      "x": 4,
+      "z": 1,
+      "file": "tiles/4_1_0ebba329cdf2.glb",
+      "bytes": 22364
+    },
+    {
+      "x": 4,
+      "z": 2,
+      "file": "tiles/4_2_60b6764a8356.glb",
+      "bytes": 22364
+    },
+    {
+      "x": 4,
+      "z": 3,
+      "file": "tiles/4_3_debe3131dcab.glb",
+      "bytes": 22944
+    },
+    {
+      "x": 4,
+      "z": 4,
+      "file": "tiles/4_4_b7438925b6d3.glb",
+      "bytes": 22364
+    },
+    {
+      "x": 4,
+      "z": 5,
+      "file": "tiles/4_5_ac4646117b63.glb",
+      "bytes": 22364
+    },
+    {
+      "x": 4,
+      "z": 6,
+      "file": "tiles/4_6_9c36bf2b0d29.glb",
+      "bytes": 22944
+    },
+    {
+      "x": 4,
+      "z": 7,
+      "file": "tiles/4_7_dc0338221ff6.glb",
+      "bytes": 2302532
+    },
+    {
+      "x": 4,
+      "z": 8,
+      "file": "tiles/4_8_a392a9cd0f8e.glb",
+      "bytes": 1940168
+    },
+    {
+      "x": 4,
+      "z": 9,
+      "file": "tiles/4_9_88f9f9b6cf4d.glb",
+      "bytes": 339236
+    },
+    {
+      "x": 4,
+      "z": 10,
+      "file": "tiles/4_10_a8ca2453c0e9.glb",
+      "bytes": 450100
+    },
+    {
+      "x": 4,
+      "z": 11,
+      "file": "tiles/4_11_fe919c7d6037.glb",
+      "bytes": 1731432
+    },
+    {
+      "x": 4,
+      "z": 12,
+      "file": "tiles/4_12_f4fd31d842bb.glb",
+      "bytes": 2025388
+    },
+    {
+      "x": 4,
+      "z": 13,
+      "file": "tiles/4_13_159af6e0bd12.glb",
+      "bytes": 2860960
+    },
+    {
+      "x": 4,
+      "z": 14,
+      "file": "tiles/4_14_854dbd940718.glb",
+      "bytes": 662508
+    },
+    {
+      "x": 4,
+      "z": 15,
+      "file": "tiles/4_15_1c5088e834a5.glb",
+      "bytes": 32252
+    },
+    {
+      "x": 4,
+      "z": 16,
+      "file": "tiles/4_16_0cc506e179b3.glb",
+      "bytes": 69684
+    },
+    {
+      "x": 4,
+      "z": 17,
+      "file": "tiles/4_17_a6f6d2715f46.glb",
+      "bytes": 899220
+    },
+    {
+      "x": 4,
+      "z": 18,
+      "file": "tiles/4_18_01c2897b59cf.glb",
+      "bytes": 32252
+    },
+    {
+      "x": 4,
+      "z": 19,
+      "file": "tiles/4_19_f73af27f8991.glb",
+      "bytes": 33404
+    },
+    {
+      "x": 5,
+      "z": 7,
+      "file": "tiles/5_7_ad63a09f04a4.glb",
+      "bytes": 463928
+    },
+    {
+      "x": 5,
+      "z": 8,
+      "file": "tiles/5_8_353042e243ff.glb",
+      "bytes": 2054476
+    },
+    {
+      "x": 5,
+      "z": 9,
+      "file": "tiles/5_9_71176cb1becd.glb",
+      "bytes": 3441608
+    },
+    {
+      "x": 5,
+      "z": 10,
+      "file": "tiles/5_10_61d273a4c7c1.glb",
+      "bytes": 3949812
+    },
+    {
+      "x": 5,
+      "z": 11,
+      "file": "tiles/5_11_c42ab673491d.glb",
+      "bytes": 3642136
+    },
+    {
+      "x": 5,
+      "z": 12,
+      "file": "tiles/5_12_a0a871ef815f.glb",
+      "bytes": 1796988
+    },
+    {
+      "x": 5,
+      "z": 13,
+      "file": "tiles/5_13_c9c243e2ea39.glb",
+      "bytes": 517224
+    },
+    {
+      "x": 5,
+      "z": 14,
+      "file": "tiles/5_14_631eb5c3eae0.glb",
+      "bytes": 67364
+    },
+    {
+      "x": 5,
+      "z": 15,
+      "file": "tiles/5_15_69e3d1bc3bec.glb",
+      "bytes": 58868
+    },
+    {
+      "x": 5,
+      "z": 16,
+      "file": "tiles/5_16_7439e53a8169.glb",
+      "bytes": 33408
+    },
+    {
+      "x": 5,
+      "z": 17,
+      "file": "tiles/5_17_e0fb7d9d943b.glb",
+      "bytes": 33408
+    },
+    {
+      "x": 5,
+      "z": 18,
+      "file": "tiles/5_18_ee57f65a231a.glb",
+      "bytes": 33408
+    },
+    {
+      "x": 5,
+      "z": 19,
+      "file": "tiles/5_19_5b46ea0b0368.glb",
+      "bytes": 33984
+    },
+    {
+      "x": 6,
+      "z": 7,
+      "file": "tiles/6_7_6c472da310c8.glb",
+      "bytes": 1473160
+    },
+    {
+      "x": 6,
+      "z": 8,
+      "file": "tiles/6_8_374b3a5a86fe.glb",
+      "bytes": 716708
+    },
+    {
+      "x": 6,
+      "z": 9,
+      "file": "tiles/6_9_269364e955fd.glb",
+      "bytes": 1010184
+    },
+    {
+      "x": 6,
+      "z": 10,
+      "file": "tiles/6_10_fd2b199e9f96.glb",
+      "bytes": 2410812
+    },
+    {
+      "x": 6,
+      "z": 11,
+      "file": "tiles/6_11_b456aa62b875.glb",
+      "bytes": 2982196
+    },
+    {
+      "x": 6,
+      "z": 12,
+      "file": "tiles/6_12_34e7526a9c28.glb",
+      "bytes": 3152544
+    },
+    {
+      "x": 6,
+      "z": 13,
+      "file": "tiles/6_13_984f2b6258a0.glb",
+      "bytes": 170984
+    },
+    {
+      "x": 6,
+      "z": 14,
+      "file": "tiles/6_14_04506587fc8e.glb",
+      "bytes": 32852
+    },
+    {
+      "x": 6,
+      "z": 15,
+      "file": "tiles/6_15_3be507f19f48.glb",
+      "bytes": 24212
+    },
+    {
+      "x": 7,
+      "z": 7,
+      "file": "tiles/7_7_4984fb38bebd.glb",
+      "bytes": 832960
+    },
+    {
+      "x": 7,
+      "z": 8,
+      "file": "tiles/7_8_51741759d279.glb",
+      "bytes": 1940304
+    },
+    {
+      "x": 7,
+      "z": 9,
+      "file": "tiles/7_9_c5813ca588de.glb",
+      "bytes": 755796
+    },
+    {
+      "x": 7,
+      "z": 10,
+      "file": "tiles/7_10_96665bcbafff.glb",
+      "bytes": 35472
+    },
+    {
+      "x": 7,
+      "z": 11,
+      "file": "tiles/7_11_6da2c6d4551d.glb",
+      "bytes": 305532
+    },
+    {
+      "x": 7,
+      "z": 12,
+      "file": "tiles/7_12_e56dce04bbd5.glb",
+      "bytes": 1653236
+    },
+    {
+      "x": 7,
+      "z": 13,
+      "file": "tiles/7_13_15ca3a1e1168.glb",
+      "bytes": 1503884
+    },
+    {
+      "x": 7,
+      "z": 14,
+      "file": "tiles/7_14_dc14f88a9120.glb",
+      "bytes": 32852
+    },
+    {
+      "x": 7,
+      "z": 15,
+      "file": "tiles/7_15_664baae2e255.glb",
+      "bytes": 24212
+    },
+    {
+      "x": 8,
+      "z": 7,
+      "file": "tiles/8_7_a4b8d1b02f59.glb",
+      "bytes": 51608
+    },
+    {
+      "x": 8,
+      "z": 8,
+      "file": "tiles/8_8_e7405676a874.glb",
+      "bytes": 51176
+    },
+    {
+      "x": 8,
+      "z": 9,
+      "file": "tiles/8_9_e5d65c24e5d3.glb",
+      "bytes": 51176
+    },
+    {
+      "x": 8,
+      "z": 10,
+      "file": "tiles/8_10_5162687da4d6.glb",
+      "bytes": 51172
+    },
+    {
+      "x": 8,
+      "z": 11,
+      "file": "tiles/8_11_04b4d7eff8ee.glb",
+      "bytes": 51172
+    },
+    {
+      "x": 8,
+      "z": 12,
+      "file": "tiles/8_12_5e92af9cb80c.glb",
+      "bytes": 51172
+    },
+    {
+      "x": 8,
+      "z": 13,
+      "file": "tiles/8_13_ce90e0f90f65.glb",
+      "bytes": 63648
+    },
+    {
+      "x": 8,
+      "z": 14,
+      "file": "tiles/8_14_fbcb78422ed4.glb",
+      "bytes": 50856
+    },
+    {
+      "x": 8,
+      "z": 15,
+      "file": "tiles/8_15_3bf232f4a2f4.glb",
+      "bytes": 46820
+    }
+  ],
+  "generator": {
+    "textureSize": 512,
+    "triangleCount": 1708059
+  }
+}

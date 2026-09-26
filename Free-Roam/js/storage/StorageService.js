@@ -2,6 +2,7 @@ import { settings } from '../config/settings.js';
 import { cleanAssetName } from '../utils/text.js';
 import { resolveGithubAsset } from '../assets/GithubAssets.js?v=hf-bucket-v1';
 import { normalizePixelAvatarConfig } from '../avatars/AvatarConfig.js';
+import { mobileManifestUrl, validateMobileManifest } from '../world/MobileManifest.js';
 
 export class StorageService {
   constructor(client, userId) { this.client = client; this.userId = userId; }
@@ -70,6 +71,16 @@ export class StorageService {
   async uploadMap(releaseUrl, name, onStage = () => {}) {
     onStage('Verifica mappa nel Bucket Hugging Face…');
     const asset = await resolveGithubAsset(releaseUrl, 'map');
+    onStage('Verifica manifest e zone mobile…');
+    const mobileUrl = mobileManifestUrl(asset.assetUrl);
+    const mobileResponse = await fetch(mobileUrl, { cache: 'no-store' });
+    if (!mobileResponse.ok) throw new Error(`Versione mobile non pubblicata (manifest HTTP ${mobileResponse.status}).`);
+    const mobileManifest = validateMobileManifest(await mobileResponse.json(), asset.assetUrl, { scale: 1, rotation: 0 });
+    const spawnTile = mobileManifest.tiles.some((tile) => tile.x === 0 && tile.z === 0);
+    if (!spawnTile) throw new Error('La versione mobile non copre il punto di spawn [0,1,0].');
+    const spawn = mobileManifest.tiles.find((tile) => tile.x === 0 && tile.z === 0);
+    const spawnResponse = await fetch(new URL(spawn.file, mobileUrl).href, { method: 'HEAD', cache: 'no-store' });
+    if (!spawnResponse.ok) throw new Error(`Zona mobile di spawn non pubblicata (HTTP ${spawnResponse.status}).`);
     const id = crypto.randomUUID();
     onStage('Salvataggio metadati mappa…');
     // Compatibilità con il database Free Roam già in produzione:
@@ -88,6 +99,8 @@ export class StorageService {
         source: 'huggingface-bucket',
         asset_url: asset.assetUrl,
         original_file_size: realFileSize,
+        mobile_manifest_url: mobileUrl,
+        mobile_source_sha256: mobileManifest.source.sha256,
       },
     }).select('*').single();
     if (error) throw error;

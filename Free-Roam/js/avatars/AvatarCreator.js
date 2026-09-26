@@ -14,6 +14,8 @@ export class AvatarCreator {
     this.lastX = 0;
     this.previewYaw = 0;
     this.raf = 0;
+    this.listeners = new AbortController();
+    const listen = { signal: this.listeners.signal };
 
     this.preview = root?.querySelector('#avatar-preview');
     this.saveButton = root?.querySelector('#avatar-save');
@@ -36,11 +38,11 @@ export class AvatarCreator {
     this.scene.add(key);
 
     root.querySelectorAll('[data-avatar-prev],[data-avatar-next]').forEach((button) => {
-      button.addEventListener('click', () => this.cycle(button.dataset.avatarPrev || button.dataset.avatarNext, button.hasAttribute('data-avatar-next') ? 1 : -1));
+      button.addEventListener('click', () => this.cycle(button.dataset.avatarPrev || button.dataset.avatarNext, button.hasAttribute('data-avatar-next') ? 1 : -1), listen);
     });
 
-    this.closeButton?.addEventListener('click', () => this.close());
-    root.querySelector('[data-avatar-backdrop]')?.addEventListener('click', () => this.close());
+    this.closeButton?.addEventListener('click', () => this.close(), listen);
+    root.querySelector('[data-avatar-backdrop]')?.addEventListener('click', () => this.close(), listen);
 
     this.saveButton?.addEventListener('click', async () => {
       if (this.saveButton.disabled) return;
@@ -53,7 +55,7 @@ export class AvatarCreator {
         this.saveButton.disabled = false;
         this.saveButton.textContent = 'SALVA AVATAR';
       }
-    });
+    }, listen);
 
     const canvas = this.renderer.domElement;
     canvas.addEventListener('pointerdown', (event) => {
@@ -61,23 +63,23 @@ export class AvatarCreator {
       this.dragPointer = event.pointerId;
       this.lastX = event.clientX;
       canvas.setPointerCapture?.(event.pointerId);
-    });
+    }, listen);
     canvas.addEventListener('pointermove', (event) => {
       if (event.pointerId !== this.dragPointer || !this.previewVisual) return;
       this.previewYaw += (event.clientX - this.lastX) * 0.012;
       this.previewVisual.object.rotation.y = this.previewYaw;
       this.lastX = event.clientX;
-    });
+    }, listen);
     const end = (event) => { if (event.pointerId === this.dragPointer) this.dragPointer = null; };
-    canvas.addEventListener('pointerup', end);
-    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('pointerup', end, listen);
+    canvas.addEventListener('pointercancel', end, listen);
 
     if (globalThis.ResizeObserver) {
       this.resizeObserver = new ResizeObserver(() => this.resize());
       this.resizeObserver.observe(this.preview);
     } else {
       this.onResize = () => this.resize();
-      globalThis.addEventListener?.('resize', this.onResize);
+      globalThis.addEventListener?.('resize', this.onResize, listen);
     }
   }
 
@@ -135,10 +137,12 @@ export class AvatarCreator {
   }
 
   dispose() {
+    this.listeners.abort();
     cancelAnimationFrame(this.raf);
     this.resizeObserver?.disconnect();
     if (this.onResize) globalThis.removeEventListener?.('resize', this.onResize);
     this.renderer?.dispose();
+    this.renderer?.forceContextLoss();
     this.renderer?.domElement.remove();
   }
 }

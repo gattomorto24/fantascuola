@@ -23,6 +23,7 @@ function validSnapshot(snapshot) {
   if (!Number.isFinite(snapshot.rotation)) return false;
   if (!['Idle', 'Walking', 'Running', 'Jumping'].includes(snapshot.movementState)) return false;
   if (!Number.isFinite(snapshot.timestamp)) return false;
+  if (snapshot.mapVersion !== undefined && (typeof snapshot.mapVersion !== 'string' || snapshot.mapVersion.length > 128)) return false;
   return true;
 }
 

@@ -39,6 +39,7 @@ export class WorldCollision {
     this.cells = new Map();
     this.globalIndices = [];
     this.groundCache = new Map();
+    this.roots = new Map();
     this.ready = false;
   }
 
@@ -47,6 +48,7 @@ export class WorldCollision {
     this.cells.clear();
     this.globalIndices.length = 0;
     this.groundCache.clear();
+    this.roots.clear();
     this.ready = false;
   }
 
@@ -62,41 +64,8 @@ export class WorldCollision {
     const total = Math.max(1, meshes.length);
 
     for (let i = 0; i < meshes.length; i += 1) {
-      const mesh = meshes[i];
-      const geometry = mesh.geometry;
-
-      if (!geometry.boundingBox) geometry.computeBoundingBox();
-      if (!geometry.boundingBox) continue;
-
-      const box = geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
-      if (box.isEmpty() || !finiteBox(box)) continue;
-
-      const size = box.getSize(new THREE.Vector3());
-      const footprint = Math.max(size.x, size.z);
-      const triangles = triangleCount(geometry);
-
-      const terrainLike = (size.x > 70 && size.z > 70)
-        || (size.y <= 1.2 && footprint >= 5)
-        || (size.y > 0 && size.x > size.y * 12 && size.z > size.y * 12);
-
-      // Le AABB restano solo broad-phase. La collisione finale contro muri e
-      // edifici viene verificata con raycast sui triangoli reali, così aperture,
-      // vicoli e porte non vengono chiusi da "scatole invisibili".
-      const horizontalCollision = size.y > 0.45
-        && triangles > 0
-        && triangles <= 120000
-        && footprint <= 55;
-
-      const proxy = {
-        mesh,
-        box,
-        terrainLike,
-        horizontalCollision,
-        triangles,
-      };
-
-      const index = this.proxies.push(proxy) - 1;
-      this.indexProxy(index, proxy);
+      const proxy = this.proxyFor(meshes[i]);
+      if (proxy) this.indexProxy(this.proxies.push(proxy) - 1, proxy);
 
       if (i % 80 === 0) {
         onProgress(i / total);
@@ -105,6 +74,7 @@ export class WorldCollision {
     }
 
     this.ready = this.proxies.length > 0;
+    this.roots.set(root, this.proxies.map((proxy) => proxy.mesh));
     onProgress(1);
 
     return {
@@ -112,6 +82,55 @@ export class WorldCollision {
       indexedCells: this.cells.size,
       globalMeshes: this.globalIndices.length,
     };
+  }
+
+  proxyFor(mesh) {
+    const geometry = mesh.geometry;
+    if (!geometry?.attributes?.position) return null;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    if (!geometry.boundingBox) return null;
+    const box = geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
+    if (box.isEmpty() || !finiteBox(box)) return null;
+    const size = box.getSize(new THREE.Vector3());
+    const footprint = Math.max(size.x, size.z);
+    const triangles = triangleCount(geometry);
+    return {
+      mesh, box, triangles,
+      terrainLike: (size.x > 70 && size.z > 70)
+        || (size.y <= 1.2 && footprint >= 5)
+        || (size.y > 0 && size.x > size.y * 12 && size.z > size.y * 12),
+      horizontalCollision: size.y > 0.45 && triangles > 0 && triangles <= 120000 && footprint <= 55,
+    };
+  }
+
+  add(root) {
+    if (this.roots.has(root)) return;
+    root.updateMatrixWorld(true);
+    const meshes = [];
+    root.traverse((node) => {
+      if (!node.isMesh || node.visible === false) return;
+      const proxy = this.proxyFor(node);
+      if (proxy) {
+        meshes.push(node);
+        this.indexProxy(this.proxies.push(proxy) - 1, proxy);
+      }
+    });
+    this.roots.set(root, meshes);
+    this.groundCache.clear();
+    this.ready = this.proxies.length > 0;
+  }
+
+  remove(root) {
+    const meshes = this.roots.get(root);
+    if (!meshes) return;
+    const removed = new Set(meshes);
+    this.roots.delete(root);
+    this.proxies = this.proxies.filter((proxy) => !removed.has(proxy.mesh));
+    this.cells.clear();
+    this.globalIndices.length = 0;
+    this.proxies.forEach((proxy, index) => this.indexProxy(index, proxy));
+    this.groundCache.clear();
+    this.ready = this.proxies.length > 0;
   }
 
   indexProxy(index, proxy) {

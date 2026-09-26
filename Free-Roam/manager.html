@@ -9,11 +9,11 @@
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/admin/manager.js?v=hf-bucket-v1"></script>
+  <script type="module" src="./js/admin/manager.js?v=mobile-tiles-v1"></script>
 </head>
 <body>
   <section class="panel">
-    <div class="heading"><div><span>FREE ROAM</span><h2>Mappa Free Roam</h2><p>Carica il GLB in un Bucket Hugging Face pubblico, incolla il link e attivalo per tutti. Limite mappe: 1 GB.</p></div></div>
+    <div class="heading"><div><span>FREE ROAM</span><h2>Mappa Free Roam</h2><p>Pubblica il GLB e la cartella .mobile generata dal preprocessore nello stesso Bucket Hugging Face. Incolla il link del GLB; il manifest mobile viene verificato automaticamente. Limite GLB: 1 GB.</p></div></div>
     <div class="map-details"><div><span>Mappa attiva</span><strong id="active-name">Pianura di test</strong></div><div><span>File</span><strong id="active-file">—</strong></div><div><span>Dimensione</span><strong id="active-size">—</strong></div><div><span>Data caricamento</span><strong id="active-date">—</strong></div></div>
     <form id="map-form">
       <label>Nome mappa<input id="map-name" type="text" maxlength="80" placeholder="Es. Scuola" required></label>

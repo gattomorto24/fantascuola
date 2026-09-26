@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { StorageService } from '../js/storage/StorageService.js';
+import { mobileManifestUrl } from '../js/world/MobileManifest.js';
 
 const avatarRelease = 'https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/';
 const hfMap = 'https://huggingface.co/buckets/Tony272009/Mappa/resolve/Quartiere_Chiesa_Dettagliato.glb';
+const hfMobile = mobileManifestUrl(hfMap);
 
 function headers(values = {}) {
   const normalized = Object.fromEntries(Object.entries(values).map(([key, value]) => [key.toLowerCase(), String(value)]));
@@ -36,6 +38,17 @@ test('avatar resta su Pages mentre la mappa salva URL Hugging Face nei metadata'
         ok: true,
         status: 200,
         headers: headers({ 'content-length': 816976060 }),
+      };
+    }
+
+    if (url === hfMobile) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ schema: 1, coordinateSpace: 'world', tileSize: 32,
+          source: { url: hfMap, scale: 1, rotation: 0, sha256: 'a'.repeat(64) },
+          tiles: [{ x: 0, z: 0, file: 'tiles/0_0.glb', bytes: 100 }],
+        }),
       };
     }
 
@@ -88,6 +101,7 @@ test('avatar resta su Pages mentre la mappa salva URL Hugging Face nei metadata'
     assert.equal(rows[1][1].file_size, 50 * 1024 * 1024);
     assert.equal(rows[1][1].metadata.source, 'huggingface-bucket');
     assert.equal(rows[1][1].metadata.asset_url, hfMap);
+    assert.equal(rows[1][1].metadata.mobile_manifest_url, hfMobile);
     assert.equal(rows[1][1].metadata.original_file_size, 816976060);
 
     assert.deepEqual(calls, [

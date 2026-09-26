@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { MapLoader } from './MapLoader.js';
 import { WorldCollision } from './WorldCollision.js';
 import { settings } from '../config/settings.js';
+import { StreamedMap, validateMobileManifest } from './StreamedMap.js';
+import { mobileManifestUrl } from './MobileManifest.js';
 
 export class WorldManager {
   constructor(scene) {
@@ -39,6 +41,7 @@ export class WorldManager {
     this.mapName = 'Pianura di test';
     this.spawn = [...settings.world.defaultSpawn];
     this.customMapLoaded = false;
+    this.streamedMap = null;
   }
 
   resetFallback() {
@@ -48,9 +51,13 @@ export class WorldManager {
     this.grid.visible = true;
     this.mapName = 'Pianura di test';
     this.spawn = [...settings.world.defaultSpawn];
+    this.scene.fog.near = 90;
+    this.scene.fog.far = 210;
   }
 
   async loadWorld(manifest, storage, onProgress, onStage = () => {}, options = {}) {
+    this.streamedMap?.dispose();
+    this.streamedMap = null;
     this.mapLoader.dispose();
     this.resetFallback();
 
@@ -64,6 +71,37 @@ export class WorldManager {
 
     try {
       const url = directUrl || await storage.signedUrl('free-roam-maps', manifest.storage_path);
+
+      if (options.isMobile) {
+        const mobileUrl = manifest.metadata?.mobile_manifest_url || mobileManifestUrl(url);
+        onStage('Lettura manifest mobile…');
+        const response = await fetch(mobileUrl, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Manifest mobile HTTP ${response.status}.`);
+        const mobileManifest = validateMobileManifest(await response.json(), url, manifest);
+        const spawn = Array.isArray(manifest.spawn) ? manifest.spawn.map(Number) : [];
+        if (spawn.length === 3 && spawn.every(Number.isFinite)) this.spawn = spawn;
+        this.streamedMap = new StreamedMap(this.scene, this.collision, mobileManifest, mobileUrl, {
+          onError: (error) => console.warn('[Free Roam] Zona mobile:', error),
+          onProgress: (loaded, total) => onStage(`Zona di spawn · ${Math.round(loaded / total * 100)}%`, loaded / total),
+        });
+        onStage('Caricamento zona di spawn…');
+        await this.streamedMap.start(this.spawn[0], this.spawn[2]);
+        this.ground.visible = false;
+        this.grid.visible = false;
+        this.scene.fog.far = Math.min(58, Math.max(18, mobileManifest.tileSize * 1.7));
+        this.scene.fog.near = this.scene.fog.far * 0.42;
+        this.customMapLoaded = true;
+        this.mapName = manifest.name || 'Mappa GLB';
+        return {
+          fallback: false,
+          name: this.mapName,
+          spawn: this.spawn,
+          mobileLite: true,
+          mobileLiteInfo: { strategy: 'streamed-tiles', strategyLabel: 'zone mobile ottimizzate', fullQuality: false },
+          strategy: 'streamed-tiles',
+          renderStats: { meshes: this.collision.proxies.length, triangles: 0 },
+        };
+      }
 
       onStage('Download e preparazione mappa…');
       const object = await this.mapLoader.load(url, manifest, onProgress, onStage, options);
@@ -95,6 +133,8 @@ export class WorldManager {
       };
     } catch (error) {
       console.warn('[Free Roam] Mappa GLB non caricata; uso la pianura:', error);
+      this.streamedMap?.dispose();
+      this.streamedMap = null;
       this.mapLoader.dispose();
       this.resetFallback();
       return {
@@ -113,10 +153,27 @@ export class WorldManager {
     if (!this.customMapLoaded || !this.collision.ready) {
       return new THREE.Vector3(position.x + movement.x, position.y, position.z + movement.z);
     }
-    return this.collision.resolveHorizontalMovement(position, movement, radius, height, stepHeight);
+    const resolved = this.collision.resolveHorizontalMovement(position, movement, radius, height, stepHeight);
+    if (this.streamedMap) {
+      if (!this.streamedMap.canMoveTo(resolved.x, position.z)) resolved.x = position.x;
+      if (!this.streamedMap.canMoveTo(resolved.x, resolved.z)) resolved.z = position.z;
+    }
+    return resolved;
+  }
+
+  updateStreaming(x, z) { this.streamedMap?.update(x, z); }
+  async ensureAt(x, z) { await this.streamedMap?.ensureAt(x, z); }
+
+  useFallback() {
+    this.streamedMap?.dispose();
+    this.streamedMap = null;
+    this.mapLoader.dispose();
+    this.resetFallback();
   }
 
   dispose() {
+    this.streamedMap?.dispose();
+    this.streamedMap = null;
     this.collision.clear();
     this.mapLoader.dispose();
     this.scene.remove(this.ground, this.grid);

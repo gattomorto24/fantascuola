@@ -1,5 +1,4 @@
 import { loadGLB } from '../assets/GLBLoader.js';
-import { isIOSLike, loadIOSLiteGLB } from '../assets/IOSLiteGLBLoader.js';
 
 function nextFrame() {
   return typeof requestAnimationFrame === 'function'
@@ -7,7 +6,7 @@ function nextFrame() {
     : new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function optimizeStaticObject(root, { aggressive = false } = {}) {
+function optimizeStaticObject(root) {
   let meshes = 0;
   let triangles = 0;
 
@@ -36,13 +35,6 @@ function optimizeStaticObject(root, { aggressive = false } = {}) {
           const texture = material[key];
           if (!texture) continue;
           texture.anisotropy = 1;
-          // Non tocchiamo dimensioni/immagini: anche nel fallback full-quality
-          // le texture restano quelle originali. Riduciamo solo il costo sampling.
-          if (aggressive) {
-            texture.generateMipmaps = false;
-            texture.anisotropy = 1;
-            texture.needsUpdate = true;
-          }
         }
       }
     }
@@ -56,14 +48,9 @@ function optimizeStaticObject(root, { aggressive = false } = {}) {
   return { meshes, triangles };
 }
 
-function makeStrategies(isMobile) {
-  if (!isMobile) return [
-    { id: 'direct-full', label: 'GLB completo diretto', fullQuality: true, load: (url, p, s) => loadGLB(url, p, { onStage: s, strategy: 'direct' }) },
-  ];
-
+function makeStrategies() {
   return [
-    // Unico percorso mobile rimasto: stessa geometria/coordinate, UV, normali e COLOR_0.
-    { id: 'geometry-color', label: 'geometria completa + colori originali', fullQuality: false, lite: true, aggressive: true, load: (url, p, s) => loadIOSLiteGLB(url, p, s) },
+    { id: 'direct-full', label: 'GLB completo diretto', fullQuality: true, load: (url, p, s) => loadGLB(url, p, { onStage: s }) },
   ];
 }
 
@@ -78,8 +65,7 @@ export class MapLoader {
   }
 
   async load(url, manifest, onProgress, onStage = () => {}, options = {}) {
-    const isMobile = options.isMobile ?? isIOSLike();
-    const strategies = makeStrategies(isMobile);
+    const strategies = makeStrategies();
     const startIndex = Math.max(0, Math.min(strategies.length - 1, Number(options.startIndex) || 0));
     const errors = [];
 
@@ -102,7 +88,7 @@ export class MapLoader {
 
         onStage(`Ottimizzazione · ${strategy.label}…`);
         await nextFrame();
-        const stats = optimizeStaticObject(object, { aggressive: strategy.aggressive });
+        const stats = optimizeStaticObject(object);
 
         this.dispose();
         this.stats = stats;

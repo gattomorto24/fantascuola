@@ -13,7 +13,8 @@ export function validSnapshot(value, maxAge = 60000) {
     typeof value.avatarId === 'string' && (AVATAR_REF.test(value.avatarId) || value.avatarId.length <= 160) &&
     value.position && validNumber(value.position.x) && validNumber(value.position.y) && validNumber(value.position.z) &&
     validNumber(value.rotation) && STATES.has(value.movementState) &&
-    Number.isFinite(value.timestamp) && Math.abs(Date.now() - value.timestamp) < maxAge)) return false;
+    Number.isFinite(value.timestamp) && Math.abs(Date.now() - value.timestamp) < maxAge
+    && (value.mapVersion === undefined || (typeof value.mapVersion === 'string' && value.mapVersion.length <= 128)))) return false;
 
   const avatarConfig = value.avatar?.type === 'pixel' ? value.avatar.config : value.avatarConfig;
   if (value.avatarId === 'pixel' && !validAvatarConfig(avatarConfig)) return false;
@@ -22,7 +23,7 @@ export function validSnapshot(value, maxAge = 60000) {
 }
 
 export class MultiplayerManager {
-  constructor(_client, identity, localPlayer, remotes, config, onStatus, onLatency = () => {}, events = {}) {
+  constructor(_client, identity, localPlayer, remotes, config, onStatus, onLatency = () => {}, events = {}, mapVersion = 'test-world') {
     this.identity = identity;
     this.localPlayer = localPlayer;
     this.remotes = remotes;
@@ -30,6 +31,7 @@ export class MultiplayerManager {
     this.onStatus = onStatus;
     this.onLatency = onLatency;
     this.events = events;
+    this.mapVersion = mapVersion;
 
     this.playerId = `${identity.userId}:${crypto.randomUUID()}`;
     this.online = false;
@@ -57,6 +59,7 @@ export class MultiplayerManager {
       rotation: p.root.rotation.y,
       movementState: p.movementState,
       timestamp: Date.now(),
+      mapVersion: this.mapVersion,
     };
     if (p.avatarId === 'pixel' && p.avatarConfig) snapshot.avatarConfig = p.avatarConfig;
     return snapshot;
@@ -180,7 +183,7 @@ export class MultiplayerManager {
     if (message.type === 'snapshot' && Array.isArray(message.players)) {
       const present = new Set();
       for (const snapshot of message.players) {
-        if (!validSnapshot(snapshot, Infinity) || snapshot.playerId === this.playerId) continue;
+        if (!validSnapshot(snapshot, Infinity) || snapshot.playerId === this.playerId || snapshot.mapVersion !== this.mapVersion) continue;
         present.add(snapshot.playerId);
         this.remotes.receive(snapshot);
       }
@@ -188,7 +191,7 @@ export class MultiplayerManager {
       return;
     }
 
-    if ((message.type === 'join' || message.type === 'state') && validSnapshot(message.player, Infinity)) {
+    if ((message.type === 'join' || message.type === 'state') && validSnapshot(message.player, Infinity) && message.player.mapVersion === this.mapVersion) {
       if (message.player.playerId !== this.playerId) this.remotes.receive(message.player);
       return;
     }

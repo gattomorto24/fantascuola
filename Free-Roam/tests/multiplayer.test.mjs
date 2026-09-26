@@ -132,6 +132,18 @@ test('valida snapshot e configurazione avatar pixel', () => {
   assert.equal(validSnapshot({ ...state, displayName: '<script>' }), false);
   assert.equal(validSnapshot({ ...state, avatarConfig: { ...avatarConfig, shoesColor: 'green' } }), false);
   assert.equal(validSnapshot({ ...state, timestamp: Date.now() - 61000 }), false);
+  assert.equal(validSnapshot({ ...state, mapVersion: 42 }), false);
+});
+
+test('crossplay sincronizza solo giocatori nella stessa versione della mappa', () => {
+  const remote = remotes();
+  const manager = new MultiplayerManager(null, { userId: 'local', displayName: 'Tony' }, player(), remote,
+    { serverUrl: 'wss://test/room/main' }, () => {}, () => {}, {}, 'map:version-1');
+  const snapshot = { ...manager.snapshot(), playerId: 'remote', mapVersion: 'map:version-2' };
+  manager.receiveMessage({ type: 'snapshot', players: [snapshot] });
+  assert.equal(remote.items.size, 0);
+  manager.receiveMessage({ type: 'join', player: { ...snapshot, mapVersion: 'map:version-1' } });
+  assert.equal(remote.items.size, 1);
 });
 
 test('WebSocket dedicato sincronizza avatar, stato e uscita', async () => {

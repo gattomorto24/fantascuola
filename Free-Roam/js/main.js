@@ -55,9 +55,8 @@ function saveLocalPixelConfig(config) {
   localStorage.setItem(configKey(), JSON.stringify(normalizePixelAvatarConfig(config)));
 }
 
-const avatarCreator = new AvatarCreator(
-  document.getElementById('avatar-creator'),
-  async (config) => {
+let avatarCreator = null;
+const saveAvatar = async (config) => {
     pixelConfig = normalizePixelAvatarConfig(config);
     saveLocalPixelConfig(pixelConfig);
 
@@ -77,8 +76,12 @@ const avatarCreator = new AvatarCreator(
     } else {
       message('Avatar salvato su questo dispositivo.');
     }
-  },
-);
+};
+
+function showAvatarCreator() {
+  if (!avatarCreator) avatarCreator = new AvatarCreator(document.getElementById('avatar-creator'), saveAvatar);
+  avatarCreator.open(pixelConfig);
+}
 
 async function setupAccount() {
   try {
@@ -132,7 +135,7 @@ async function setupAccount() {
   }
 }
 
-openCreator.addEventListener('click', () => avatarCreator.open(pixelConfig));
+openCreator.addEventListener('click', showAvatarCreator);
 
 enter.addEventListener('click', async () => {
   if (game) return;
@@ -158,6 +161,8 @@ enter.addEventListener('click', async () => {
   message('Ingresso nel mondo…', true);
   loadingScreen.show();
   welcome.hidden = true;
+  avatarCreator?.dispose();
+  avatarCreator = null;
 
   try {
     game = new Game(
@@ -183,7 +188,7 @@ enter.addEventListener('click', async () => {
       'pagehide',
       () => {
         game?.dispose();
-        avatarCreator.dispose();
+        avatarCreator?.dispose();
         mobileExperience.dispose();
       },
       { once: true },

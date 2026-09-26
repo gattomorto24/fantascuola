@@ -1,5 +1,5 @@
 import { createGameClient, getGameIdentity } from '../config/supabase.js';
-import { StorageService } from '../storage/StorageService.js?v=hf-bucket-v1';
+import { StorageService } from '../storage/StorageService.js?v=mobile-tiles-v1';
 
 const elements = {
   name: document.getElementById('active-name'), file: document.getElementById('active-file'), size: document.getElementById('active-size'), date: document.getElementById('active-date'),
@@ -40,7 +40,7 @@ async function initialize() {
     client.channel('free-roam-map-manager')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'free_roam_settings' }, refreshMap)
       .subscribe();
-    status('Incolla il link pubblico del GLB nel Bucket Hugging Face (fino a 1 GB).');
+    status('Pubblica GLB e cartella .mobile nello stesso Bucket, poi incolla il link pubblico del GLB.');
   } catch (error) { console.warn('[Free Roam] Pannello manager:', error); status(error.message || String(error)); }
 }
 

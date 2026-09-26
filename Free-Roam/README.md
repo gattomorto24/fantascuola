@@ -1,4 +1,53 @@
-# FantaScuola Free Roam v0.3
+# FantaScuola Free Roam
+
+## Mappe mobile a zone
+
+Il desktop usa il GLB originale. Il telefono usa un manifest e GLB per zona,
+generati automaticamente dallo stesso file sorgente. Il preprocessore applica
+scala e rotazione della mappa, taglia i triangoli sui confini delle zone e
+riduce le **texture originali** (non le sostituisce con colori inventati).
+Ogni zona contiene i triangoli reali anche per le collisioni. Il client carica
+la zona di spawn, poi le otto vicine in ordine di distanza; ne mantiene al
+massimo una corona 3×3 intorno al giocatore. Una zona non ancora pronta blocca
+temporaneamente l'attraversamento del confine. Le risorse Three.js sono
+rilasciate all'uscita dalla zona.
+
+Da `Free-Roam/`:
+
+```sh
+npm install
+npm run build:mobile-map -- /percorso/Quartiere.glb --source-url https://huggingface.co/buckets/UTENTE/BUCKET/resolve/Quartiere.glb --tile-size 16 --output mobile-maps/Quartiere.mobile
+```
+
+L'output va in `Free-Roam/mobile-maps/Quartiere.mobile/` e viene servito da
+GitHub Pages insieme al progetto. Il GLB originale resta nel Bucket Hugging
+Face. Attivare la mappa dal pannello manager incollando il solo URL
+`/resolve/Quartiere.glb`: il pannello verifica il manifest mobile e la zona
+di spawn prima di attivare la mappa. Le mappe già attive senza URL mobile nei
+metadata usano lo stesso percorso derivato dal nome GLB. La migrazione
+`supabase/migrations/202609270001_free_roam_mobile_map.sql` rende leggibile
+la mappa Hugging Face anche agli ospiti.
+
+Per mappe con scala o rotazione personalizzate passare gli stessi valori
+`--scale` e `--rotation` al preprocessore; il manifest rifiuta valori diversi
+da quelli attivi in Supabase. `--tile-size` (default 32 metri),
+`--texture-size` (default 512 pixel per lato), `--geometry-ratio` (default 0.18)
+e `--geometry-error` (default 0.2 metri) permettono di regolare il peso. La
+geometria viene semplificata con meshoptimizer mantenendo UV e normali.
+Il preprocessore interrompe la generazione se una zona supera 16 MB, così
+una mappa troppo densa non viene pubblicata accidentalmente per iPhone.
+Usare un `--tile-size` più piccolo in quel caso. Per file grandi può servire
+`NODE_OPTIONS=--max-old-space-size=8192` sul computer di preprocessing.
+
+Il formato supportato è GLB 2.0 con geometria triangolare e un buffer interno,
+texture baseColor PNG/JPEG/WebP incorporate o locali, accessors interleaved,
+COLOR_0 e KHR_texture_transform. Eventuali estensioni geometriche compresse
+(per esempio Draco o Meshopt) producono un errore esplicito: esportare prima
+un GLB non compresso. La generazione è ripetibile dopo ogni aggiornamento;
+gli URL dei tile includono un hash del contenuto per evitare cache obsolete.
+
+Test: `npm test`. Il test del preprocessore con una mappa GLB sintetica è
+disponibile in `tests/fixtures/create-sample-map.mjs`.
 
 Modulo 3D isolato in `/Free-Roam/`. Il sito principale resta indipendente dal gioco.
 
