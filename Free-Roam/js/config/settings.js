@@ -19,6 +19,6 @@ export const settings = Object.freeze({
     disconnectGracePeriodMs: 2200,
     pingSeconds: 5,
   },
-  assets: { maxAvatarFileSize: 50 * 1024 * 1024, maxMapFileSize: 500 * 1024 * 1024, signedUrlSeconds: 3600 },
+  assets: { maxAvatarFileSize: 50 * 1024 * 1024, maxMapFileSize: 1024 * 1024 * 1024, signedUrlSeconds: 3600 },
   world: { defaultSpawn: [0, 1, 0], mapFallback: 'test-world' },
 });
