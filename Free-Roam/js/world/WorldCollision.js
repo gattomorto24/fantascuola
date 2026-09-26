@@ -84,8 +84,8 @@ export class WorldCollision {
       // vicoli e porte non vengono chiusi da "scatole invisibili".
       const horizontalCollision = size.y > 0.45
         && triangles > 0
-        && triangles <= 250000
-        && footprint <= 70;
+        && triangles <= 120000
+        && footprint <= 55;
 
       const proxy = {
         mesh,
@@ -226,6 +226,13 @@ export class WorldCollision {
 
     const midX = origin.x + direction.x * distance * 0.5;
     const midZ = origin.z + direction.z * distance * 0.5;
+    const endX = origin.x + direction.x * distance;
+    const endZ = origin.z + direction.z * distance;
+    const sweepMinX = Math.min(origin.x, endX) - radius - 0.05;
+    const sweepMaxX = Math.max(origin.x, endX) + radius + 0.05;
+    const sweepMinZ = Math.min(origin.z, endZ) - radius - 0.05;
+    const sweepMaxZ = Math.max(origin.z, endZ) + radius + 0.05;
+
     const candidates = this.candidateIndices(midX, midZ, distance * 0.5 + radius + 0.45)
       .map((index) => this.proxies[index])
       .filter((proxy) => proxy.horizontalCollision)
@@ -233,7 +240,12 @@ export class WorldCollision {
         const box = proxy.box;
         const minY = origin.y + 0.12;
         const maxY = origin.y + bodyHeight - 0.12;
-        return box.max.y >= minY && box.min.y <= maxY;
+        return box.max.y >= minY
+          && box.min.y <= maxY
+          && box.max.x >= sweepMinX
+          && box.min.x <= sweepMaxX
+          && box.max.z >= sweepMinZ
+          && box.min.z <= sweepMaxZ;
       })
       .sort((a, b) => {
         const acx = (a.box.min.x + a.box.max.x) * 0.5;
@@ -242,7 +254,7 @@ export class WorldCollision {
         const bcz = (b.box.min.z + b.box.max.z) * 0.5;
         return Math.hypot(acx - origin.x, acz - origin.z) - Math.hypot(bcx - origin.x, bcz - origin.z);
       })
-      .slice(0, 10);
+      .slice(0, 6);
 
     if (!candidates.length) return false;
 
