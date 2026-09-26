@@ -240,7 +240,7 @@ enter.addEventListener('click', async () => {
     }, { once: true });
   } catch (error) {
     console.error('[Free Roam] Avvio fallito:', error);
-    message('Impossibile avviare il gioco. Verifica WebGL e riprova.', false, true);
+    message(`Avvio fallito: ${error?.message || error || 'errore sconosciuto'}`, false, true);
     await game?.dispose().catch(() => {});
     game = null;
     enter.disabled = false;
