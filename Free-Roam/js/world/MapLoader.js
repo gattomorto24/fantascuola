@@ -51,11 +51,11 @@ export class MapLoader {
   }
 
   async load(url, manifest, onProgress, onStage = () => {}) {
-    // Cross-platform strict mode: mobile carica lo stesso GLB completo del desktop.
-    // Nessuna rimozione di texture/materiali/attributi: il mondo visivo è identico.
-    const useLite = false;
+    // Cross-platform strict mode: mobile e desktop caricano lo STESSO GLB.
+    // Il loader può spezzare download/copia in task più piccoli, ma non elimina
+    // texture, materiali, UV, normali o attributi della mappa.
     onStage('Download mappa completa · texture originali…');
-    const gltf = await loadGLB(url, onProgress);
+    const gltf = await loadGLB(url, onProgress, { onStage });
 
     const object = gltf.scene;
 
@@ -73,7 +73,7 @@ export class MapLoader {
 
     this.dispose();
     this.stats = stats;
-    this.mobileLite = Boolean(gltf.userData?.mobileLite);
+    this.mobileLite = false;
     this.mobileLiteInfo = gltf.userData || null;
     this.object = object;
     this.scene.add(object);
