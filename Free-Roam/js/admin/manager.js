@@ -14,7 +14,8 @@ function showMap(map) {
   active = map;
   elements.name.textContent = map?.name || 'Pianura di test';
   elements.file.textContent = map?.file_name || '—';
-  elements.size.textContent = map ? `${(map.file_size / 1024 / 1024).toFixed(1)} MB` : '—';
+  const realSize = Number(map?.metadata?.original_file_size || map?.file_size || 0);
+  elements.size.textContent = map && realSize ? `${(realSize / 1024 / 1024).toFixed(1)} MB` : '—';
   elements.date.textContent = map?.created_at ? new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(map.created_at)) : '—';
   elements.upload.textContent = map ? 'SOSTITUISCI MAPPA DA GITHUB' : 'ATTIVA MAPPA DA GITHUB';
   setBusy(busy);
