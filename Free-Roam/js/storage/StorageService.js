@@ -1,7 +1,7 @@
 import { settings } from '../config/settings.js';
 import { cleanAssetName } from '../utils/text.js';
 import { resolveGithubAsset } from '../assets/GithubAssets.js';
-import { normalizePixelAvatarConfig } from '../avatars/PixelAvatarRenderer.js';
+import { normalizePixelAvatarConfig } from '../avatars/AvatarConfig.js';
 
 export class StorageService {
   constructor(client, userId) { this.client = client; this.userId = userId; }
