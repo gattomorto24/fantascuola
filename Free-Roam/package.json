@@ -1,5 +1,11 @@
 {
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test tests/*.test.mjs" }
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "loadtest": "node tests/websocket-loadtest.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
 }

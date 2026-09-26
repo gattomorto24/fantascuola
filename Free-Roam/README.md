@@ -1,39 +1,66 @@
-# FantaScuola Free Roam v0.2
+# FantaScuola Free Roam
 
 Modulo 3D isolato in `/Free-Roam/`. Il sito principale aggiunge il collegamento al gioco e un riquadro nel pannello gestione. Il gioco non modifica voti o punti.
 
-## Avvio e deploy
+## Realtime dedicato
 
-Servire la radice del repository via HTTP, per esempio con `python3 -m http.server 8765`, e aprire `http://localhost:8765/Free-Roam/`. Su GitHub Pages l'indirizzo è `https://gattomorto24.github.io/fantascuola/Free-Roam/`. Moduli ES, Three.js 0.180.0 e supabase-js 2.58.0 sono inclusi in `vendor/`; gli import e gli asset usano percorsi relativi, validi anche sotto il prefisso `/fantascuola/`.
+Il movimento multiplayer non usa più Supabase Realtime. Il client si collega al server WebSocket dedicato:
 
-Il menu precompila il nome dall'account FantaScuola quando disponibile. Anche senza sessione si entra nel multiplayer pubblico come ospite; senza Realtime si può comunque muoversi in locale. Ogni ingresso usa un punto di spawn leggermente diverso per rendere visibili i giocatori vicini. Su computer: WASD/frecce, Shift, Spazio e trascinamento del mouse. Su mobile: joystick sinistro per muoversi, riquadro destro per la camera, pulsante Corsa a interruttore e pulsante Salta.
+`wss://fantascuola-realtime-production.up.railway.app/room/main`
 
-## Attivazione Supabase
+Supabase resta disponibile per account, profili, mappe, avatar e dati persistenti. Posizioni, rotazioni e stato di movimento sono temporanei e non vengono scritti in Postgres.
 
-Applicare `supabase/migrations/202609260002_free_roam.sql` e poi `supabase/migrations/202609260003_free_roam_github_assets.sql` al progetto Supabase `peiztoqldcnughvjksfa`. La prima migrazione crea tabelle, bucket e permessi; la seconda consente gli URL GitHub Pages e porta i limiti dei metadati a 50 MB per avatar e 500 MB per mappe. I nuovi GLB non sono caricati in Supabase Storage; le righe già presenti continuano a funzionare. Gli ospiti possono leggere mappe e avatar pubblici da GitHub e quindi vedere lo stesso mondo dei giocatori con account. L'accesso manager è verificato dal database usando `account_profiles.is_premium`, come nell'app principale.
+Protocollo principale:
 
-La mappa attiva è letta da `free_roam_settings.active_map_id`. Il manager incolla il link a un GLB della Release **free-roam-assets** nel riquadro **Free Roam**, poi può attivarlo o disattivarlo. Il file viene servito da GitHub Pages; in Postgres restano URL e metadati. Una mappa assente o non caricabile usa la pianura di test. La mappa GLB è visuale: la fisica usa ancora il piano di base, mentre `collision_model` è predisposto per una versione successiva.
+- `join`: registra il giocatore e riceve lo snapshot iniziale della stanza;
+- `state`: aggiorna posizione, rotazione, animazione e avatar a 10 Hz;
+- `leave`: rimuove immediatamente il giocatore disconnesso;
+- `ping/pong`: misura la latenza applicativa;
+- heartbeat WebSocket server-side: elimina connessioni morte;
+- reconnect client con backoff esponenziale.
 
-Un avatar GLB locale resta sul dispositivo e gli altri vedono il placeholder. Con **Pubblica da GitHub Releases**, l'account registra l'URL del file già pubblicato; gli altri client ricevono il riferimento `published:<uuid>` e caricano il GLB da GitHub Pages. Sono ammessi GLB fino a 50 MB per gli avatar e 500 MB per le mappe. La selezione locale verifica estensione, dimensione e header; un errore di caricamento ripristina il placeholder.
+Il server limita i messaggi a 8 KB, applica rate limiting per client e accetta fino a 128 connessioni nella stanza di test. Il sorgente di riferimento è in `server/realtime.mjs`; la produzione è attualmente una Railway Function.
 
-## Pubblicazione dei GLB su GitHub
+## Avvio e deploy del client
 
-1. Nel repository `gattomorto24/fantascuola`, crea una Release con tag esatto `free-roam-assets` e allega i file `.glb` con nomi semplici (lettere, numeri, punti, `_` o `-`). Aggiungi gli asset alla stessa Release quando ne servono altri.
-2. Quando GitHub Actions può eseguire job, imposta GitHub Pages con origine **GitHub Actions** e crea la variabile di repository Actions `FREE_ROAM_ASSETS_DEPLOY_ENABLED` con valore `true`. Finché la variabile non è impostata, il job personalizzato viene saltato e il normale deploy Pages da branch continua a pubblicare il codice del sito.
-3. Avvia manualmente la workflow `.github/workflows/free-roam-pages.yml` dopo l'attivazione. La workflow pubblica il sito e copia i GLB della Release in `Free-Roam/release-assets/`; in seguito si avvia anche ai push e alla pubblicazione della Release. Dopo aver aggiunto un asset a una Release già pubblicata, avviala manualmente se non è partita da sola.
-4. Attendi la fine del deploy, poi incolla nel gioco o nel pannello manager il link originale della Release, per esempio `https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/scuola.glb`. Il pannello controlla che la copia su GitHub Pages esista e che rispetti il limite prima di salvare i metadati.
+Servire la radice del repository via HTTP, per esempio con `python3 -m http.server 8765`, e aprire `http://localhost:8765/Free-Roam/`. Su GitHub Pages l'indirizzo è `https://gattomorto24.github.io/fantascuola/Free-Roam/`.
 
-GitHub Pages ammette un sito pubblicato fino a circa 1 GB: una mappa da 500 MB consuma circa metà dello spazio disponibile. Mantieni nella Release solo gli asset che devono restare raggiungibili. I GLB nuovi non dipendono dal limite globale dei file di Supabase Storage.
+Moduli ES, Three.js e supabase-js sono inclusi in `vendor/`; gli import e gli asset usano percorsi relativi, validi anche sotto il prefisso `/fantascuola/`.
+
+## Stress test grafico
+
+Aggiungere `?stress=100` all'URL del Free Roam per generare 100 RemotePlayer locali che si muovono attorno allo spawn:
+
+`/Free-Roam/?stress=100`
+
+Questo test misura soprattutto il costo di rendering/interpolazione sul dispositivo e non crea 100 connessioni di rete reali. L'HUD continua a mostrare gli FPS.
+
+## Stress test WebSocket
+
+Da `Free-Roam/`:
+
+`npm install`
+
+`npm run loadtest -- 100 2 10`
+
+I parametri sono rispettivamente numero client, aggiornamenti al secondo per client e durata in secondi. Il default è volutamente prudente: 100 client a 2 Hz per 10 secondi. Per una classe reale il client normale usa 10 Hz, ma un test 100×10 Hz genera un fan-out molto maggiore e va eseguito solo quando serve.
+
+## Asset e Supabase
+
+Le mappe e gli avatar GLB continuano a usare l'attuale sistema di asset/persistenza. Un avatar GLB locale resta sul dispositivo; gli avatar pubblicati sono referenziati tramite ID. Le coordinate realtime non sono persistite.
 
 ## Architettura
 
-- `core`, `input`, `player`, `camera`: loop a delta, movimento, salto, camera, player locale e remoti.
-- `avatars`, `assets`: placeholder, avatar pixel e caricamento GLB indipendente dal controller.
-- `world`: pianura, manifest e MapLoader GLB; spawn configurabile.
-- `multiplayer`: Presence per i giocatori, Broadcast per posizione e rotazione a 10 Hz, interpolazione dei remoti e rimozione alla disconnessione. Le coordinate non sono persistite in Postgres.
-- `storage`, `admin`: URL firmati, upload e attivazione mappa, pannello manager.
-- `config`, `ui`: parametri centralizzati, percorsi e HUD con FPS, stato rete, giocatori, posizione, mappa e avatar.
+- `core`, `input`, `player`, `camera`: loop, movimento, salto, camera e giocatori;
+- `avatars`, `assets`: avatar e caricamento GLB;
+- `world`: pianura, manifest e MapLoader;
+- `multiplayer/WebSocketTransport.js`: trasporto WebSocket;
+- `multiplayer/MultiplayerManager.js`: protocollo, reconnect, snapshot, interpolazione e ping;
+- `server/realtime.mjs`: sorgente del server dedicato;
+- `debug/StressHarness.js`: bot grafici locali per misurare FPS;
+- `storage`, `admin`: dati persistenti e pannello manager;
+- `config`, `ui`: parametri centralizzati e HUD.
 
-## Verifiche
+## Verifiche consigliate
 
-`cd Free-Roam && npm test` esegue i test di multiplayer, input touch, spawn e validazione dei link GitHub. Per il controllo finale aprire due schede o sessioni, anche come ospiti: verificare che entrambe mostrino `Online`, `Giocatori: 2` e l'avatar dell'altro, quindi provare movimento e uscita. Su telefono verificare joystick, visuale, Corsa e Salta. Ripetere con due account autenticati per gli avatar e le mappe pubblicati. Provare anche un GLB valido, un GLB danneggiato, attivazione e disattivazione mappa da account manager e il rifiuto degli stessi comandi da account normale.
+Aprire due dispositivi/account diversi e verificare che entrambi mostrino `Online`, vedano il nome e il movimento dell'altro e che l'uscita rimuova il RemotePlayer. Poi chiudere brutalmente una scheda e verificare la rimozione tramite heartbeat. Infine provare `?stress=100` separatamente su PC, Mac e iPhone per confrontare gli FPS.
