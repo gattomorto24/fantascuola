@@ -137,7 +137,7 @@ export class Game {
       try {
         const pending = JSON.parse(localStorage.getItem('free-roam:map-attempt-pending') || 'null');
         if (pending && Date.now() - Number(pending.at || 0) < 15 * 60 * 1000) {
-          mapRecoveryStartIndex = Math.min(2, Math.max(0, Number(pending.index || 0) + 1));
+          mapRecoveryStartIndex = Math.min(1, Math.max(0, Number(pending.index || 0) + 1));
           onStage(`Ripristino dopo interruzione · provo fallback ${mapRecoveryStartIndex + 1}…`, 13);
         }
         localStorage.setItem('free-roam:map-attempt-pending', JSON.stringify({
