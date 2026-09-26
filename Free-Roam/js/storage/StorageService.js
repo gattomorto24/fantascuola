@@ -68,10 +68,10 @@ export class StorageService {
   }
 
   async uploadMap(releaseUrl, name, onStage = () => {}) {
-    onStage('Verifica mappa su GitHub Pages…');
+    onStage('Verifica mappa nella Release GitHub maps…');
     const asset = await resolveGithubAsset(releaseUrl, 'map');
     const id = crypto.randomUUID();
-    onStage('Salvataggio metadati…');
+    onStage('Salvataggio metadati mappa…');
     const { data, error } = await this.client.from('free_roam_maps').insert({
       id,
       uploaded_by: this.userId,
