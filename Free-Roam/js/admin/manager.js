@@ -1,5 +1,5 @@
 import { createGameClient, getGameIdentity } from '../config/supabase.js';
-import { StorageService } from '../storage/StorageService.js';
+import { StorageService } from '../storage/StorageService.js?v=maps-1gib-v3';
 
 const elements = {
   name: document.getElementById('active-name'), file: document.getElementById('active-file'), size: document.getElementById('active-size'), date: document.getElementById('active-date'),
