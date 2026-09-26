@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FantaScuola — Free Roam</title>
   <link rel="stylesheet" href="./styles/main.css">
+  <link rel="stylesheet" href="./styles/touch.css">
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
@@ -17,11 +18,15 @@
     <div class="welcome-card">
       <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.2</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
-      <p>Entra nel mondo con il tuo nome. WASD per muoverti, Shift per correre, Spazio per saltare. Trascina il mouse per la camera.</p>
+      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift e Spazio; sul telefono usa il joystick, il riquadro visuale e i pulsanti Corsa e Salta.</p>
       <label class="menu-field" for="player-name">Nome giocatore <input id="player-name" type="text" maxlength="32" autocomplete="nickname" placeholder="Il tuo nome"></label>
-      <label class="menu-field" for="avatar-choice">Avatar <select id="avatar-choice"><option value="default">Default / Placeholder</option><option value="pixel">Pixel</option><option value="local">GLB dal dispositivo (solo locale)</option></select></label>
-      <label class="menu-field" id="avatar-file-field" for="avatar-file" hidden>File avatar .glb <input id="avatar-file" type="file" accept=".glb,model/gltf-binary"></label>
-      <button id="publish-avatar" class="secondary-button" type="button" hidden>Pubblica avatar online</button>
+      <label class="menu-field" for="avatar-choice">Avatar <select id="avatar-choice"><option value="default">Default / Placeholder</option><option value="pixel">Pixel</option><option value="local">GLB dal dispositivo (solo locale)</option><option value="github">Pubblica da GitHub Releases</option></select></label>
+      <label class="menu-field" id="avatar-file-field" for="avatar-file" hidden>File avatar .glb (massimo 50 MB, solo locale) <input id="avatar-file" type="file" accept=".glb,model/gltf-binary"></label>
+      <div id="avatar-github-field" hidden>
+        <label class="menu-field" for="avatar-github-url">Link del GLB nella Release <input id="avatar-github-url" type="url" placeholder="https://github.com/gattomorto24/fantascuola/releases/download/free-roam-assets/avatar.glb"></label>
+        <label class="menu-field" for="avatar-github-name">Nome avatar <input id="avatar-github-name" type="text" maxlength="40" placeholder="Es. Il mio personaggio"></label>
+      </div>
+      <button id="publish-avatar" class="secondary-button" type="button" hidden>PUBBLICA AVATAR DA GITHUB</button>
       <p id="menu-status" class="menu-status" role="status">Controllo account…</p>
       <progress id="menu-progress" hidden></progress>
       <button id="enter" type="button" disabled>ENTRA NEL FREE ROAM</button>
@@ -35,5 +40,15 @@
     <p id="network-detail" class="network-detail">Modalità locale</p>
     <p id="asset-status" class="asset-status" hidden></p>
   </aside>
+  <div id="touch-controls" class="touch-controls" aria-label="Controlli di gioco per schermo touch" hidden>
+    <div id="move-pad" class="touch-pad" aria-label="Trascina per muoverti">
+      <span id="move-thumb" class="touch-thumb"></span><span class="touch-caption">MUOVI</span>
+    </div>
+    <div id="look-pad" class="look-pad" aria-label="Trascina per ruotare la visuale"><span>VISUALE</span></div>
+    <div class="touch-actions">
+      <button id="touch-run" type="button" aria-pressed="false">CORRI</button>
+      <button id="touch-jump" type="button">SALTA</button>
+    </div>
+  </div>
 </body>
 </html>

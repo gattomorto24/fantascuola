@@ -41,7 +41,7 @@ export class AvatarManager {
         const id = reference.slice('published:'.length);
         if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Riferimento avatar non valido.');
         const avatar = await this.storage.avatarById(id);
-        source = await this.storage.signedUrl('free-roam-avatars', avatar.storage_path);
+        source = avatar.asset_url || await this.storage.signedUrl('free-roam-avatars', avatar.storage_path);
       } else if (registry.has(reference) && registry.get(reference).modelPath) {
         source = assetUrl(registry.get(reference).modelPath);
       }

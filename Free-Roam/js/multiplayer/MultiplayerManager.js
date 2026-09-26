@@ -15,24 +15,48 @@ export class MultiplayerManager {
     this.client = client; this.identity = identity; this.localPlayer = localPlayer; this.remotes = remotes; this.config = config; this.onStatus = onStatus;
     this.playerId = `${identity.userId}:${crypto.randomUUID()}`;
     this.online = false; this.elapsed = 0; this.presenceElapsed = 0; this.channel = null;
+    this.disposed = false; this.retryTimer = null; this.retryDelay = config.reconnectBaseMs ?? 1000;
   }
   connect() {
-    if (!this.client || !this.identity || this.channel) return;
+    if (!this.client || !this.identity || this.channel || this.disposed) return;
     // Presence owns membership. Broadcast carries only temporary transforms; nothing writes positions to Postgres.
     const channel = this.client.channel('free-roam:v1', { config: { presence: { key: this.playerId }, broadcast: { self: false } } });
     this.channel = channel;
     channel.on('presence', { event: 'sync' }, () => this.syncPresence());
     channel.on('broadcast', { event: 'state' }, ({ payload }) => this.receive(payload));
     channel.subscribe(async (status) => {
+      if (this.channel !== channel || this.disposed) return;
       if (status === 'SUBSCRIBED') {
-        this.online = true; this.onStatus(true, 'Connesso a Supabase Realtime');
-        const result = await channel.track(this.snapshot());
-        if (result !== 'ok') { this.online = false; this.onStatus(false, 'Presence non disponibile; modalità locale'); console.warn('[Free Roam] Presence track fallito:', result); }
+        try {
+          const result = await channel.track(this.snapshot());
+          if (this.channel !== channel || this.disposed || this.retryTimer) return;
+          if (result !== 'ok') throw new Error(`Presence track: ${result}`);
+          this.retryDelay = this.config.reconnectBaseMs ?? 1000;
+          this.online = true; this.onStatus(true, 'Connesso a Supabase Realtime');
+          this.syncPresence();
+        } catch (error) {
+          console.warn('[Free Roam] Presence non disponibile:', error);
+          this.reconnect(channel);
+        }
       } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-        this.online = false; this.remotes.clear(); this.onStatus(false, `Realtime: ${status}`);
         console.warn('[Free Roam] Realtime:', status);
+        this.reconnect(channel);
       }
     });
+  }
+  reconnect(channel) {
+    if (this.channel !== channel || this.disposed || this.retryTimer) return;
+    this.online = false; this.remotes.clear(); this.onStatus(false, 'Riconnessione multiplayer…');
+    const delay = this.retryDelay;
+    this.retryDelay = Math.min(this.retryDelay * 2, 30000);
+    this.retryTimer = setTimeout(async () => {
+      this.retryTimer = null;
+      if (this.channel !== channel || this.disposed) return;
+      this.channel = null;
+      try { await this.client.removeChannel(channel); }
+      catch (error) { console.warn('[Free Roam] Chiusura canale:', error); }
+      this.connect();
+    }, delay);
   }
   snapshot() {
     const p = this.localPlayer;
@@ -73,7 +97,12 @@ export class MultiplayerManager {
       .catch((error) => console.warn('[Free Roam] Broadcast fallito:', error));
   }
   async disconnect() {
+    this.disposed = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
     this.online = false; this.remotes.clear();
-    if (this.channel) { await this.client.removeChannel(this.channel); this.channel = null; }
+    const channel = this.channel;
+    this.channel = null;
+    if (channel) await this.client.removeChannel(channel);
   }
 }

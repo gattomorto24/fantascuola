@@ -9,6 +9,9 @@ const nameInput = document.getElementById('player-name');
 const avatarChoice = document.getElementById('avatar-choice');
 const avatarFile = document.getElementById('avatar-file');
 const avatarFileField = document.getElementById('avatar-file-field');
+const avatarGithubField = document.getElementById('avatar-github-field');
+const avatarGithubUrl = document.getElementById('avatar-github-url');
+const avatarGithubName = document.getElementById('avatar-github-name');
 const publish = document.getElementById('publish-avatar');
 const status = document.getElementById('menu-status');
 const progress = document.getElementById('menu-progress');
@@ -28,6 +31,7 @@ function addPublishedOption(avatar) {
 async function setupAccount() {
   try {
     client = createGameClient();
+    storage = client ? new StorageService(client, null) : null;
     identity = await Promise.race([
       getGameIdentity(client),
       new Promise((resolve) => setTimeout(() => resolve(null), 5000)),
@@ -41,32 +45,39 @@ async function setupAccount() {
       catch (error) { console.warn('[Free Roam] Catalogo avatar non disponibile:', error); }
     } else {
       nameInput.value = cleanDisplayName(localStorage.getItem('free-roam-name:guest') || 'Giocatore');
-      message('Modalità locale. Accedi a FantaScuola per giocare online e pubblicare avatar.');
+      message(client
+        ? 'Multiplayer come ospite disponibile. Mappe e avatar GitHub pubblici sono visibili.'
+        : 'Modalità locale. Connessione multiplayer non disponibile.');
     }
   } catch (error) {
     console.warn('[Free Roam] Account non disponibile:', error);
-    nameInput.value = 'Giocatore'; message('Account non disponibile · modalità locale.');
+    nameInput.value = 'Giocatore'; message(client
+      ? 'Account non disponibile · puoi comunque entrare nel multiplayer come ospite.'
+      : 'Account non disponibile · modalità locale.');
   } finally { enter.disabled = false; }
 }
 
 avatarChoice.addEventListener('change', () => {
   const local = avatarChoice.value === 'local';
-  avatarFileField.hidden = !local; publish.hidden = !local || !identity || !avatarFile.files?.length;
+  const github = avatarChoice.value === 'github';
+  avatarFileField.hidden = !local;
+  avatarGithubField.hidden = !github;
+  publish.hidden = !github || !identity;
 });
 avatarFile.addEventListener('change', async () => {
-  publish.hidden = true;
   if (!avatarFile.files?.length) return;
-  try { await validateGLBFile(avatarFile.files[0], 'avatar'); message(`GLB locale pronto: ${avatarFile.files[0].name}. Gli altri vedranno il placeholder.`); publish.hidden = !identity; }
+  try { await validateGLBFile(avatarFile.files[0], 'avatar'); message(`GLB locale pronto: ${avatarFile.files[0].name}. Gli altri vedranno il placeholder.`); }
   catch (error) { avatarFile.value = ''; message(error.message, false, true); }
 });
 publish.addEventListener('click', async () => {
-  if (!storage || !avatarFile.files?.[0]) return;
+  if (!storage) return;
+  if (!avatarGithubUrl.value.trim()) { message('Incolla il link GLB della Release GitHub.', false, true); avatarGithubUrl.focus(); return; }
   publish.disabled = true; enter.disabled = true;
   try {
-    const avatar = await storage.publishAvatar(avatarFile.files[0], avatarFile.files[0].name.replace(/\.glb$/i, ''), (stage) => message(stage, true));
+    const avatar = await storage.publishAvatar(avatarGithubUrl.value, avatarGithubName.value, (stage) => message(stage, true));
     addPublishedOption(avatar).selected = true;
-    avatarFileField.hidden = true; publish.hidden = true;
-    message('Avatar pubblicato. Ora anche gli altri giocatori potranno vederlo.');
+    avatarGithubField.hidden = true; publish.hidden = true;
+    message('Avatar collegato a GitHub. Ora anche gli altri giocatori potranno vederlo.');
   } catch (error) { console.warn('[Free Roam] Pubblicazione avatar:', error); message(`Pubblicazione non riuscita: ${error.message || error}`, false, true); }
   finally { publish.disabled = false; enter.disabled = false; progress.hidden = true; }
 });
@@ -75,6 +86,7 @@ enter.addEventListener('click', async () => {
   const displayName = cleanDisplayName(nameInput.value);
   if (!displayName) { message('Inserisci un nome giocatore.', false, true); nameInput.focus(); return; }
   let selection = avatarChoice.value;
+  if (selection === 'github') { message(identity ? 'Pubblica prima l’avatar da GitHub.' : 'Accedi a FantaScuola per pubblicare un avatar.', false, true); return; }
   if (selection === 'local') {
     try { selection = { type: 'local', file: await validateGLBFile(avatarFile.files?.[0], 'avatar') }; }
     catch (error) { message(error.message, false, true); return; }

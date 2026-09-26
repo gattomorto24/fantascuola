@@ -1,0 +1,49 @@
+name: Publish FantaScuola with Free Roam assets
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name != 'release' || github.event.release.tag_name == 'free-roam-assets'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Prepare site and download GLB assets from the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _site/Free-Roam/release-assets
+          rsync -a --exclude='.git' --exclude='.github' --exclude='_site' --exclude='supabase' ./ _site/
+          if [ "$(gh release view free-roam-assets --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name | select(endswith(".glb"))] | length' 2>/dev/null || echo 0)" -gt 0 ]; then
+            gh release download free-roam-assets --repo "$GITHUB_REPOSITORY" --pattern '*.glb' --dir _site/Free-Roam/release-assets
+          fi
+          size=$(du -sb _site | cut -f1)
+          if [ "$size" -gt 950000000 ]; then
+            echo "GitHub Pages site exceeds the supported size after adding GLB assets: $size bytes" >&2
+            exit 1
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

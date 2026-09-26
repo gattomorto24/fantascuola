@@ -1,6 +1,6 @@
 import { settings } from '../config/settings.js';
 import { cleanAssetName } from '../utils/text.js';
-import { validateGLBFile } from '../assets/GLBLoader.js';
+import { resolveGithubAsset } from '../assets/GithubAssets.js';
 
 export class StorageService {
   constructor(client, userId) { this.client = client; this.userId = userId; }
@@ -23,32 +23,26 @@ export class StorageService {
     return data || [];
   }
   async avatarById(id) {
-    const { data, error } = await this.client.from('free_roam_avatars').select('id,name,storage_path').eq('id', id).maybeSingle();
+    const { data, error } = await this.client.from('free_roam_avatars').select('id,name,storage_path,asset_url').eq('id', id).maybeSingle();
     if (error || !data) throw error || new Error('Avatar pubblicato non trovato.');
     return data;
   }
-  async publishAvatar(file, name, onStage = () => {}) {
-    await validateGLBFile(file, 'avatar');
+  async publishAvatar(releaseUrl, name, onStage = () => {}) {
+    onStage('Verifica avatar su GitHub Pages…');
+    const asset = await resolveGithubAsset(releaseUrl, 'avatar');
     const id = crypto.randomUUID();
-    const path = `${this.userId}/${id}.glb`;
-    onStage('Caricamento avatar nello Storage…');
-    const { error: uploadError } = await this.client.storage.from('free-roam-avatars').upload(path, file, { contentType: 'model/gltf-binary', upsert: false });
-    if (uploadError) throw uploadError;
     onStage('Salvataggio avatar…');
-    const { data, error } = await this.client.from('free_roam_avatars').insert({ id, owner_id: this.userId, name: cleanAssetName(name, 40) || 'Avatar', storage_path: path, file_size: file.size }).select('id,name,storage_path').single();
-    if (error) { await this.client.storage.from('free-roam-avatars').remove([path]); throw error; }
+    const { data, error } = await this.client.from('free_roam_avatars').insert({ id, owner_id: this.userId, name: cleanAssetName(name, 40) || asset.fileName.replace(/\.glb$/i, ''), storage_path: null, asset_url: asset.assetUrl, file_size: asset.fileSize }).select('id,name,asset_url').single();
+    if (error) throw error;
     return data;
   }
-  async uploadMap(file, name, onStage = () => {}) {
-    await validateGLBFile(file, 'map');
+  async uploadMap(releaseUrl, name, onStage = () => {}) {
+    onStage('Verifica mappa su GitHub Pages…');
+    const asset = await resolveGithubAsset(releaseUrl, 'map');
     const id = crypto.randomUUID();
-    const path = `${this.userId}/${id}.glb`;
-    onStage('Caricamento mappa nello Storage…');
-    const { error: uploadError } = await this.client.storage.from('free-roam-maps').upload(path, file, { contentType: 'model/gltf-binary', upsert: false });
-    if (uploadError) throw uploadError;
     onStage('Salvataggio metadati…');
-    const { data, error } = await this.client.from('free_roam_maps').insert({ id, uploaded_by: this.userId, name: cleanAssetName(name) || file.name, file_name: file.name, storage_path: path, file_size: file.size, spawn: settings.world.defaultSpawn }).select('*').single();
-    if (error) { await this.client.storage.from('free-roam-maps').remove([path]); throw error; }
+    const { data, error } = await this.client.from('free_roam_maps').insert({ id, uploaded_by: this.userId, name: cleanAssetName(name) || asset.fileName, file_name: asset.fileName, storage_path: null, asset_url: asset.assetUrl, file_size: asset.fileSize, spawn: settings.world.defaultSpawn }).select('*').single();
+    if (error) throw error;
     onStage('Attivazione mappa…');
     await this.activateMap(data.id);
     return data;

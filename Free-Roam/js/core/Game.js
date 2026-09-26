@@ -10,10 +10,12 @@ import { RemotePlayerManager } from '../player/RemotePlayerManager.js';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js';
 import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js';
 import { DebugHud } from '../ui/DebugHud.js';
+import { spawnForPlayer } from '../world/spawn.js';
 
 export class Game {
   constructor(container, hudRoot, { client, identity, displayName, avatarSelection, storage }) {
-    this.container = container; this.client = client; this.identity = identity ? { ...identity, displayName } : null;
+    this.container = container; this.client = client;
+    this.identity = client ? { ...(identity || { userId: `guest:${crypto.randomUUID()}` }), displayName } : null;
     this.displayName = displayName; this.avatarSelection = avatarSelection; this.storage = storage;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(65, 1, 0.1, 500);
@@ -58,15 +60,18 @@ export class Game {
         this.hud.setAssetStatus('Mappa online non disponibile. Uso la pianura di test.');
       }
     }
-    this.player.root.position.set(...this.world.spawn);
-    this.followCamera.update(0, { cameraX: 0, cameraY: 0, zoom: 0 }, this.player.root.position);
-    this.hud.setMap(this.world.mapName);
-    this.loop.start();
     if (this.client && this.identity) {
       this.multiplayer = new MultiplayerManager(this.client, this.identity, this.player, this.remotes, settings.network,
         (online, detail) => this.hud.setNetwork(online, detail));
-      this.multiplayer.connect(); // Realtime cannot block rendering or movement.
     }
+    this.player.root.position.set(...(this.multiplayer
+      ? spawnForPlayer(this.world.spawn, this.multiplayer.playerId)
+      : this.world.spawn));
+    this.followCamera.update(0, { cameraX: 0, cameraY: 0, zoom: 0 }, this.player.root.position);
+    this.hud.setMap(this.world.mapName);
+    this.loop.start();
+    this.input.showTouchControls();
+    this.multiplayer?.connect(); // Realtime cannot block rendering or movement.
   }
   update(delta) {
     const controls = this.input.read();

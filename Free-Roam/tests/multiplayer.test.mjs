@@ -56,3 +56,21 @@ test('Presence, Broadcast e uscita funzionano tra due client', async () => {
   assert.equal(remoteB.items.has(a.playerId), false);
   await b.disconnect();
 });
+
+test('un canale chiuso si riconnette e ripubblica la presenza', async () => {
+  const network = bus(), remoteA = remotes(), remoteB = remotes();
+  const config = { sendHz: 10, presenceRefreshSeconds: 5, reconnectBaseMs: 5 };
+  const a = new MultiplayerManager(network.client(), { userId: crypto.randomUUID(), displayName: 'Tony' }, player(1), remoteA, config, () => {});
+  const b = new MultiplayerManager(network.client(), { userId: crypto.randomUUID(), displayName: 'Altro' }, player(4), remoteB, config, () => {});
+  a.connect(); b.connect();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const firstChannel = a.channel;
+  firstChannel.status('CLOSED');
+  assert.equal(a.online, false);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.notEqual(a.channel, firstChannel);
+  assert.equal(a.online, true);
+  assert.equal(remoteB.items.get(a.playerId)?.displayName, 'Tony');
+  await a.disconnect();
+  await b.disconnect();
+});
