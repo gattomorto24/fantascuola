@@ -1,26 +1,11 @@
 import { WebSocketTransport } from './WebSocketTransport.js';
+import { isPixelAvatarConfig } from '../avatars/AvatarConfig.js';
 
 const STATES = new Set(['Idle', 'Walking', 'Running', 'Jumping']);
 const AVATAR_REF = /^(default|pixel|published:[0-9a-f-]{36})$/i;
 const validNumber = (value) => Number.isFinite(value) && Math.abs(value) < 100000;
 
-const PIXEL_VALUES = Object.freeze({
-  skinTone: new Set(['light', 'medium', 'amber', 'dark']),
-  hairColor: new Set(['blonde', 'light-brown', 'brown', 'black']),
-  shirtColor: new Set(['red', 'yellow', 'blue']),
-  pantsColor: new Set(['red', 'yellow', 'blue']),
-  shoesColor: new Set(['black', 'white']),
-});
-
-export function validAvatarConfig(value) {
-  return !!value && typeof value === 'object' &&
-    value.version === 1 && value.type === 'pixel' && value.hairStyle === 'basic' &&
-    PIXEL_VALUES.skinTone.has(value.skinTone) &&
-    PIXEL_VALUES.hairColor.has(value.hairColor) &&
-    PIXEL_VALUES.shirtColor.has(value.shirtColor) &&
-    PIXEL_VALUES.pantsColor.has(value.pantsColor) &&
-    PIXEL_VALUES.shoesColor.has(value.shoesColor);
-}
+export const validAvatarConfig = isPixelAvatarConfig;
 
 export function validSnapshot(value, maxAge = 60000) {
   if (!(!!value && typeof value.playerId === 'string' && value.playerId.length > 0 && value.playerId.length <= 120 &&
