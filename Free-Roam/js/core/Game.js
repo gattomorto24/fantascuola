@@ -181,8 +181,6 @@ export class Game {
             if (result.mobileLite) {
               const downloaded = Number(result.mobileLiteInfo?.downloadedBytes || 0);
               const original = Number(result.mobileLiteInfo?.originalBytes || 0);
-              const saved = original > 0 ? Math.max(0, 1 - downloaded / original) : 0;
-
               this.hud.setAssetStatus(
                 `Modalità iPhone: stessa geometria/collisioni del mondo PC, texture pesanti escluse · ${Math.round(downloaded / 1024 / 1024)} MB trasferiti.`,
               );
