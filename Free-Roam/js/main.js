@@ -46,14 +46,14 @@ async function setupAccount() {
     } else {
       nameInput.value = cleanDisplayName(localStorage.getItem('free-roam-name:guest') || 'Giocatore');
       message(client
-        ? 'Multiplayer come ospite disponibile. Mappe e avatar GitHub pubblici sono visibili.'
-        : 'Modalità locale. Connessione multiplayer non disponibile.');
+        ? 'Multiplayer dedicato disponibile come ospite. Mappe e avatar online sono visibili.'
+        : 'Multiplayer dedicato disponibile come ospite. Account e dati Supabase non disponibili.');
     }
   } catch (error) {
     console.warn('[Free Roam] Account non disponibile:', error);
     nameInput.value = 'Giocatore'; message(client
-      ? 'Account non disponibile · puoi comunque entrare nel multiplayer come ospite.'
-      : 'Account non disponibile · modalità locale.');
+      ? 'Account non disponibile · puoi comunque entrare nel multiplayer dedicato come ospite.'
+      : 'Supabase non disponibile · il multiplayer dedicato resta utilizzabile come ospite.');
   } finally { enter.disabled = false; }
 }
 
