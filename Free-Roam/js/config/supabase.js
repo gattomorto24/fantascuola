@@ -17,12 +17,16 @@ export async function getGameIdentity(client) {
   try {
     const result = await client.from('account_profiles').select('display_name,studente_id,is_premium').eq('user_id', user.id).maybeSingle();
     profile = result.data;
-  } catch (error) { console.warn('[Free Roam] Profilo non disponibile:', error); }
+  } catch (error) {
+    console.warn('[Free Roam] Profilo non disponibile:', error);
+  }
+
   return {
     userId: user.id,
     displayName: String(profile?.display_name || user.user_metadata?.display_name || user.user_metadata?.username || user.email?.split('@')[0] || 'Giocatore').slice(0, 32),
     studentId: profile?.studente_id || null,
     isManager: profile?.is_premium === true,
-    avatarId: 'default',
+    avatarId: 'pixel',
+    avatarConfig: user.user_metadata?.free_roam_avatar_config || null,
   };
 }
