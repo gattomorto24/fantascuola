@@ -97,7 +97,8 @@ export async function loadGLB(source, onProgress, options = {}) {
     }
   }
 
-  const url = new URL(String(source), location.href);
+  const baseHref = globalThis.location?.href || 'http://localhost/';
+  const url = new URL(String(source), baseHref);
   const buffer = await fetchFullGLB(url.href, onProgress, onStage);
 
   // Per un GLB tutte le immagini embedded vengono risolte dal buffer. resourcePath
