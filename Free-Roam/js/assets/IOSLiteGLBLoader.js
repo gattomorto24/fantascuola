@@ -299,9 +299,14 @@ function stripHeavyVisuals(source) {
     const originalIsNeutral = originalFactor
       && originalFactor.length >= 3
       && originalFactor.slice(0, 3).every((value) => Number(value) >= 0.94);
-    const baseColorFactor = hadBaseTexture && (!originalFactor || originalIsNeutral)
-      ? materialColorFromName(sourceMaterial?.name || `material-${index}`, index)
-      : (originalFactor || materialColorFromName(sourceMaterial?.name || `material-${index}`, index));
+    // Se la texture era solo il colore visivo, manteniamo bianco come moltiplicatore:
+    // quando esiste COLOR_0, GLTFLoader applicherà il colore reale dei vertici.
+    // Se COLOR_0 non esiste, sotto resta una tinta di fallback leggibile.
+    const baseColorFactor = originalFactor || (
+      hadBaseTexture
+        ? [1, 1, 1, 1]
+        : materialColorFromName(sourceMaterial?.name || `material-${index}`, index)
+    );
 
     return {
       name: sourceMaterial?.name || `Materiale mobile ${index + 1}`,
@@ -331,10 +336,12 @@ function stripHeavyVisuals(source) {
   return doc;
 }
 
-// Su iPhone preserviamo integralmente topologia, indici, trasformazioni e POSITION.
- // COLOR_0 è solo informazione visiva e può raddoppiare quasi il payload geometrico;
- // i materiali mobile vengono già ricostruiti localmente, quindi non serve.
-const MOBILE_VERTEX_ATTRIBUTES = new Set(['POSITION']);
+// Manteniamo gli attributi che descrivono i colori REALI senza caricare texture.
+ // COLOR_0 è spesso il colore bakeato/fotogrammetrico per vertice: costa molto meno
+ // delle immagini originali e permette all'iPhone di mostrare i colori della mappa
+ // invece di una palette inventata. NORMAL resta escluso: il percorso mobile usa
+ // materiali unlit, quindi non serve per l'illuminazione.
+const MOBILE_VERTEX_ATTRIBUTES = new Set(['POSITION', 'COLOR_0']);
 
 function collectUsedAccessors(doc) {
   const used = new Set();
@@ -415,6 +422,22 @@ export function prepareIOSLiteDocument(source) {
   const doc = remapAccessors(stripHeavyVisuals(source));
   const usedViews = collectBufferViews(doc);
   const totalGeometryBytes = geometryBytes(doc, usedViews);
+
+  // Le primitive senza COLOR_0 non hanno un colore bakeato recuperabile senza
+  // decodificare la texture originale. Diamo solo a quelle un fallback semantico;
+  // quelle con COLOR_0 mantengono invece i colori autentici del GLB.
+  for (const mesh of doc.meshes || []) {
+    for (const primitive of mesh.primitives || []) {
+      if (Number.isInteger(primitive.attributes?.COLOR_0)) continue;
+      const materialIndex = Number(primitive.material);
+      const material = doc.materials?.[materialIndex];
+      if (!material) continue;
+      const pbr = material.pbrMetallicRoughness || (material.pbrMetallicRoughness = {});
+      const factor = pbr.baseColorFactor;
+      const neutral = !Array.isArray(factor) || factor.slice(0, 3).every((v) => Number(v) >= 0.94);
+      if (neutral) pbr.baseColorFactor = materialColorFromName(material.name || `material-${materialIndex}`, materialIndex);
+    }
+  }
 
   if (!usedViews.size) throw new Error('La mappa non contiene geometria caricabile in modalità iPhone.');
 
@@ -581,7 +604,7 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
   const { assignments, binLength } = remapBufferViews(doc, usedViews);
 
   onStage(
-    `iPhone · geometria ${Math.round(totalGeometryBytes / 1024 / 1024)} MB, texture escluse…`,
+    `iPhone · geometria + colori vertex ${Math.round(totalGeometryBytes / 1024 / 1024)} MB, texture pesanti escluse…`,
   );
 
   const groups = mergeRanges(assignments, binStart);
@@ -645,6 +668,7 @@ export async function loadIOSLiteGLB(url, onProgress = () => {}, onStage = () =>
     downloadedBytes: rangeFallback ? (fullDownloadBytes || totalLength) : totalDownload,
     rangeFallback,
     textureless: true,
+    vertexColorsPreserved: true,
   };
 
   // Non trattenere in RAM l'intero GLB dopo il parsing: su iPhone la memoria
