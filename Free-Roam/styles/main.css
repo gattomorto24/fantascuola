@@ -659,3 +659,82 @@ body.gameplay-active canvas {
 .reduce-motion .world-loading-track span {
   transition: none !important;
 }
+
+
+/* Compact gameplay HUD */
+.compact-hud {
+  position: fixed;
+  z-index: 42;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  pointer-events: none;
+  text-align: right;
+}
+
+.compact-stats {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .01em;
+  line-height: 1.15;
+  text-shadow:
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000,
+     0 2px 4px rgba(0,0,0,.9);
+}
+
+.compact-desktop-exit {
+  color: #ff443f;
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1.15;
+  text-shadow:
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000,
+     0 2px 4px rgba(0,0,0,.95);
+}
+
+.compact-mobile-exit {
+  display: none;
+  min-width: 68px;
+  margin-top: 3px;
+  padding: 8px 13px;
+  border: 2px solid rgba(40,0,0,.78);
+  border-radius: 9px;
+  background: #d92d2d;
+  box-shadow: 0 3px 10px rgba(0,0,0,.36);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (pointer: coarse) {
+  .compact-hud {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+  }
+
+  .compact-desktop-exit {
+    display: none;
+  }
+
+  .compact-mobile-exit {
+    display: block;
+  }
+}
+
+.network-disconnected .compact-hud {
+  opacity: .16;
+}

@@ -12,14 +12,14 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="../logo.png">
   <link rel="preload" as="image" href="./assets/models/Unknown.png">
-  <link rel="stylesheet" href="./styles/main.css?v=map-solid-v1">
+  <link rel="stylesheet" href="./styles/main.css?v=map-solid-v2">
   <link rel="stylesheet" href="./styles/touch.css">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=map-solid-v1"></script>
+  <script type="module" src="./js/main.js?v=map-solid-v2"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -171,6 +171,12 @@
     </dl>
     <p id="network-detail" class="network-detail">Modalità locale</p>
     <p id="asset-status" class="asset-status" hidden></p>
+  </aside>
+
+  <aside id="compact-hud" class="compact-hud" aria-live="off" hidden>
+    <div id="compact-stats" class="compact-stats">-- FPS - 1 Players</div>
+    <div class="compact-desktop-exit">Tieni premuto Esc per uscire</div>
+    <a class="compact-mobile-exit" href="../index.html">ESCI</a>
   </aside>
 
   <div id="touch-controls" class="touch-controls" aria-label="Controlli di gioco touch" hidden>
