@@ -1,11 +1,15 @@
 import * as THREE from 'three';
-import { ClimbDetector } from './ClimbDetector.js';
+import { ClimbDetector } from './ClimbDetector.js?v=animation-v1';
 
 const ACTIVE = new Set(['LEDGE_GRAB', 'HANGING', 'SHIMMY', 'CLIMB_UP', 'FALLBACK_GRAB', 'FALLBACK_CLIMB']);
 const inputDirection = new THREE.Vector3();
 const facing = new THREE.Vector3();
 const predicted = new THREE.Vector3();
 const desired = new THREE.Vector3();
+const smoothstep = (value) => {
+  const t = Math.max(0, Math.min(1, value));
+  return t * t * (3 - 2 * t);
+};
 
 export class ParkourController {
   constructor(controller, world, options = {}) {
@@ -40,6 +44,7 @@ export class ParkourController {
   transition(next, target = this.target) {
     this.state = next;
     this.player.parkourState = ACTIVE.has(next) ? next : null;
+    this.player.parkourProgress = 0;
     this.timer = 0;
     this.target = target;
     this.lastScore = target?.score || 0;
@@ -146,7 +151,9 @@ export class ParkourController {
     }
     this.controller.velocity.set(0, 0, 0);
     this.controller.grounded = false;
+    player.parkourSide = input.moveX || 0;
     if (this.state === 'LEDGE_GRAB' || this.state === 'FALLBACK_GRAB') {
+      player.parkourProgress = Math.min(1, this.timer / 0.22);
       this.moveTo(target.hang, delta, 11);
       this.rotateToward(target.normal, delta);
       if (this.timer > 0.2 || player.root.position.distanceTo(target.hang) < 0.055) {
@@ -157,18 +164,19 @@ export class ParkourController {
         || (this.world.streamedMap && !this.world.streamedMap.canMoveTo(target.stand.x, target.stand.z))) {
         this.transition('HANGING');
       } else {
-        // Prima solleva il corpo all'esterno, poi trasferiscilo sul tetto:
-        // la traiettoria diagonale attraverserebbe la facciata.
-        const height = target.stand.y;
-        if (player.root.position.y < height - 0.06) {
-          player.root.position.y = Math.min(height, player.root.position.y + delta * 2.5);
-          player.root.position.x += (target.hang.x - player.root.position.x) * Math.min(1, delta * 10);
-          player.root.position.z += (target.hang.z - player.root.position.z) * Math.min(1, delta * 10);
-        } else {
-          this.moveTo(target.stand, delta, 9);
-        }
+        // Solleva prima il bacino sopra il bordo, poi porta i piedi sul piano.
+        // Tempo e posa condividono la stessa progressione per evitare foot sliding.
+        const progress = Math.min(1, this.timer / 0.96);
+        const lift = smoothstep(progress / 0.64);
+        const traverse = smoothstep((progress - 0.54) / 0.46);
+        player.parkourProgress = progress;
+        player.root.position.set(
+          target.hang.x + (target.stand.x - target.hang.x) * traverse,
+          target.hang.y + (target.stand.y - target.hang.y) * lift,
+          target.hang.z + (target.stand.z - target.hang.z) * traverse,
+        );
         this.rotateToward(target.normal, delta);
-        if (player.root.position.distanceTo(target.stand) < 0.055) {
+        if (progress >= 1) {
           player.root.position.copy(target.stand);
           this.controller.grounded = true;
           this.cooldown = 0.28;
@@ -219,10 +227,14 @@ export class ParkourController {
             this.lostWallTime = 0;
             target.wall = wall;
             target.normal.copy(wall.normal);
-            desired.x = wall.point.x + wall.normal.x * 0.32;
-            desired.z = wall.point.z + wall.normal.z * 0.32;
+            const correctionX = wall.point.x + wall.normal.x * 0.32 - desired.x;
+            const correctionZ = wall.point.z + wall.normal.z * 0.32 - desired.z;
+            const correction = Math.hypot(correctionX, correctionZ);
+            const fraction = correction > 0.08 ? 0.08 / correction : 1;
+            desired.x += correctionX * fraction;
+            desired.z += correctionZ * fraction;
             if (!this.world.streamedMap || this.world.streamedMap.canMoveTo(desired.x, desired.z)) {
-              this.moveTo(desired, delta, 18);
+              player.root.position.copy(desired);
             }
             this.rotateToward(target.normal, delta);
           }
@@ -230,7 +242,7 @@ export class ParkourController {
         }
       }
     }
-    player.movementState = this.active ? this.state : 'Jumping';
+    player.movementState = this.active ? this.state : this.state === 'LANDING' ? 'Idle' : 'Jumping';
     player.updateVisual(delta);
     this.debug?.update(this);
     return true;

@@ -31,6 +31,10 @@ export function validSnapshot(value, maxAge = 60000) {
     value.position && validNumber(value.position.x) && validNumber(value.position.y) && validNumber(value.position.z) &&
     validNumber(value.rotation) && STATES.has(value.movementState) &&
     (value.parkourState === undefined || PARKOUR_STATES.has(value.parkourState)) &&
+    (value.parkourProgress === undefined || (validNumber(value.parkourProgress)
+      && value.parkourProgress >= 0 && value.parkourProgress <= 1)) &&
+    (value.parkourSide === undefined || (validNumber(value.parkourSide)
+      && Math.abs(value.parkourSide) <= 1)) &&
     Number.isFinite(value.timestamp) && Math.abs(Date.now() - value.timestamp) < maxAge
     && (value.mapVersion === undefined || (typeof value.mapVersion === 'string' && value.mapVersion.length <= 128))
     && (value.weaponDrawn === undefined || typeof value.weaponDrawn === 'boolean')
@@ -108,7 +112,11 @@ export class MultiplayerManager {
       shotId: p.weapon?.shotId || 0,
       health: p.health ?? 100,
     };
-    if (p.parkourState) snapshot.parkourState = p.parkourState;
+    if (p.parkourState) {
+      snapshot.parkourState = p.parkourState;
+      snapshot.parkourProgress = Math.max(0, Math.min(1, p.parkourProgress || 0));
+      snapshot.parkourSide = Math.max(-1, Math.min(1, p.parkourSide || 0));
+    }
     if (p.weapon?.shotTarget) snapshot.shotTarget = p.weapon.shotTarget;
     if (p.weapon?.shotOrigin) snapshot.shotOrigin = p.weapon.shotOrigin;
     if (p.weapon?.shotVictimId) snapshot.shotVictimId = p.weapon.shotVictimId;

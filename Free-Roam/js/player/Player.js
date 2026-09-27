@@ -62,8 +62,7 @@ export class Player {
   }
 
   updateVisual(delta) {
-    this.visual?.mixer?.update(delta);
-    this.visual?.update?.(delta, this.movementState);
+    this.visual?.update?.(delta, this.movementState, this.parkourProgress || 0, this.parkourSide || 0);
     this.weapon.update(delta);
   }
 

@@ -1,4 +1,4 @@
-const CACHE = 'fantascuola-free-roam-parkour-v1';
+const CACHE = 'fantascuola-free-roam-animation-v1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', '../logo.png'];
 
 self.addEventListener('install', (event) => {

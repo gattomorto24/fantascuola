@@ -102,28 +102,42 @@ export class ClimbDetector {
     const inwardX = -wall.normal.x;
     const inwardZ = -wall.normal.z;
     const startY = position.y + this.config.ledgeReach + 0.22;
-    let top = null;
+    const tops = [];
     for (const depth of [-0.22, -0.08, 0.16, 0.36, 0.58]) {
       origin.set(wall.point.x + inwardX * depth, startY, wall.point.z + inwardZ * depth);
       const hit = this.cast(topMeshes, origin, DOWN, this.config.ledgeReach - 0.32, 'floor');
-      if (hit && hit.point.y >= position.y + 0.62 && (!top || hit.point.y < top.point.y)) top = hit;
+      if (hit && hit.point.y >= position.y + 0.62
+        && !tops.some((other) => Math.abs(other.point.y - hit.point.y) < 0.055)) tops.push(hit);
     }
-    if (!top) return null;
-    const hang = new THREE.Vector3(
-      wall.point.x + wall.normal.x * 0.31,
-      top.point.y - 1.08,
-      wall.point.z + wall.normal.z * 0.31,
-    );
-    if (Math.hypot(hang.x - position.x, hang.z - position.z) > this.config.grabDistance + 0.18) return null;
-    const stand = new THREE.Vector3(
-      wall.point.x + inwardX * 0.66,
-      top.point.y + 0.025,
-      wall.point.z + inwardZ * 0.66,
-    );
-    origin.set(stand.x, top.point.y + 0.4, stand.z);
-    const support = this.cast(topMeshes, origin, DOWN, 0.55, 'floor');
-    const canStand = support && Math.abs(support.point.y - top.point.y) < 0.16 && this.clearAbove(stand, topMeshes);
-    return { kind: 'ledge', wall, top, hang, stand: canStand ? stand : null, normal: wall.normal.clone() };
+    let best = null;
+    for (const top of tops) {
+      const hang = new THREE.Vector3(wall.point.x + wall.normal.x * 0.31,
+        top.point.y - 1.08, wall.point.z + wall.normal.z * 0.31);
+      if (Math.hypot(hang.x - position.x, hang.z - position.z) > this.config.grabDistance + 0.18) continue;
+      const stand = this.standAt(wall, top.point.y, topMeshes);
+      const quality = (stand ? 3 : 0) + Math.max(0, 1 - Math.abs(hang.y - position.y));
+      if (!best || quality > best.quality) {
+        best = { kind: 'ledge', wall, top, hang, stand, normal: wall.normal.clone(), quality };
+      }
+    }
+    return best;
+  }
+
+  standAt(wall, height, meshes) {
+    for (const depth of [0.44, 0.62, 0.82, 1.02]) {
+      const x = wall.point.x - wall.normal.x * depth;
+      const z = wall.point.z - wall.normal.z * depth;
+      let supported = true;
+      for (const [dx, dz] of [[0, 0], [0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12]]) {
+        origin.set(x + dx, height + 0.32, z + dz);
+        const support = this.cast(meshes, origin, DOWN, 0.48, 'floor');
+        if (!support || Math.abs(support.point.y - height) > 0.14) { supported = false; break; }
+      }
+      if (!supported) continue;
+      const stand = new THREE.Vector3(x, height + 0.025, z);
+      if (this.clearAbove(stand, meshes)) return stand;
+    }
+    return null;
   }
 
   clearAbove(position, meshes = null) {

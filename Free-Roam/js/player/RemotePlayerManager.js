@@ -1,4 +1,4 @@
-import { RemotePlayer } from './RemotePlayer.js?v=parkour-v1';
+import { RemotePlayer } from './RemotePlayer.js?v=animation-v1';
 export class RemotePlayerManager {
   constructor(scene, avatars, config) { this.scene = scene; this.avatars = avatars; this.config = config; this.players = new Map(); }
   receive(snapshot) {

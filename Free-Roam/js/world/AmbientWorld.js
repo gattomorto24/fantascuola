@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { createPixelAvatar } from '../avatars/PixelAvatarRenderer.js?v=parkour-v1';
+import { createPixelAvatar } from '../avatars/PixelAvatarRenderer.js?v=animation-v1';
 import { MOVING_VEHICLES, PARKED_VEHICLES, PEDESTRIANS, sampleRoute } from './AmbientMapData.js?v=motorcycles-v1';
+import { VehicleSmoke, createSmokeMaterial } from './VehicleSmoke.js';
 
 const GLASS = '#263d48';
 const RUBBER = '#1b1d20';
@@ -45,11 +46,13 @@ export class AmbientWorld {
     this.scene = scene;
     this.collision = collision;
     this.tileReady = tileReady;
+    this.isMobile = isMobile;
     this.externalVehicles = () => [];
     this.radius = isMobile ? 37 : 75;
     this.active = new Map();
     this.geometries = new Map();
     this.materials = new Map();
+    this.smokeMaterial = null;
     this.vehicleStates = new Map();
     this.vehicleConditions = new Map();
     this.trafficStates = new Map();
@@ -99,11 +102,6 @@ export class AmbientWorld {
       this.box(root, [1.42, 0.035, 0.7], [0, 1.0, -1.35], '#342c2b'),
     ];
     for (const mark of damageMarks) mark.visible = false;
-    if (!this.geometries.has('smoke')) this.geometries.set('smoke', new THREE.SphereGeometry(0.28, 7, 5));
-    const smoke = new THREE.Mesh(this.geometries.get('smoke'), this.material('#404342'));
-    smoke.position.set(0.2, 1.3, 1.22);
-    smoke.visible = false;
-    root.add(smoke);
     this.box(root, [1.46, 0.58, 1.85], [0, 1.18, -0.24], GLASS, 0.18);
     this.box(root, [1.48, 0.08, 1.68], [0, 1.52, -0.24], paint, 0.17);
     const bumpers = [
@@ -125,7 +123,7 @@ export class AmbientWorld {
       this.box(root, [0.28, 0.13, 0.07], [side * 0.61, 0.69, -1.85], '#b83834');
       this.box(root, [0.11, 0.17, 0.28], [side * 0.84, 1.16, 0.25], paint, 0.17);
     }
-    return { root, collider: body, bodyMaterial, basePaint: new THREE.Color(paint), damageMarks, smoke, bumpers };
+    return { root, collider: body, bodyMaterial, basePaint: new THREE.Color(paint), damageMarks, bumpers };
   }
 
   makeMotorcycle(paint) {
@@ -151,15 +149,8 @@ export class AmbientWorld {
     this.box(root, [0.3, 0.14, 0.1], [0, 0.84, -0.9], '#ba3231');
     const damageMarks = [this.box(root, [0.5, 0.03, 0.38], [0, 1.16, 0.1], '#302725')];
     damageMarks[0].visible = false;
-    if (!this.geometries.has('motorcycle-smoke')) {
-      this.geometries.set('motorcycle-smoke', new THREE.SphereGeometry(0.18, 7, 5));
-    }
-    const smoke = new THREE.Mesh(this.geometries.get('motorcycle-smoke'), this.material('#404342'));
-    smoke.position.set(0.24, 0.86, -0.8);
-    smoke.visible = false;
-    root.add(smoke);
     return { root, collider: body, bodyMaterial, basePaint: new THREE.Color(paint),
-      damageMarks, smoke, handlebar };
+      damageMarks, handlebar };
   }
 
   makePedestrian(config) {
@@ -196,6 +187,7 @@ export class AmbientWorld {
     const instance = this.active.get(id);
     if (!instance) return;
     if (instance.colliderRegistered) this.collision.remove(instance.collider);
+    instance.smokeEmitter?.dispose();
     instance.bodyMaterial?.dispose();
     this.scene.remove(instance.root);
     instance.root.clear();
@@ -331,10 +323,15 @@ export class AmbientWorld {
       if (instance.handlebar) instance.handlebar.rotation.y = damage * 0.3;
       instance.damageMarks[0].visible = condition <= 70;
       if (instance.damageMarks[1]) instance.damageMarks[1].visible = condition <= 35;
-      instance.smoke.visible = condition <= 25;
       instance.lastCondition = condition;
     }
-    if (instance.smoke.visible) instance.smoke.position.y = 1.3 + Math.sin(timeMs / 350) * 0.12;
+    if (condition <= 65 && !instance.smokeEmitter) {
+      this.smokeMaterial ||= createSmokeMaterial();
+      instance.smokeEmitter = new VehicleSmoke(this.scene, instance.root, this.smokeMaterial,
+        instance.id, instance.type === 'motorcycle', this.isMobile ? 8 : 13);
+      instance.smoke = instance.smokeEmitter.points;
+    }
+    instance.smokeEmitter?.update(condition, timeMs);
   }
 
   raycastPedestrian(ray, mapHit, maxDistance = 70) {
@@ -585,6 +582,8 @@ export class AmbientWorld {
     for (const id of [...this.active.keys()]) this.deactivate(id);
     for (const geometry of this.geometries.values()) geometry.dispose();
     for (const material of this.materials.values()) material.dispose();
+    this.smokeMaterial?.dispose();
+    this.smokeMaterial = null;
     this.geometries.clear();
     this.materials.clear();
     this.vehicleConditions.clear();

@@ -1,8 +1,8 @@
-import { Game } from './core/Game.js?v=parkour-v1';
+import { Game } from './core/Game.js?v=animation-v1';
 import { createGameClient, getGameIdentity } from './config/supabase.js';
 import { StorageService } from './storage/StorageService.js';
 import { cleanDisplayName } from './utils/text.js';
-import { AvatarCreator } from './avatars/AvatarCreator.js?v=parkour-v1';
+import { AvatarCreator } from './avatars/AvatarCreator.js?v=animation-v1';
 import { DEFAULT_PIXEL_AVATAR, normalizePixelAvatarConfig } from './avatars/AvatarConfig.js';
 import { setupMobileExperience } from './ui/MobileExperience.js';
 import { LoadingScreen } from './ui/LoadingScreen.js';
@@ -19,7 +19,7 @@ const loadingScreen = new LoadingScreen(document.getElementById('world-loading')
 const mobileExperience = setupMobileExperience();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=parkour-v1').catch((error) => {
+  navigator.serviceWorker.register('./sw.js?v=animation-v1').catch((error) => {
     console.warn('[Free Roam] Service Worker non disponibile:', error);
   });
 }

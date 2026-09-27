@@ -8,6 +8,7 @@ import { PlayerController } from '../js/player/PlayerController.js';
 import { settings } from '../js/config/settings.js';
 import { MultiplayerManager, validSnapshot } from '../js/multiplayer/MultiplayerManager.js';
 import { DEFAULT_PIXEL_AVATAR } from '../js/avatars/AvatarConfig.js';
+import { createPixelAvatar } from '../js/avatars/PixelAvatarRenderer.js';
 
 function wallWorld(height = 1.4, noClimb = false) {
   const scene = new THREE.Scene();
@@ -109,4 +110,39 @@ test('una zona rimossa lascia la presa; lo stato parkour viaggia come estensione
   world.collision.remove(world.wall);
   parkour.update(0.016, { moveX: 0, moveY: 0, jump: false });
   assert.equal(parkour.active, false);
+});
+
+test('scalando una parete senza appigli prende il bordo e arriva in piedi sul tetto', () => {
+  const world = wallWorld(3);
+  const player = { root: new THREE.Group(), movementState: 'Idle', updateVisual() {} };
+  const controller = { player, velocity: new THREE.Vector3(0, -1, -4), grounded: false };
+  const parkour = new ParkourController(controller, world);
+  assert.equal(parkour.tryAcquire(0.016, {}, new THREE.Vector3(0, 0, -1), 0), true);
+  const seen = new Set();
+  let maxStep = 0;
+  for (let i = 0; i < 250 && parkour.state !== 'LANDING'; i += 1) {
+    const previous = player.root.position.clone();
+    parkour.update(0.016, { moveX: 0, moveY: 1, jump: false });
+    maxStep = Math.max(maxStep, previous.distanceTo(player.root.position));
+    seen.add(parkour.state);
+  }
+  assert.ok(seen.has('FALLBACK_CLIMB'));
+  assert.ok(seen.has('LEDGE_GRAB'));
+  assert.ok(seen.has('HANGING'));
+  assert.ok(seen.has('CLIMB_UP'));
+  assert.equal(parkour.state, 'LANDING');
+  assert.ok(Math.abs(player.root.position.y - 3.025) < 0.02);
+  assert.ok(maxStep < 0.2);
+});
+
+test('l’avatar alza le mani davanti al muro, porta un ginocchio sul bordo e torna in posa neutra', () => {
+  const avatar = createPixelAvatar();
+  for (let i = 0; i < 20; i += 1) avatar.update(0.016, 'HANGING');
+  assert.ok(avatar.parts.leftArm.rotation.x > 1.8);
+  assert.ok(avatar.parts.rightArm.rotation.x > 1.8);
+  for (let i = 0; i < 14; i += 1) avatar.update(0.016, 'CLIMB_UP', 0.58);
+  assert.ok(avatar.parts.leftLeg.rotation.x > 0.75);
+  for (let i = 0; i < 30; i += 1) avatar.update(0.016, 'Idle');
+  assert.ok(Math.abs(avatar.parts.leftArm.rotation.x) < 0.1);
+  assert.ok(Math.abs(avatar.parts.leftLeg.rotation.x) < 0.1);
 });

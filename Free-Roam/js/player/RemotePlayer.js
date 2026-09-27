@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Player } from './Player.js?v=gameplay-v1';
+import { Player } from './Player.js?v=animation-v1';
 
 export class RemotePlayer extends Player {
   constructor(scene, avatars, id, config) {
@@ -18,6 +18,8 @@ export class RemotePlayer extends Player {
     this.targetPosition.set(snapshot.position.x, snapshot.position.y, snapshot.position.z);
     this.targetRotation = snapshot.rotation;
     this.movementState = snapshot.parkourState || snapshot.movementState;
+    this.parkourProgress = snapshot.parkourProgress || 0;
+    this.parkourSide = snapshot.parkourSide || 0;
     this.setName(snapshot.displayName);
     this.lastSeen = performance.now();
     this.weapon.setDrawn(snapshot.weaponDrawn === true);

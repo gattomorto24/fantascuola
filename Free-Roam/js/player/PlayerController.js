@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ParkourController } from './ParkourController.js';
+import { ParkourController } from './ParkourController.js?v=animation-v1';
 
 const direction = new THREE.Vector3();
 const forward = new THREE.Vector3();

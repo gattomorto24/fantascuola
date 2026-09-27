@@ -326,59 +326,127 @@ export function createPixelAvatar(configInput = DEFAULT_PIXEL_AVATAR) {
   };
 
   let phase = 0;
+  let climbClock = 0;
+  let lastState = 'Idle';
+  let landingTime = 0;
+  const ease = (value) => {
+    const t = Math.max(0, Math.min(1, value));
+    return t * t * (3 - 2 * t);
+  };
 
-  const update = (delta, state = 'Idle') => {
+  const update = (delta, state = 'Idle', parkourProgress = 0, parkourSide = 0) => {
+    if (state !== lastState) {
+      if (lastState === 'CLIMB_UP' && (state === 'Idle' || state === 'Walking' || state === 'Running')) landingTime = 0.28;
+      lastState = state;
+    }
+    landingTime = Math.max(0, landingTime - delta);
     const running = state === 'Running';
     const walking = state === 'Walking';
     const jumping = state === 'Jumping';
-    const hanging = state === 'LEDGE_GRAB' || state === 'HANGING' || state === 'SHIMMY';
-    const climbing = state === 'FALLBACK_GRAB' || state === 'FALLBACK_CLIMB' || state === 'CLIMB_UP';
+    const parkour = state === 'LEDGE_GRAB' || state === 'HANGING' || state === 'SHIMMY'
+      || state === 'FALLBACK_GRAB' || state === 'FALLBACK_CLIMB' || state === 'CLIMB_UP';
     const moving = running || walking;
-    const rate = running ? 12 : walking ? 7.8 : 2;
+    phase += delta * (running ? 12 : walking ? 7.8 : 2);
+    if (parkour) climbClock += delta;
+    const stride = moving ? Math.sin(phase) * (running ? 0.82 : 0.52) : 0;
+    const impact = landingTime > 0 ? Math.sin(Math.PI * landingTime / 0.28) : 0;
+    let armLX = jumping ? -0.55 : stride * 0.82;
+    let armRX = jumping ? -0.55 : -stride * 0.82;
+    let armLZ = 0, armRZ = 0;
+    let foreLX = moving ? -0.08 : 0, foreRX = moving ? -0.08 : 0;
+    let legLX = jumping ? 0.28 : -stride;
+    let legRX = jumping ? 0.28 : stride;
+    let shinLX = moving ? Math.max(0, Math.sin(phase + Math.PI) * 0.34) : 0;
+    let shinRX = moving ? Math.max(0, Math.sin(phase) * 0.34) : 0;
+    let torsoX = 0;
+    let torsoZ = moving ? Math.sin(phase * 0.5) * (running ? 0.035 : 0.018) : 0;
+    let headX = 0;
+    let headY = moving ? Math.sin(phase * 0.5) * 0.025 : Math.sin(phase * 0.25) * 0.035;
+    let bodyY = jumping ? 0 : Math.sin(phase * 0.5) * (moving ? 0.012 : 0.006);
 
-    phase += delta * rate;
-
-    let armSwing = 0;
-    let legSwing = 0;
-
-    if (moving) {
-      const amount = running ? 0.82 : 0.52;
-      legSwing = Math.sin(phase) * amount;
-      armSwing = Math.sin(phase) * amount * 0.82;
+    if (state === 'LEDGE_GRAB' || state === 'FALLBACK_GRAB') {
+      const reach = ease(parkourProgress);
+      armLX = 0.65 + reach * 1.73;
+      armRX = 0.45 + reach * 1.91;
+      armLZ = -0.1; armRZ = 0.1;
+      foreLX = -0.35 - reach * 0.42;
+      foreRX = -0.35 - reach * 0.42;
+      legLX = 0.45; legRX = 0.24;
+      shinLX = -0.72; shinRX = -0.45;
+      torsoX = -0.18; bodyY = -0.045 * (1 - reach);
+      headX = 0.12;
+    } else if (state === 'HANGING' || state === 'SHIMMY') {
+      const shift = state === 'SHIMMY' ? Math.sin(climbClock * 8) : 0;
+      const side = Math.max(-1, Math.min(1, parkourSide));
+      armLX = 2.3 + shift * 0.28;
+      armRX = 2.3 - shift * 0.28;
+      armLZ = -0.12 - side * 0.08;
+      armRZ = 0.12 - side * 0.08;
+      foreLX = -0.8 + shift * 0.1;
+      foreRX = -0.8 - shift * 0.1;
+      legLX = 0.48 - shift * 0.16;
+      legRX = 0.48 + shift * 0.16;
+      shinLX = -0.8; shinRX = -0.8;
+      torsoX = -0.16;
+      torsoZ = side * 0.09;
+      headX = 0.11;
+      bodyY = Math.sin(climbClock * 2.8) * 0.012;
+    } else if (state === 'FALLBACK_CLIMB') {
+      const step = Math.sin(climbClock * 7.5);
+      armLX = 2.05 + step * 0.46;
+      armRX = 2.05 - step * 0.46;
+      armLZ = -0.12; armRZ = 0.12;
+      foreLX = -0.6 - step * 0.18;
+      foreRX = -0.6 + step * 0.18;
+      legLX = 0.78 - step * 0.42;
+      legRX = 0.78 + step * 0.42;
+      shinLX = -0.92 + step * 0.2;
+      shinRX = -0.92 - step * 0.2;
+      torsoX = -0.22;
+      torsoZ = step * 0.075;
+      headX = 0.16;
+      bodyY = Math.sin(climbClock * 15) * 0.025;
+    } else if (state === 'CLIMB_UP') {
+      const pull = ease(parkourProgress / 0.46);
+      const knee = ease((parkourProgress - 0.34) / 0.39);
+      const stand = ease((parkourProgress - 0.72) / 0.28);
+      armLX = (2.35 - pull * 1.18 - knee * 0.65) * (1 - stand);
+      armRX = (2.35 - pull * 1.24 - knee * 0.58) * (1 - stand);
+      armLZ = -0.14 * (1 - stand); armRZ = 0.14 * (1 - stand);
+      foreLX = (-0.86 - pull * 0.24) * (1 - stand);
+      foreRX = (-0.86 - pull * 0.24) * (1 - stand);
+      legLX = (0.45 + knee * 0.92) * (1 - stand);
+      legRX = (0.45 + knee * 0.22) * (1 - stand);
+      shinLX = (-0.75 - knee * 0.35) * (1 - stand);
+      shinRX = -0.75 * (1 - stand);
+      torsoX = (-0.25 - knee * 0.2) * (1 - stand);
+      headX = 0.1 * (1 - stand);
+      bodyY = (-0.04 + knee * 0.12) * (1 - stand);
     }
 
-    leftArm.rotation.x = jumping ? -0.55 : armSwing;
-    rightArm.rotation.x = jumping ? -0.55 : -armSwing;
-    leftLeg.rotation.x = jumping ? 0.28 : -legSwing;
-    rightLeg.rotation.x = jumping ? 0.28 : legSwing;
-    leftShin.rotation.x = moving ? Math.max(0, Math.sin(phase + Math.PI) * 0.34) : 0;
-    rightShin.rotation.x = moving ? Math.max(0, Math.sin(phase) * 0.34) : 0;
-    leftForearm.rotation.x = moving ? -0.08 : 0;
-    rightForearm.rotation.x = moving ? -0.08 : 0;
-
-    torso.rotation.z = moving
-      ? Math.sin(phase * 0.5) * (running ? 0.035 : 0.018)
-      : 0;
-
-    head.rotation.y = moving
-      ? Math.sin(phase * 0.5) * 0.025
-      : Math.sin(phase * 0.25) * 0.035;
-
-    body.position.y = jumping
-      ? 0
-      : Math.sin(phase * 0.5) * (moving ? 0.012 : 0.006);
-    if (hanging || climbing) {
-      const cycle = climbing || state === 'SHIMMY' ? Math.sin(phase * 1.6) : 0;
-      leftArm.rotation.x = -2.25 + cycle * 0.18;
-      rightArm.rotation.x = -2.25 - cycle * 0.18;
-      leftForearm.rotation.x = -0.3;
-      rightForearm.rotation.x = -0.3;
-      leftLeg.rotation.x = climbing ? 0.35 + cycle * 0.28 : 0.22;
-      rightLeg.rotation.x = climbing ? 0.35 - cycle * 0.28 : 0.22;
-      leftShin.rotation.x = climbing ? -0.28 : 0;
-      rightShin.rotation.x = climbing ? -0.28 : 0;
-      body.position.y = 0;
+    if (impact > 0 && !parkour) {
+      legLX += impact * 0.34; legRX += impact * 0.34;
+      shinLX -= impact * 0.28; shinRX -= impact * 0.28;
+      bodyY -= impact * 0.065;
+      torsoX -= impact * 0.08;
     }
+    const blend = 1 - Math.exp(-delta * (parkour ? 16 : 13));
+    const follow = (current, target) => current + (target - current) * blend;
+    leftArm.rotation.x = follow(leftArm.rotation.x, armLX);
+    rightArm.rotation.x = follow(rightArm.rotation.x, armRX);
+    leftArm.rotation.z = follow(leftArm.rotation.z, armLZ);
+    rightArm.rotation.z = follow(rightArm.rotation.z, armRZ);
+    leftForearm.rotation.x = follow(leftForearm.rotation.x, foreLX);
+    rightForearm.rotation.x = follow(rightForearm.rotation.x, foreRX);
+    leftLeg.rotation.x = follow(leftLeg.rotation.x, legLX);
+    rightLeg.rotation.x = follow(rightLeg.rotation.x, legRX);
+    leftShin.rotation.x = follow(leftShin.rotation.x, shinLX);
+    rightShin.rotation.x = follow(rightShin.rotation.x, shinRX);
+    torso.rotation.x = follow(torso.rotation.x, torsoX);
+    torso.rotation.z = follow(torso.rotation.z, torsoZ);
+    head.rotation.x = follow(head.rotation.x, headX);
+    head.rotation.y = follow(head.rotation.y, headY);
+    body.position.y = follow(body.position.y, bodyY);
   };
 
   return {
