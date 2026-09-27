@@ -39,6 +39,9 @@ export class WorldManager {
       groundCacheStep: settings.world.collisionGroundCacheStep,
       maxRaycastMeshes: settings.world.collisionMaxRaycastMeshes,
     });
+    this.shotRaycaster = new THREE.Raycaster();
+    this.shotRay = new THREE.Ray();
+    this.shotBoxPoint = new THREE.Vector3();
 
     this.mapName = 'Pianura di test';
     this.spawn = [...settings.world.defaultSpawn];
@@ -177,6 +180,20 @@ export class WorldManager {
 
   updateStreaming(x, z) { this.streamedMap?.update(x, z); }
   updateAmbient(delta, playerPosition, timeMs) { this.ambient?.update(delta, playerPosition, timeMs); }
+  raycastShot(origin, direction, maxDistance = 70) {
+    if (!this.collision.ready) return null;
+    this.shotRay.set(origin, direction);
+    const meshes = [];
+    for (const proxy of this.collision.proxies) {
+      const point = this.shotRay.intersectBox(proxy.box, this.shotBoxPoint);
+      if (point && point.distanceToSquared(origin) <= maxDistance * maxDistance) meshes.push(proxy.mesh);
+    }
+    if (!meshes.length) return null;
+    this.shotRaycaster.set(origin, direction);
+    this.shotRaycaster.near = 0.15;
+    this.shotRaycaster.far = maxDistance;
+    return this.shotRaycaster.intersectObjects(meshes, false)[0]?.point || null;
+  }
   async ensureAt(x, z) { await this.streamedMap?.ensureAt(x, z); }
 
   useFallback() {

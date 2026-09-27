@@ -22,7 +22,7 @@ class Element extends EventTarget {
 
 function pointer(type, id, x, y) {
   const event = new Event(type, { cancelable: true });
-  Object.assign(event, { pointerId: id, clientX: x, clientY: y });
+  Object.assign(event, { pointerId: id, clientX: x, clientY: y, pointerType: 'touch' });
   return event;
 }
 
@@ -96,11 +96,59 @@ test('setEnabled blocca input durante overlay di disconnessione', () => {
     input.setEnabled(false);
     canvas.dispatchEvent(pointer('pointerdown', 1, 10, 10));
     canvas.dispatchEvent(pointer('pointermove', 1, 40, 50));
-    assert.deepEqual({ ...input.read() }, { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0, zoom: 0 });
+    assert.deepEqual({ ...input.read() }, { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0,
+      zoom: 0, toggleWeapon: false, aim: false, shot: null });
     assert.equal(root.hidden, true);
     input.dispose();
   } finally {
     globalThis.window = previousWindow;
     globalThis.matchMedia = previousMatchMedia;
   }
+});
+
+test('P estrae la pistola, destro mira, sinistro spara; il tocco breve spara senza scambiare uno swipe', () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = new EventTarget();
+  try {
+    const canvas = new Element();
+    const root = new Element();
+    const parts = Object.fromEntries(['move-pad', 'move-thumb', 'touch-jump', 'touch-weapon'].map((id) => [id, new Element()]));
+    root.querySelector = (selector) => parts[selector.slice(1)];
+    const input = new InputManager(canvas, root);
+    const key = new Event('keydown', { cancelable: true });
+    Object.assign(key, { code: 'KeyP' });
+    window.dispatchEvent(key);
+    assert.equal(input.read().toggleWeapon, true);
+    assert.equal(input.read().toggleWeapon, false);
+    input.setWeaponDrawn(true);
+    assert.equal(parts['touch-weapon'].attributes['aria-pressed'], 'true');
+
+    const mouse = (type, button, x = 80, y = 80) => {
+      const event = new Event(type, { cancelable: true });
+      Object.assign(event, { button, clientX: x, clientY: y });
+      return event;
+    };
+    const mousePointer = mouse('pointerdown', 0);
+    Object.assign(mousePointer, { pointerId: 5, pointerType: 'mouse' });
+    canvas.dispatchEvent(mousePointer);
+    assert.equal(mousePointer.defaultPrevented, false);
+    canvas.dispatchEvent(mouse('mousedown', 2));
+    assert.equal(input.read().aim, true);
+    canvas.dispatchEvent(mouse('mousedown', 0, 100, 90));
+    assert.deepEqual(input.read().shot, { x: 100, y: 90, touch: false });
+    window.dispatchEvent(mouse('mouseup', 2));
+    assert.equal(input.read().aim, false);
+
+    canvas.dispatchEvent(pointer('pointerdown', 7, 90, 70));
+    canvas.dispatchEvent(pointer('pointerup', 7, 90, 70));
+    assert.deepEqual(input.read().shot, { x: 90, y: 70, touch: true });
+    canvas.dispatchEvent(pointer('pointerdown', 8, 90, 70));
+    canvas.dispatchEvent(pointer('pointermove', 8, 125, 70));
+    canvas.dispatchEvent(pointer('pointerup', 8, 125, 70));
+    assert.equal(input.read().shot, null);
+
+    parts['touch-weapon'].dispatchEvent(pointer('pointerdown', 9, 0, 0));
+    assert.equal(input.read().toggleWeapon, true);
+    input.dispose();
+  } finally { globalThis.window = previousWindow; }
 });

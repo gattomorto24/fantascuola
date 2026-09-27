@@ -11,6 +11,7 @@ export class RemotePlayer extends Player {
     this.hasSnapshot = false;
     this.lastSeen = performance.now();
     this.avatarRequestKey = '';
+    this.lastShotId = null;
   }
 
   applySnapshot(snapshot) {
@@ -19,6 +20,12 @@ export class RemotePlayer extends Player {
     this.movementState = snapshot.movementState;
     this.setName(snapshot.displayName);
     this.lastSeen = performance.now();
+    this.weapon.setDrawn(snapshot.weaponDrawn === true);
+    this.weapon.setAiming(snapshot.aiming === true);
+    if (this.lastShotId !== null && snapshot.shotId !== this.lastShotId && snapshot.shotTarget) {
+      this.weapon.fireTo(snapshot.shotTarget);
+    }
+    this.lastShotId = snapshot.shotId ?? 0;
 
     if (!this.hasSnapshot) {
       this.root.position.copy(this.targetPosition);

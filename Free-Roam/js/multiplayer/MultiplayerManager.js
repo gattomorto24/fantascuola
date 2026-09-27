@@ -14,7 +14,11 @@ export function validSnapshot(value, maxAge = 60000) {
     value.position && validNumber(value.position.x) && validNumber(value.position.y) && validNumber(value.position.z) &&
     validNumber(value.rotation) && STATES.has(value.movementState) &&
     Number.isFinite(value.timestamp) && Math.abs(Date.now() - value.timestamp) < maxAge
-    && (value.mapVersion === undefined || (typeof value.mapVersion === 'string' && value.mapVersion.length <= 128)))) return false;
+    && (value.mapVersion === undefined || (typeof value.mapVersion === 'string' && value.mapVersion.length <= 128))
+    && (value.weaponDrawn === undefined || typeof value.weaponDrawn === 'boolean')
+    && (value.aiming === undefined || typeof value.aiming === 'boolean')
+    && (value.shotId === undefined || (Number.isSafeInteger(value.shotId) && value.shotId >= 0 && value.shotId < 1_000_000_000))
+    && (value.shotTarget === undefined || (Array.isArray(value.shotTarget) && value.shotTarget.length === 3 && value.shotTarget.every(validNumber))))) return false;
 
   const avatarConfig = value.avatar?.type === 'pixel' ? value.avatar.config : value.avatarConfig;
   if (value.avatarId === 'pixel' && !validAvatarConfig(avatarConfig)) return false;
@@ -61,7 +65,11 @@ export class MultiplayerManager {
       movementState: p.movementState,
       timestamp: Date.now(),
       mapVersion: this.mapVersion,
+      weaponDrawn: p.weapon?.drawn || false,
+      aiming: p.weapon?.aiming || false,
+      shotId: p.weapon?.shotId || 0,
     };
+    if (p.weapon?.shotTarget) snapshot.shotTarget = p.weapon.shotTarget;
     if (p.avatarId === 'pixel' && p.avatarConfig) snapshot.avatarConfig = p.avatarConfig;
     return snapshot;
   }

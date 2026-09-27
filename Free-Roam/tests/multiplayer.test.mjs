@@ -133,6 +133,8 @@ test('valida snapshot e configurazione avatar pixel', () => {
   assert.equal(validSnapshot({ ...state, avatarConfig: { ...avatarConfig, shoesColor: 'green' } }), false);
   assert.equal(validSnapshot({ ...state, timestamp: Date.now() - 61000 }), false);
   assert.equal(validSnapshot({ ...state, mapVersion: 42 }), false);
+  assert.equal(validSnapshot({ ...state, weaponDrawn: 'yes' }), false);
+  assert.equal(validSnapshot({ ...state, shotTarget: [0, Infinity, 0] }), false);
 });
 
 test('crossplay sincronizza solo giocatori nella stessa versione della mappa', () => {
@@ -185,9 +187,14 @@ test('WebSocket dedicato sincronizza avatar, stato e uscita', async () => {
   assert.equal(remoteB.items.get(a.playerId)?.avatarConfig?.shirtColor, 'blue');
 
   a.localPlayer.root.position.x = 9;
+  a.localPlayer.weapon = { drawn: true, aiming: true, shotId: 1, shotTarget: [9, 1, -12] };
   a.update(0.11);
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(remoteB.items.get(a.playerId)?.position.x, 9);
+  assert.equal(remoteB.items.get(a.playerId)?.weaponDrawn, true);
+  assert.equal(remoteB.items.get(a.playerId)?.aiming, true);
+  assert.equal(remoteB.items.get(a.playerId)?.shotId, 1);
+  assert.deepEqual(remoteB.items.get(a.playerId)?.shotTarget, [9, 1, -12]);
 
   await a.disconnect();
   await new Promise((resolve) => setTimeout(resolve, 0));

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { NameTag } from './NameTag.js';
 import { settings } from '../config/settings.js';
+import { Pistol } from './Pistol.js';
 
 export class Player {
   constructor(scene, avatars, remote = false) {
@@ -9,6 +10,7 @@ export class Player {
     this.remote = remote;
     this.root = new THREE.Group();
     this.scene.add(this.root);
+    this.weapon = new Pistol(scene, this.root);
     this.avatarId = 'default';
     this.avatarConfig = null;
     this.visualAvatarId = 'default';
@@ -52,11 +54,13 @@ export class Player {
   updateVisual(delta) {
     this.visual?.mixer?.update(delta);
     this.visual?.update?.(delta, this.movementState);
+    this.weapon.update(delta);
   }
 
   dispose() {
     this.avatarToken = (this.avatarToken || 0) + 1;
     this.scene.remove(this.root);
+    this.weapon.dispose();
     this.nameTag.dispose();
     this.avatars.disposeVisual(this.visual);
   }

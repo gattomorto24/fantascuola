@@ -24,6 +24,10 @@ function validSnapshot(snapshot) {
   if (!['Idle', 'Walking', 'Running', 'Jumping'].includes(snapshot.movementState)) return false;
   if (!Number.isFinite(snapshot.timestamp)) return false;
   if (snapshot.mapVersion !== undefined && (typeof snapshot.mapVersion !== 'string' || snapshot.mapVersion.length > 128)) return false;
+  if (snapshot.weaponDrawn !== undefined && typeof snapshot.weaponDrawn !== 'boolean') return false;
+  if (snapshot.aiming !== undefined && typeof snapshot.aiming !== 'boolean') return false;
+  if (snapshot.shotId !== undefined && (!Number.isSafeInteger(snapshot.shotId) || snapshot.shotId < 0 || snapshot.shotId >= 1_000_000_000)) return false;
+  if (snapshot.shotTarget !== undefined && (!Array.isArray(snapshot.shotTarget) || snapshot.shotTarget.length !== 3 || !snapshot.shotTarget.every(validNumber))) return false;
   return true;
 }
 

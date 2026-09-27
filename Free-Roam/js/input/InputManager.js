@@ -4,6 +4,11 @@ export class InputManager {
   constructor(canvas, touchRoot = document.getElementById('touch-controls'), config = settings.touch) {
     this.keys = new Set();
     this.jumpQueued = false;
+    this.weaponToggleQueued = false;
+    this.shotQueued = null;
+    this.aimHeld = false;
+    this.weaponDrawn = false;
+    this.lastTouchAt = -Infinity;
     this.canvas = canvas;
     this.touchRoot = touchRoot;
     this.config = config;
@@ -20,12 +25,14 @@ export class InputManager {
     this.touchJumpQueued = false;
     this.touchDisposers = [];
 
-    this.state = { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0, zoom: 0 };
+    this.state = { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0,
+      zoom: 0, toggleWeapon: false, aim: false, shot: null };
 
     this.onKeyDown = (event) => {
       if (!this.enabled) return;
-      if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ShiftLeft','ShiftRight'].includes(event.code)) event.preventDefault();
+      if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ShiftLeft','ShiftRight','KeyP'].includes(event.code)) event.preventDefault();
       if (event.code === 'Space' && !this.keys.has('Space')) this.jumpQueued = true;
+      if (event.code === 'KeyP' && !this.keys.has('KeyP')) this.weaponToggleQueued = true;
       this.keys.add(event.code);
     };
 
@@ -35,12 +42,23 @@ export class InputManager {
 
     this.onPointerDown = (event) => {
       if (!this.enabled) return;
-      event.preventDefault();
-      this.cameraPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (event.pointerType === 'touch') {
+        event.preventDefault();
+        this.lastTouchAt = performance.now();
+      }
+      this.cameraPointers.set(event.pointerId, {
+        x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY,
+        moved: false, touch: event.pointerType === 'touch', startedAt: performance.now(),
+      });
       canvas.setPointerCapture?.(event.pointerId);
     };
 
     this.onPointerUp = (event) => {
+      const point = this.cameraPointers.get(event.pointerId);
+      if (this.enabled && event.type === 'pointerup' && point?.touch && !point.moved
+        && performance.now() - point.startedAt < 500 && this.weaponDrawn) {
+        this.shotQueued = { x: event.clientX, y: event.clientY, touch: true };
+      }
       this.cameraPointers.delete(event.pointerId);
     };
 
@@ -49,6 +67,7 @@ export class InputManager {
       const point = this.cameraPointers.get(event.pointerId);
       if (!point) return;
       event.preventDefault();
+      if (Math.hypot(event.clientX - point.startX, event.clientY - point.startY) > 10) point.moved = true;
       this.cameraDeltaX += event.clientX - point.x;
       this.cameraDeltaY += event.clientY - point.y;
       point.x = event.clientX;
@@ -61,14 +80,30 @@ export class InputManager {
       this.zoomDelta += event.deltaY;
     };
 
+    this.onMouseDown = (event) => {
+      if (!this.enabled || performance.now() - this.lastTouchAt < 800) return;
+      if (event.button === 2) {
+        event.preventDefault();
+        this.aimHeld = true;
+      } else if (event.button === 0 && this.weaponDrawn) {
+        event.preventDefault();
+        this.shotQueued = { x: event.clientX, y: event.clientY, touch: false };
+      }
+    };
+    this.onMouseUp = (event) => { if (event.button === 2) this.aimHeld = false; };
+    this.onContextMenu = (event) => event.preventDefault();
+
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('blur', this.onBlur);
+    window.addEventListener('mouseup', this.onMouseUp);
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('pointercancel', this.onPointerUp);
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
+    canvas.addEventListener('mousedown', this.onMouseDown);
+    canvas.addEventListener('contextmenu', this.onContextMenu);
 
     this.bindTouchControls();
   }
@@ -77,6 +112,7 @@ export class InputManager {
     if (!this.touchRoot) return;
     const movePad = this.touchRoot.querySelector('#move-pad');
     const jumpButton = this.touchRoot.querySelector('#touch-jump');
+    const weaponButton = this.touchRoot.querySelector('#touch-weapon');
     this.moveThumb = this.touchRoot.querySelector('#move-thumb');
 
     if (movePad) {
@@ -162,6 +198,24 @@ export class InputManager {
         jumpButton.removeEventListener('pointercancel', endJump);
       });
     }
+
+    if (weaponButton) {
+      const toggle = (event) => {
+        if (!this.enabled) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.weaponToggleQueued = true;
+      };
+      weaponButton.addEventListener('pointerdown', toggle);
+      this.touchDisposers.push(() => weaponButton.removeEventListener('pointerdown', toggle));
+      this.weaponButton = weaponButton;
+    }
+  }
+
+  setWeaponDrawn(value) {
+    this.weaponDrawn = Boolean(value);
+    this.weaponButton?.classList.toggle('equipped', this.weaponDrawn);
+    this.weaponButton?.setAttribute('aria-pressed', String(this.weaponDrawn));
   }
 
   resetJoystick() {
@@ -183,6 +237,9 @@ export class InputManager {
     this.zoomDelta = 0;
     this.jumpQueued = false;
     this.touchJumpQueued = false;
+    this.weaponToggleQueued = false;
+    this.shotQueued = null;
+    this.aimHeld = false;
     this.resetJoystick();
   }
 
@@ -204,7 +261,8 @@ export class InputManager {
   read() {
     const input = this.state;
     if (!this.enabled) {
-      Object.assign(input, { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0, zoom: 0 });
+      Object.assign(input, { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0,
+        zoom: 0, toggleWeapon: false, aim: false, shot: null });
       return input;
     }
 
@@ -223,12 +281,17 @@ export class InputManager {
     input.cameraX = this.cameraDeltaX;
     input.cameraY = this.cameraDeltaY;
     input.zoom = this.zoomDelta;
+    input.toggleWeapon = this.weaponToggleQueued;
+    input.aim = this.aimHeld;
+    input.shot = this.shotQueued;
 
     this.jumpQueued = false;
     this.touchJumpQueued = false;
     this.cameraDeltaX = 0;
     this.cameraDeltaY = 0;
     this.zoomDelta = 0;
+    this.weaponToggleQueued = false;
+    this.shotQueued = null;
     return input;
   }
 
@@ -236,11 +299,14 @@ export class InputManager {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
+    window.removeEventListener('mouseup', this.onMouseUp);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('pointercancel', this.onPointerUp);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('wheel', this.onWheel);
+    this.canvas.removeEventListener('mousedown', this.onMouseDown);
+    this.canvas.removeEventListener('contextmenu', this.onContextMenu);
     this.touchDisposers.forEach((dispose) => dispose());
     this.resetAll();
     if (this.touchRoot) this.touchRoot.hidden = true;

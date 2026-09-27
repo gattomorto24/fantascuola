@@ -88,8 +88,8 @@ export class PlayerController {
       this.grounded = true;
     }
 
-    if (moving) {
-      const desired = Math.atan2(-direction.x, -direction.z);
+    if (moving || input.aiming) {
+      const desired = input.aiming ? cameraYaw : Math.atan2(-direction.x, -direction.z);
       const diff = Math.atan2(
         Math.sin(desired - player.root.rotation.y),
         Math.cos(desired - player.root.rotation.y),

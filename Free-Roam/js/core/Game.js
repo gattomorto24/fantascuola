@@ -66,6 +66,10 @@ export class Game {
     this.controller = new PlayerController(this.player, this.world, settings.player);
     this.input = new InputManager(this.renderer.domElement, document.getElementById('touch-controls'), settings.touch);
     this.followCamera = new ThirdPersonCamera(this.camera, settings.camera);
+    this.shotRaycaster = new THREE.Raycaster();
+    this.shotNdc = new THREE.Vector2();
+    this.aimReticle = document.getElementById('aim-reticle');
+    this.reticleResetAt = 0;
     this.remotes = new RemotePlayerManager(this.scene, this.avatars, settings.network);
     this.hud = new DebugHud(hudRoot, settings.rendering.hudInterval);
     this.hud.setVisible(true);
@@ -338,14 +342,50 @@ export class Game {
 
   update(delta) {
     const controls = this.input.read();
+    if (controls.toggleWeapon) {
+      this.player.weapon.setDrawn(!this.player.weapon.drawn);
+      this.input.setWeaponDrawn(this.player.weapon.drawn);
+    }
+    const aiming = this.input.enabled && this.player.weapon.drawn && (this.isTouchDevice || controls.aim);
+    this.player.weapon.setAiming(aiming);
     this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
-    this.controller.update(delta, controls, this.followCamera.yaw);
+    this.controller.update(delta, { ...controls, aiming }, this.followCamera.yaw);
     this.world.updateAmbient(delta, this.player.root.position, Date.now() + (this.multiplayer?.serverTimeOffset || 0));
-    this.followCamera.update(delta, controls, this.player.root.position);
+    this.followCamera.update(delta, { ...controls, aiming }, this.player.root.position);
+    if (controls.shot && this.player.weapon.drawn) this.fire(controls.shot);
+    if (this.aimReticle) {
+      this.aimReticle.hidden = !aiming;
+      if (this.reticleResetAt && performance.now() >= this.reticleResetAt) {
+        this.aimReticle.style.left = '50%';
+        this.aimReticle.style.top = '50%';
+        this.reticleResetAt = 0;
+      }
+    }
     this.multiplayer?.update(delta);
     this.stress?.update(delta);
     this.hud.update(delta, this.player, this.remotes.size);
     this.updateAdaptiveResolution(delta);
+  }
+
+  fire(shot) {
+    if (this.player.weapon.cooldown > 0) return;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const x = shot.touch ? (shot.x - rect.left) / Math.max(1, rect.width) * 2 - 1 : 0;
+    const y = shot.touch ? 1 - (shot.y - rect.top) / Math.max(1, rect.height) * 2 : 0;
+    this.shotNdc.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1));
+    this.shotRaycaster.setFromCamera(this.shotNdc, this.camera);
+    const { origin, direction } = this.shotRaycaster.ray;
+    const hit = this.world.raycastShot(origin, direction, 70);
+    const target = hit || origin.clone().addScaledVector(direction, 70);
+    if (shot.touch) {
+      this.player.root.rotation.y = Math.atan2(-direction.x, -direction.z);
+      if (this.aimReticle) {
+        this.aimReticle.style.left = `${shot.x}px`;
+        this.aimReticle.style.top = `${shot.y}px`;
+        this.reticleResetAt = performance.now() + 300;
+      }
+    }
+    this.player.weapon.fireTo(target.toArray(), { local: true });
   }
 
   resize() {
@@ -364,6 +404,7 @@ export class Game {
     window.removeEventListener('blur', this.cancelExitHold);
     this.cancelExitHold();
     this.hud.dispose();
+    if (this.aimReticle) this.aimReticle.hidden = true;
     document.body.classList.remove('gameplay-active', 'network-disconnected');
     this.disconnectScreen.hide();
     this.input.dispose();
