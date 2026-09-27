@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MapLoader } from './MapLoader.js';
 import { WorldCollision } from './WorldCollision.js';
 import { settings } from '../config/settings.js';
-import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=gameplay-v1';
+import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=tiles-v2';
 import { mobileManifestUrl } from './MobileManifest.js';
 import { AmbientWorld } from './AmbientWorld.js?v=motorcycles-v1';
 import { matchesAmbientMap } from './AmbientMapData.js?v=motorcycles-v1';
@@ -184,6 +184,7 @@ export class WorldManager {
     this.scene.fog.near = distance * 0.42;
     this.scene.fog.far = distance;
     this.streamedMap?.setTileRadius(tiles);
+    this.streamedMap?.setVisibleDistance(distance);
     this.streamedMap?.setQuality(anisotropy);
     if (this.ambient) this.ambient.radius = Math.min(distance * 0.86, this.streamedMap ? 92 : 220);
     this.mapLoader.object?.traverse((node) => {

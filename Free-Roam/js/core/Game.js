@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
 import { InputManager } from '../input/InputManager.js?v=motorcycles-v1';
-import { WorldManager } from '../world/WorldManager.js?v=motorcycles-v1';
+import { WorldManager } from '../world/WorldManager.js?v=tiles-v2';
 import { AvatarManager } from '../avatars/AvatarManager.js';
 import { Player } from '../player/Player.js?v=gameplay-v1';
 import { CombatState, findPlayerHit, plausibleHit, PISTOL_DAMAGE, SHOT_RANGE } from '../player/Combat.js?v=gameplay-v1';
