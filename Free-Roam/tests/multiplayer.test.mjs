@@ -51,13 +51,13 @@ class FakeServer {
       socket.playerId = message.player.playerId;
       const others = [...this.players.values()];
       this.players.set(socket.playerId, message.player);
-      socket.emit('message', { data: JSON.stringify({ type: 'snapshot', players: others }) });
+      socket.emit('message', { data: JSON.stringify({ type: 'snapshot', players: others, serverTime: Date.now() }) });
       this.broadcast(socket, { type: 'join', player: message.player });
     } else if (message.type === 'state' && socket.playerId === message.player.playerId) {
       this.players.set(socket.playerId, message.player);
       this.broadcast(socket, { type: 'state', player: message.player });
     } else if (message.type === 'ping') {
-      socket.emit('message', { data: JSON.stringify({ type: 'pong', ts: message.ts }) });
+      socket.emit('message', { data: JSON.stringify({ type: 'pong', ts: message.ts, serverTime: Date.now() }) });
     }
   }
 
@@ -144,6 +144,18 @@ test('crossplay sincronizza solo giocatori nella stessa versione della mappa', (
   assert.equal(remote.items.size, 0);
   manager.receiveMessage({ type: 'join', player: { ...snapshot, mapVersion: 'map:version-1' } });
   assert.equal(remote.items.size, 1);
+});
+
+test('il pong sincronizza il tempo del traffico senza cambiare il protocollo dei giocatori', () => {
+  const manager = new MultiplayerManager(null, { userId: 'local', displayName: 'Tony' }, player(), remotes(),
+    { serverUrl: 'wss://test/room/main' }, () => {});
+  manager.receiveMessage({ type: 'snapshot', players: [], serverTime: Date.now() + 5000 });
+  assert.ok(manager.serverTimeOffset > 4900 && manager.serverTimeOffset < 5100);
+  manager.receiveMessage({ type: 'pong', ts: performance.now(), serverTime: Date.now() + 5000 });
+  assert.ok(manager.serverTimeOffset > 4900 && manager.serverTimeOffset < 5100);
+  const previous = manager.serverTimeOffset;
+  manager.receiveMessage({ type: 'pong', ts: performance.now() });
+  assert.equal(manager.serverTimeOffset, previous);
 });
 
 test('WebSocket dedicato sincronizza avatar, stato e uscita', async () => {

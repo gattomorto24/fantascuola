@@ -107,7 +107,7 @@ wss.on('connection', (ws) => {
       const others = [...room.values()];
       room.set(clientId, message.player);
 
-      send(ws, { type: 'snapshot', players: others });
+      send(ws, { type: 'snapshot', players: others, serverTime: Date.now() });
       broadcast(clientId, { type: 'join', player: message.player });
       return;
     }
@@ -120,7 +120,7 @@ wss.on('connection', (ws) => {
     }
 
     if (message.type === 'ping' && Number.isFinite(message.ts)) {
-      send(ws, { type: 'pong', ts: message.ts });
+      send(ws, { type: 'pong', ts: message.ts, serverTime: Date.now() });
     }
   });
 

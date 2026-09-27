@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
 import { InputManager } from '../input/InputManager.js';
-import { WorldManager } from '../world/WorldManager.js?v=mobile-tiles-v2';
+import { WorldManager } from '../world/WorldManager.js?v=ambient-v1';
 import { AvatarManager } from '../avatars/AvatarManager.js';
 import { Player } from '../player/Player.js';
 import { PlayerController } from '../player/PlayerController.js';
@@ -268,6 +268,7 @@ export class Game {
     const spawnGround = this.world.groundHeightAt(spawn[0], spawn[2], spawn[1], 3, 20);
     if (Number.isFinite(spawnGround)) spawn[1] = spawnGround;
     this.player.root.position.set(...spawn);
+    this.world.updateAmbient(0, this.player.root.position, Date.now());
 
     this.followCamera.update(0, { cameraX: 0, cameraY: 0, zoom: 0 }, this.player.root.position);
     this.hud.setMap(this.world.mapName);
@@ -339,6 +340,7 @@ export class Game {
     const controls = this.input.read();
     this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
     this.controller.update(delta, controls, this.followCamera.yaw);
+    this.world.updateAmbient(delta, this.player.root.position, Date.now() + (this.multiplayer?.serverTimeOffset || 0));
     this.followCamera.update(delta, controls, this.player.root.position);
     this.multiplayer?.update(delta);
     this.stress?.update(delta);

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { WorldManager } from '../js/world/WorldManager.js';
+import { AMBIENT_SOURCE } from '../js/world/AmbientMapData.js';
 
 function planeGLB() {
   const positions = Buffer.from(new Float32Array([-10, 0, -10, 10, 0, -10, 10, 0, 10, -10, 0, 10]).buffer);
@@ -26,13 +27,13 @@ function planeGLB() {
 }
 
 test('WorldManager usa le zone sul mobile, con collisioni e spawn globali', async () => {
-  const source = 'https://huggingface.co/buckets/a/b/resolve/world.glb';
+  const source = `https://huggingface.co/buckets/Tony272009/Mappa/resolve/${AMBIENT_SOURCE.file}`;
   const mobile = source.replace('.glb', '.mobile/manifest.json');
   const tile = planeGLB();
   const oldFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     if (url === mobile) return { ok: true, json: async () => ({ schema: 1, coordinateSpace: 'world', tileSize: 32,
-      source: { url: source, scale: 1, rotation: 0, sha256: 'b'.repeat(64) },
+      source: { url: source, scale: 1, rotation: 0, sha256: AMBIENT_SOURCE.sha256 },
       tiles: [{ x: 0, z: 0, file: 'tiles/0_0.glb', bytes: tile.length }],
     }) };
     if (url.endsWith('/tiles/0_0.glb')) return { ok: true, arrayBuffer: async () => tile.buffer.slice(tile.byteOffset, tile.byteOffset + tile.length) };
@@ -47,6 +48,7 @@ test('WorldManager usa le zone sul mobile, con collisioni e spawn globali', asyn
     assert.equal(world.spawn[0], 1);
     assert.equal(world.groundHeightAt(1, 1, 1, 3, 5), 0);
     assert.equal(world.streamedMap.loaded.size, 1);
+    assert.ok(world.ambient);
   } finally { world.dispose(); globalThis.fetch = oldFetch; }
 });
 
@@ -64,10 +66,13 @@ test('WorldManager mantiene il caricamento GLB completo sul desktop', async () =
     return root;
   };
   try {
-    const result = await world.loadWorld({ enabled: true, asset_url: 'https://example.test/world.glb', spawn: [0, 1, 0] }, {}, () => {}, () => {}, { isMobile: false });
+    const result = await world.loadWorld({ enabled: true,
+      asset_url: `https://huggingface.co/buckets/Tony272009/Mappa/resolve/${AMBIENT_SOURCE.file}`,
+      spawn: [0, 1, 0] }, {}, () => {}, () => {}, { isMobile: false });
     assert.equal(called, true);
     assert.equal(result.fallback, false);
     assert.equal(world.streamedMap, null);
     assert.equal(world.collision.ready, true);
+    assert.ok(world.ambient);
   } finally { world.dispose(); globalThis.requestAnimationFrame = oldRaf; }
 });

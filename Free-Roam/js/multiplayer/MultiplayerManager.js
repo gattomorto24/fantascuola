@@ -44,6 +44,7 @@ export class MultiplayerManager {
     this.retryDelay = config.reconnectBaseMs ?? 1000;
     this.elapsed = 0;
     this.pingElapsed = 0;
+    this.serverTimeOffset = 0;
   }
 
   snapshot() {
@@ -181,6 +182,7 @@ export class MultiplayerManager {
     if (!message || typeof message !== 'object') return;
 
     if (message.type === 'snapshot' && Array.isArray(message.players)) {
+      if (Number.isFinite(message.serverTime)) this.serverTimeOffset = message.serverTime - Date.now();
       const present = new Set();
       for (const snapshot of message.players) {
         if (!validSnapshot(snapshot, Infinity) || snapshot.playerId === this.playerId || snapshot.mapVersion !== this.mapVersion) continue;
@@ -202,7 +204,14 @@ export class MultiplayerManager {
     }
 
     if (message.type === 'pong' && Number.isFinite(message.ts)) {
-      this.onLatency(Math.max(0, Math.round(performance.now() - message.ts)));
+      const latency = Math.max(0, performance.now() - message.ts);
+      this.onLatency(Math.round(latency));
+      if (Number.isFinite(message.serverTime)) {
+        const estimate = message.serverTime + latency / 2 - Date.now();
+        this.serverTimeOffset = this.serverTimeOffset === 0
+          ? estimate
+          : this.serverTimeOffset * 0.8 + estimate * 0.2;
+      }
       return;
     }
 

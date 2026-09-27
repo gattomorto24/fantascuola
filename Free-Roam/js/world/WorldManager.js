@@ -4,6 +4,8 @@ import { WorldCollision } from './WorldCollision.js';
 import { settings } from '../config/settings.js';
 import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=mobile-tiles-v2';
 import { mobileManifestUrl } from './MobileManifest.js';
+import { AmbientWorld } from './AmbientWorld.js?v=ambient-v1';
+import { matchesAmbientMap } from './AmbientMapData.js?v=ambient-v1';
 
 export class WorldManager {
   constructor(scene) {
@@ -42,9 +44,12 @@ export class WorldManager {
     this.spawn = [...settings.world.defaultSpawn];
     this.customMapLoaded = false;
     this.streamedMap = null;
+    this.ambient = null;
   }
 
   resetFallback() {
+    this.ambient?.dispose();
+    this.ambient = null;
     this.collision.clear();
     this.customMapLoaded = false;
     this.ground.visible = true;
@@ -92,6 +97,12 @@ export class WorldManager {
         this.scene.fog.near = this.scene.fog.far * 0.42;
         this.customMapLoaded = true;
         this.mapName = manifest.name || 'Mappa GLB';
+        if (matchesAmbientMap(manifest, mobileManifest.source.sha256)) {
+          this.ambient = new AmbientWorld(this.scene, this.collision, {
+            isMobile: true,
+            tileReady: (x, z) => this.streamedMap?.canMoveTo(x, z) === true,
+          });
+        }
         return {
           fallback: false,
           name: this.mapName,
@@ -117,6 +128,9 @@ export class WorldManager {
       this.grid.visible = false;
       this.customMapLoaded = true;
       this.mapName = manifest.name || 'Mappa GLB';
+      if (matchesAmbientMap(manifest)) {
+        this.ambient = new AmbientWorld(this.scene, this.collision);
+      }
 
       const spawn = Array.isArray(manifest.spawn) ? manifest.spawn.map(Number) : [];
       if (spawn.length === 3 && spawn.every(Number.isFinite)) this.spawn = spawn;
@@ -162,6 +176,7 @@ export class WorldManager {
   }
 
   updateStreaming(x, z) { this.streamedMap?.update(x, z); }
+  updateAmbient(delta, playerPosition, timeMs) { this.ambient?.update(delta, playerPosition, timeMs); }
   async ensureAt(x, z) { await this.streamedMap?.ensureAt(x, z); }
 
   useFallback() {
@@ -172,6 +187,8 @@ export class WorldManager {
   }
 
   dispose() {
+    this.ambient?.dispose();
+    this.ambient = null;
     this.streamedMap?.dispose();
     this.streamedMap = null;
     this.collision.clear();
