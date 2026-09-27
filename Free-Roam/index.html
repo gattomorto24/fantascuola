@@ -13,13 +13,13 @@
   <link rel="apple-touch-icon" href="../logo.png">
   <link rel="preload" as="image" href="./assets/models/Unknown.png">
   <link rel="stylesheet" href="./styles/main.css?v=mobile-tiles-v1">
-  <link rel="stylesheet" href="./styles/touch.css?v=pistol-v1">
+  <link rel="stylesheet" href="./styles/touch.css?v=vehicle-v1">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=pistol-v1"></script>
+  <script type="module" src="./js/main.js?v=vehicle-v1"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -64,9 +64,9 @@
 
   <section id="welcome" class="welcome">
     <div class="welcome-card">
-      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.8.0</p>
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.9.0</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
-      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift, Spazio e P per la pistola; tieni premuto il destro per mirare e usa il sinistro per sparare. Su mobile usa joystick e Salto, estrai la pistola col nuovo tasto e tocca la scena per sparare.</p>
+      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift, Spazio e P per la pistola; destro per mirare e sinistro per sparare. Premi E vicino a un'auto per guidarla, WASD per muoverla ed E per uscire. Su mobile usa il joystick, il tasto AUTO vicino a un veicolo e poi il tasto ESCI al posto di Salto.</p>
 
       <label class="menu-field" for="player-name">
         Nome giocatore
@@ -174,7 +174,7 @@
   </section>
 
   <aside id="hud" class="hud" aria-live="off" hidden>
-    <div class="hud-top"><strong>FREE ROAM <small>v0.8.0</small></strong><a href="../index.html">Esci</a></div>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.9.0</small></strong><a href="../index.html">Esci</a></div>
     <dl>
       <div><dt>FPS</dt><dd id="fps">—</dd></div>
       <div><dt>Multiplayer</dt><dd id="network">Offline</dd></div>
@@ -196,6 +196,7 @@
   </aside>
 
   <div id="aim-reticle" class="aim-reticle" hidden aria-hidden="true"><span></span></div>
+  <div id="vehicle-prompt" class="vehicle-prompt" hidden>Premi E per guidare l'auto</div>
 
   <div id="touch-controls" class="touch-controls" aria-label="Controlli di gioco touch" hidden>
     <div id="move-pad" class="touch-pad" data-sprinting="false" aria-label="Joystick movimento e sprint">
@@ -212,6 +213,7 @@
       <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 17h46v15H34l-8 23H13l7-23H8z"/></svg>
       <span>PISTOLA</span>
     </button>
+    <button id="touch-vehicle" class="touch-vehicle" type="button" aria-label="Entra nell'auto" hidden>AUTO</button>
   </div>
 
   <section id="disconnect-screen" class="disconnect-screen" hidden role="dialog" aria-modal="true" aria-labelledby="disconnect-title">

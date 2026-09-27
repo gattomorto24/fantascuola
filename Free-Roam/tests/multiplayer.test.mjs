@@ -135,6 +135,9 @@ test('valida snapshot e configurazione avatar pixel', () => {
   assert.equal(validSnapshot({ ...state, mapVersion: 42 }), false);
   assert.equal(validSnapshot({ ...state, weaponDrawn: 'yes' }), false);
   assert.equal(validSnapshot({ ...state, shotTarget: [0, Infinity, 0] }), false);
+  assert.equal(validSnapshot({ ...state, vehicleId: 42 }), false);
+  assert.equal(validSnapshot({ ...state, vehicleStates: [{ id: 'auto', pose: { x: Infinity, y: 0, z: 0, yaw: 0 },
+    revision: 1, author: 'a' }] }), false);
 });
 
 test('crossplay sincronizza solo giocatori nella stessa versione della mappa', () => {
@@ -176,7 +179,9 @@ test('WebSocket dedicato sincronizza avatar, stato e uscita', async () => {
     pingSeconds: 5,
   };
 
-  const a = new MultiplayerManager(null, { userId: crypto.randomUUID(), displayName: 'Tony' }, player(1), remoteA, config, () => {});
+  let vehicleState = { vehicleId: 'via-trinita-1', vehicleStates: [] };
+  const a = new MultiplayerManager(null, { userId: crypto.randomUUID(), displayName: 'Tony' }, player(1), remoteA,
+    config, () => {}, () => {}, { getVehicleState: () => vehicleState });
   const b = new MultiplayerManager(null, { userId: crypto.randomUUID(), displayName: 'Altro' }, player(4), remoteB, config, () => {});
 
   a.connect();
@@ -185,6 +190,7 @@ test('WebSocket dedicato sincronizza avatar, stato e uscita', async () => {
 
   assert.equal(remoteA.items.get(b.playerId)?.displayName, 'Altro');
   assert.equal(remoteB.items.get(a.playerId)?.avatarConfig?.shirtColor, 'blue');
+  assert.equal(remoteB.items.get(a.playerId)?.vehicleId, 'via-trinita-1');
 
   a.localPlayer.root.position.x = 9;
   a.localPlayer.weapon = { drawn: true, aiming: true, shotId: 1, shotTarget: [9, 1, -12] };
@@ -195,6 +201,12 @@ test('WebSocket dedicato sincronizza avatar, stato e uscita', async () => {
   assert.equal(remoteB.items.get(a.playerId)?.aiming, true);
   assert.equal(remoteB.items.get(a.playerId)?.shotId, 1);
   assert.deepEqual(remoteB.items.get(a.playerId)?.shotTarget, [9, 1, -12]);
+
+  vehicleState = { vehicleStates: [{ id: 'via-trinita-1', pose: { x: 9, y: 0, z: 4, yaw: 0.4 },
+    revision: 1, author: a.playerId }] };
+  a.update(0.11);
+  assert.equal(remoteB.items.get(a.playerId)?.vehicleId, undefined);
+  assert.equal(remoteB.items.get(a.playerId)?.vehicleStates[0].pose.x, 9);
 
   await a.disconnect();
   await new Promise((resolve) => setTimeout(resolve, 0));

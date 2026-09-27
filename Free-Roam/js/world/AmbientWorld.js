@@ -5,6 +5,9 @@ import { MOVING_CARS, PARKED_CARS, PEDESTRIANS, sampleRoute } from './AmbientMap
 const GLASS = '#263d48';
 const RUBBER = '#1b1d20';
 const CHROME = '#a8adb0';
+const VEHICLE_IDS = new Set([...PARKED_CARS, ...MOVING_CARS].map((item) => item.id));
+
+const copyPose = (pose) => ({ x: pose.x, y: pose.y, z: pose.z, yaw: pose.yaw });
 
 export class AmbientWorld {
   constructor(scene, collision, { isMobile = false, tileReady = () => true } = {}) {
@@ -15,6 +18,9 @@ export class AmbientWorld {
     this.active = new Map();
     this.geometries = new Map();
     this.materials = new Map();
+    this.vehicleStates = new Map();
+    this.drivers = new Map();
+    this.revision = 0;
     this.cullElapsed = Infinity;
     this.disposed = false;
   }
@@ -86,17 +92,92 @@ export class AmbientWorld {
     instance.root.rotation.y = pose.yaw + (kind === 'pedestrian' ? Math.PI : 0);
     this.scene.add(instance.root);
     instance.root.updateMatrixWorld(true);
-    if (kind === 'parked') this.collision.add(instance.collider);
+    instance.colliderRegistered = false;
+    if (kind !== 'pedestrian' && !this.drivers.has(definition.id)
+      && (kind === 'parked' || this.vehicleStates.has(definition.id))) {
+      this.collision.add(instance.collider);
+      instance.colliderRegistered = true;
+    }
     this.active.set(definition.id, instance);
   }
 
   deactivate(id) {
     const instance = this.active.get(id);
     if (!instance) return;
-    if (instance.kind === 'parked') this.collision.remove(instance.collider);
+    if (instance.colliderRegistered) this.collision.remove(instance.collider);
     this.scene.remove(instance.root);
     instance.root.clear();
     this.active.delete(id);
+  }
+
+  nearestVehicle(position, maxDistance = 3.3) {
+    let closest = null;
+    let best = maxDistance * maxDistance;
+    for (const [id, instance] of this.active) {
+      if (instance.kind === 'pedestrian' || this.drivers.has(id)) continue;
+      const dx = instance.root.position.x - position.x;
+      const dz = instance.root.position.z - position.z;
+      const distance = dx * dx + dz * dz;
+      if (distance < best && Math.abs(instance.root.position.y - position.y) < 2.2) {
+        best = distance;
+        closest = { id, pose: { x: instance.root.position.x, y: instance.root.position.y,
+          z: instance.root.position.z, yaw: instance.root.rotation.y } };
+      }
+    }
+    return closest;
+  }
+
+  setDrivenPose(id, playerId, pose, local = false) {
+    if (!VEHICLE_IDS.has(id) || ![pose.x, pose.y, pose.z, pose.yaw].every(Number.isFinite)) return false;
+    const current = this.drivers.get(id);
+    // Two clients can enter simultaneously. The same playerId wins on every client.
+    if (current && current.playerId !== playerId && current.playerId < playerId) return false;
+    if (current && current.playerId !== playerId) this.drivers.delete(id);
+    this.drivers.set(id, { playerId, pose: copyPose(pose), local });
+    const instance = this.active.get(id);
+    if (instance?.colliderRegistered) {
+      this.collision.remove(instance.collider);
+      instance.colliderRegistered = false;
+    }
+    return true;
+  }
+
+  parkVehicle(id, playerId, pose) {
+    const driver = this.drivers.get(id);
+    if (!driver || driver.playerId !== playerId) return false;
+    this.drivers.delete(id);
+    this.revision += 1;
+    this.vehicleStates.set(id, { id, pose: copyPose(pose), revision: this.revision, author: playerId });
+    return true;
+  }
+
+  releaseDriver(playerId) {
+    for (const [id, driver] of [...this.drivers]) {
+      if (driver.playerId === playerId) this.parkVehicle(id, playerId, driver.pose);
+    }
+  }
+
+  receiveVehicleSnapshot(snapshot) {
+    for (const state of snapshot.vehicleStates || []) {
+      if (!VEHICLE_IDS.has(state.id)) continue;
+      this.revision = Math.max(this.revision, state.revision);
+      const previous = this.vehicleStates.get(state.id);
+      if (!previous || state.revision > previous.revision
+        || (state.revision === previous.revision && state.author > previous.author)) {
+        this.vehicleStates.set(state.id, { ...state, pose: copyPose(state.pose) });
+      }
+    }
+    const oldId = [...this.drivers].find(([, driver]) => driver.playerId === snapshot.playerId)?.[0];
+    if (oldId && oldId !== snapshot.vehicleId) this.releaseDriver(snapshot.playerId);
+    if (snapshot.vehicleId) {
+      return this.setDrivenPose(snapshot.vehicleId, snapshot.playerId,
+        { ...snapshot.position, yaw: snapshot.rotation });
+    }
+    return true;
+  }
+
+  networkVehicleStates() {
+    return [...this.vehicleStates.values()].map((state) => ({ ...state, pose: copyPose(state.pose) }));
   }
 
   update(delta, playerPosition, timeMs = Date.now()) {
@@ -106,7 +187,9 @@ export class AmbientWorld {
     if (recull) this.cullElapsed = 0;
     const radiusSq = this.radius * this.radius;
 
-    const visit = (definition, kind, pose) => {
+    const visit = (definition, kind, defaultPose) => {
+      const driver = this.drivers.get(definition.id);
+      const pose = driver?.pose || this.vehicleStates.get(definition.id)?.pose || defaultPose;
       if (!pose) return;
       if (recull) {
         const dx = pose.x - playerPosition.x;
@@ -116,9 +199,32 @@ export class AmbientWorld {
         else if (!needed && this.active.has(definition.id)) this.deactivate(definition.id);
       }
       const instance = this.active.get(definition.id);
-      if (!instance || kind === 'parked') return;
-      instance.root.position.set(pose.x, pose.y, pose.z);
-      instance.root.rotation.y = pose.yaw + (kind === 'pedestrian' ? Math.PI : 0);
+      if (!instance) return;
+      const shouldCollide = kind !== 'pedestrian' && !driver
+        && (kind === 'parked' || this.vehicleStates.has(definition.id));
+      if (shouldCollide && instance.colliderRegistered
+        && instance.root.position.distanceToSquared(new THREE.Vector3(pose.x, pose.y, pose.z)) > 0.0001) {
+        this.collision.remove(instance.collider);
+        instance.colliderRegistered = false;
+      }
+      if (instance.colliderRegistered && !shouldCollide) {
+        this.collision.remove(instance.collider);
+        instance.colliderRegistered = false;
+      }
+      if (driver && !driver.local) {
+        const alpha = 1 - Math.exp(-12 * delta);
+        instance.root.position.lerp(new THREE.Vector3(pose.x, pose.y, pose.z), alpha);
+        const difference = Math.atan2(Math.sin(pose.yaw - instance.root.rotation.y), Math.cos(pose.yaw - instance.root.rotation.y));
+        instance.root.rotation.y += difference * alpha;
+      } else {
+        instance.root.position.set(pose.x, pose.y, pose.z);
+        instance.root.rotation.y = pose.yaw + (kind === 'pedestrian' ? Math.PI : 0);
+      }
+      if (shouldCollide && !instance.colliderRegistered) {
+        instance.root.updateMatrixWorld(true);
+        this.collision.add(instance.collider);
+        instance.colliderRegistered = true;
+      }
       if (kind === 'pedestrian') instance.visual.update(delta, 'Walking');
     };
 

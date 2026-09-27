@@ -12,6 +12,11 @@ const clients = new Map();
 const room = new Map();
 
 const validNumber = (value) => Number.isFinite(value) && Math.abs(value) < 100000;
+const validVehicleState = (state) => state && typeof state.id === 'string' && state.id.length <= 64
+  && state.pose && validNumber(state.pose.x) && validNumber(state.pose.y)
+  && validNumber(state.pose.z) && validNumber(state.pose.yaw)
+  && Number.isSafeInteger(state.revision) && state.revision >= 0 && state.revision < 1_000_000_000
+  && typeof state.author === 'string' && state.author.length <= 120;
 
 function validSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return false;
@@ -28,6 +33,8 @@ function validSnapshot(snapshot) {
   if (snapshot.aiming !== undefined && typeof snapshot.aiming !== 'boolean') return false;
   if (snapshot.shotId !== undefined && (!Number.isSafeInteger(snapshot.shotId) || snapshot.shotId < 0 || snapshot.shotId >= 1_000_000_000)) return false;
   if (snapshot.shotTarget !== undefined && (!Array.isArray(snapshot.shotTarget) || snapshot.shotTarget.length !== 3 || !snapshot.shotTarget.every(validNumber))) return false;
+  if (snapshot.vehicleId !== undefined && (typeof snapshot.vehicleId !== 'string' || snapshot.vehicleId.length > 64)) return false;
+  if (snapshot.vehicleStates !== undefined && (!Array.isArray(snapshot.vehicleStates) || snapshot.vehicleStates.length > 24 || !snapshot.vehicleStates.every(validVehicleState))) return false;
   return true;
 }
 

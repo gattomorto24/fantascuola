@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
-import { InputManager } from '../input/InputManager.js';
-import { WorldManager } from '../world/WorldManager.js?v=ambient-v1';
+import { InputManager } from '../input/InputManager.js?v=vehicle-v1';
+import { WorldManager } from '../world/WorldManager.js?v=vehicle-v1';
 import { AvatarManager } from '../avatars/AvatarManager.js';
-import { Player } from '../player/Player.js';
+import { Player } from '../player/Player.js?v=vehicle-v1';
 import { PlayerController } from '../player/PlayerController.js';
-import { RemotePlayerManager } from '../player/RemotePlayerManager.js';
-import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js';
-import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js';
+import { VehicleController } from '../player/VehicleController.js';
+import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=vehicle-v1';
+import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js?v=vehicle-v1';
+import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=vehicle-v1';
 import { DebugHud } from '../ui/DebugHud.js';
 import { DisconnectScreen } from '../ui/DisconnectScreen.js';
 import { StressHarness } from '../debug/StressHarness.js';
@@ -69,6 +70,7 @@ export class Game {
     this.shotRaycaster = new THREE.Raycaster();
     this.shotNdc = new THREE.Vector2();
     this.aimReticle = document.getElementById('aim-reticle');
+    this.vehiclePrompt = document.getElementById('vehicle-prompt');
     this.reticleResetAt = 0;
     this.remotes = new RemotePlayerManager(this.scene, this.avatars, settings.network);
     this.hud = new DebugHud(hudRoot, settings.rendering.hudInterval);
@@ -254,9 +256,30 @@ export class Game {
           this.disconnectScreen.hide();
           this.input.setEnabled(true);
         },
+        getVehicleState: () => ({
+          vehicleId: this.vehicle?.vehicleId,
+          vehicleStates: this.world.ambient?.networkVehicleStates() || [],
+        }),
+        onVehicleSnapshot: (snapshot) => {
+          this.world.ambient?.receiveVehicleSnapshot(snapshot);
+          if (this.vehicle?.driving
+            && this.world.ambient?.drivers.get(this.vehicle.vehicleId)?.playerId !== this.multiplayer.playerId) {
+            this.vehicle.exit(false);
+            this.input.setDriving(false);
+          }
+        },
+        onVehicleLeave: (playerId) => this.world.ambient?.releaseDriver(playerId),
+        onVehicleReconcile: (present) => {
+          for (const driver of this.world.ambient?.drivers.values() || []) {
+            if (driver.playerId !== this.multiplayer.playerId && !present.has(driver.playerId)) {
+              this.world.ambient.releaseDriver(driver.playerId);
+            }
+          }
+        },
       },
       this.mapVersion,
     );
+    this.vehicle = new VehicleController(this.player, this.world, this.followCamera, this.multiplayer.playerId);
 
     let spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
     try {
@@ -342,17 +365,37 @@ export class Game {
 
   update(delta) {
     const controls = this.input.read();
-    if (controls.toggleWeapon) {
+    const wasDriving = this.vehicle.driving;
+    if (controls.interact) {
+      if (this.vehicle.driving) this.vehicle.exit();
+      else this.vehicle.enter();
+    }
+    if (controls.exitVehicle && this.vehicle.driving) this.vehicle.exit();
+    if (wasDriving !== this.vehicle.driving) {
+      this.controller.velocity.set(0, 0, 0);
+      this.controller.grounded = true;
+    }
+    this.input.setDriving(this.vehicle.driving);
+    this.input.setWeaponDrawn(this.player.weapon.drawn);
+    if (controls.toggleWeapon && !this.vehicle.driving) {
       this.player.weapon.setDrawn(!this.player.weapon.drawn);
       this.input.setWeaponDrawn(this.player.weapon.drawn);
     }
-    const aiming = this.input.enabled && this.player.weapon.drawn && (this.isTouchDevice || controls.aim);
+    const aiming = !this.vehicle.driving && this.input.enabled && this.player.weapon.drawn
+      && (this.isTouchDevice || controls.aim);
     this.player.weapon.setAiming(aiming);
     this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
-    this.controller.update(delta, { ...controls, aiming }, this.followCamera.yaw);
+    if (this.vehicle.driving) this.vehicle.update(delta, controls);
+    else this.controller.update(delta, { ...controls, aiming }, this.followCamera.yaw);
     this.world.updateAmbient(delta, this.player.root.position, Date.now() + (this.multiplayer?.serverTimeOffset || 0));
-    this.followCamera.update(delta, { ...controls, aiming }, this.player.root.position);
-    if (controls.shot && this.player.weapon.drawn) this.fire(controls.shot);
+    this.followCamera.update(delta, { ...controls, aiming, driving: this.vehicle.driving }, this.player.root.position);
+    if (controls.shot && this.player.weapon.drawn && !this.vehicle.driving) this.fire(controls.shot);
+    const nearby = !this.vehicle.driving && this.world.ambient?.nearestVehicle(this.player.root.position);
+    this.input.setVehicleAvailable(Boolean(nearby));
+    if (this.vehiclePrompt) {
+      this.vehiclePrompt.hidden = !this.input.enabled || (!nearby && !this.vehicle.driving);
+      this.vehiclePrompt.textContent = this.vehicle.driving ? "Premi E per uscire dall'auto" : "Premi E per guidare l'auto";
+    }
     if (this.aimReticle) {
       this.aimReticle.hidden = !aiming;
       if (this.reticleResetAt && performance.now() >= this.reticleResetAt) {
@@ -405,6 +448,7 @@ export class Game {
     this.cancelExitHold();
     this.hud.dispose();
     if (this.aimReticle) this.aimReticle.hidden = true;
+    if (this.vehiclePrompt) this.vehiclePrompt.hidden = true;
     document.body.classList.remove('gameplay-active', 'network-disconnected');
     this.disconnectScreen.hide();
     this.input.dispose();

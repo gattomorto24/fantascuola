@@ -11,6 +11,7 @@ export class Player {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.weapon = new Pistol(scene, this.root);
+    this.inVehicle = false;
     this.avatarId = 'default';
     this.avatarConfig = null;
     this.visualAvatarId = 'default';
@@ -48,7 +49,15 @@ export class Player {
     this.avatarSelectionKey = visual.selectionKey || requestedKey;
     console.debug(`[Avatar] local = ${this.avatarId}:${this.avatarSelectionKey}`);
     this.root.add(visual.object);
+    visual.object.visible = !this.inVehicle;
     return visual;
+  }
+
+  setVehiclePresence(inVehicle) {
+    this.inVehicle = Boolean(inVehicle);
+    if (this.visual?.object) this.visual.object.visible = !this.inVehicle;
+    if (this.weapon.group) this.weapon.group.visible = !this.inVehicle && this.weapon.drawn;
+    this.nameTag.setHeight(this.inVehicle ? 2.3 : this.visual?.metrics?.nameTagY || 1.34);
   }
 
   updateVisual(delta) {

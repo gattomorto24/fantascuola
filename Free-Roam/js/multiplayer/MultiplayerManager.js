@@ -4,6 +4,11 @@ import { isPixelAvatarConfig } from '../avatars/AvatarConfig.js';
 const STATES = new Set(['Idle', 'Walking', 'Running', 'Jumping']);
 const AVATAR_REF = /^(default|pixel|published:[0-9a-f-]{36})$/i;
 const validNumber = (value) => Number.isFinite(value) && Math.abs(value) < 100000;
+const validVehicleState = (state) => state && typeof state.id === 'string' && state.id.length <= 64
+  && state.pose && validNumber(state.pose.x) && validNumber(state.pose.y)
+  && validNumber(state.pose.z) && validNumber(state.pose.yaw)
+  && Number.isSafeInteger(state.revision) && state.revision >= 0 && state.revision < 1_000_000_000
+  && typeof state.author === 'string' && state.author.length <= 120;
 
 export const validAvatarConfig = isPixelAvatarConfig;
 
@@ -18,7 +23,10 @@ export function validSnapshot(value, maxAge = 60000) {
     && (value.weaponDrawn === undefined || typeof value.weaponDrawn === 'boolean')
     && (value.aiming === undefined || typeof value.aiming === 'boolean')
     && (value.shotId === undefined || (Number.isSafeInteger(value.shotId) && value.shotId >= 0 && value.shotId < 1_000_000_000))
-    && (value.shotTarget === undefined || (Array.isArray(value.shotTarget) && value.shotTarget.length === 3 && value.shotTarget.every(validNumber))))) return false;
+    && (value.shotTarget === undefined || (Array.isArray(value.shotTarget) && value.shotTarget.length === 3 && value.shotTarget.every(validNumber)))
+    && (value.vehicleId === undefined || (typeof value.vehicleId === 'string' && value.vehicleId.length <= 64))
+    && (value.vehicleStates === undefined || (Array.isArray(value.vehicleStates) && value.vehicleStates.length <= 24
+      && value.vehicleStates.every(validVehicleState))))) return false;
 
   const avatarConfig = value.avatar?.type === 'pixel' ? value.avatar.config : value.avatarConfig;
   if (value.avatarId === 'pixel' && !validAvatarConfig(avatarConfig)) return false;
@@ -70,6 +78,9 @@ export class MultiplayerManager {
       shotId: p.weapon?.shotId || 0,
     };
     if (p.weapon?.shotTarget) snapshot.shotTarget = p.weapon.shotTarget;
+    const vehicles = this.events.getVehicleState?.();
+    if (vehicles?.vehicleId) snapshot.vehicleId = vehicles.vehicleId;
+    if (vehicles?.vehicleStates?.length) snapshot.vehicleStates = vehicles.vehicleStates;
     if (p.avatarId === 'pixel' && p.avatarConfig) snapshot.avatarConfig = p.avatarConfig;
     return snapshot;
   }
@@ -95,6 +106,7 @@ export class MultiplayerManager {
     if (this.disposed || this.offlineMode) return;
     this.online = false;
     this.remotes.clear();
+    this.events.onVehicleReconcile?.(new Set());
     this.onStatus(false, detail);
     this.scheduleDisconnectNotice();
     this.scheduleReconnect();
@@ -162,6 +174,7 @@ export class MultiplayerManager {
     this.clearTimer('connectTimer');
     this.clearDisconnectNotice();
     this.remotes.clear();
+    this.events.onVehicleReconcile?.(new Set());
     const old = this.transport;
     this.transport = null;
     old?.close(4001, 'manual reconnect');
@@ -182,6 +195,7 @@ export class MultiplayerManager {
     this.transport = null;
     old?.close(1000, 'offline mode');
     this.remotes.clear();
+    this.events.onVehicleReconcile?.(new Set());
     this.onStatus(false, 'OFFLINE · modalità locale');
     this.events.onOffline?.();
   }
@@ -196,18 +210,24 @@ export class MultiplayerManager {
         if (!validSnapshot(snapshot, Infinity) || snapshot.playerId === this.playerId || snapshot.mapVersion !== this.mapVersion) continue;
         present.add(snapshot.playerId);
         this.remotes.receive(snapshot);
+        this.events.onVehicleSnapshot?.(snapshot);
       }
       this.remotes.reconcile(present);
+      this.events.onVehicleReconcile?.(present);
       return;
     }
 
     if ((message.type === 'join' || message.type === 'state') && validSnapshot(message.player, Infinity) && message.player.mapVersion === this.mapVersion) {
-      if (message.player.playerId !== this.playerId) this.remotes.receive(message.player);
+      if (message.player.playerId !== this.playerId) {
+        this.remotes.receive(message.player);
+        this.events.onVehicleSnapshot?.(message.player);
+      }
       return;
     }
 
     if (message.type === 'leave' && typeof message.playerId === 'string') {
       this.remotes.remove(message.playerId);
+      this.events.onVehicleLeave?.(message.playerId);
       return;
     }
 

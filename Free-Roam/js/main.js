@@ -1,4 +1,4 @@
-import { Game } from './core/Game.js?v=pistol-v1';
+import { Game } from './core/Game.js?v=vehicle-v1';
 import { createGameClient, getGameIdentity } from './config/supabase.js';
 import { StorageService } from './storage/StorageService.js';
 import { cleanDisplayName } from './utils/text.js';
@@ -19,7 +19,7 @@ const loadingScreen = new LoadingScreen(document.getElementById('world-loading')
 const mobileExperience = setupMobileExperience();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=pistol-v1').catch((error) => {
+  navigator.serviceWorker.register('./sw.js?v=vehicle-v1').catch((error) => {
     console.warn('[Free Roam] Service Worker non disponibile:', error);
   });
 }

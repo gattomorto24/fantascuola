@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Player } from './Player.js';
+import { Player } from './Player.js?v=vehicle-v1';
 
 export class RemotePlayer extends Player {
   constructor(scene, avatars, id, config) {
@@ -22,6 +22,7 @@ export class RemotePlayer extends Player {
     this.lastSeen = performance.now();
     this.weapon.setDrawn(snapshot.weaponDrawn === true);
     this.weapon.setAiming(snapshot.aiming === true);
+    this.setVehiclePresence(Boolean(snapshot.vehicleId));
     if (this.lastShotId !== null && snapshot.shotId !== this.lastShotId && snapshot.shotTarget) {
       this.weapon.fireTo(snapshot.shotTarget);
     }
