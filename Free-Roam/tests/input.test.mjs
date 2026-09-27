@@ -167,12 +167,14 @@ test('E entra o esce dall’auto e sul telefono Salto diventa ESCI', () => {
     input.setVehicleAvailable(true);
     assert.equal(parts['touch-vehicle'].hidden, false);
     assert.equal(parts['touch-passenger'].hidden, false);
+    input.setVehicleAvailable(true, true, 'motorcycle');
+    assert.equal(parts['touch-vehicle'].textContent, 'MOTO');
     parts['touch-passenger'].dispatchEvent(pointer('pointerdown', 12, 0, 0));
     assert.equal(input.read().passenger, true);
     parts['touch-vehicle'].dispatchEvent(pointer('pointerdown', 10, 0, 0));
     assert.equal(input.read().interact, true);
     input.setDriving(true);
-    assert.equal(parts['touch-jump'].attributes['aria-label'], "Esci dall'auto");
+    assert.equal(parts['touch-jump'].attributes['aria-label'], 'Esci dal veicolo');
     assert.equal(parts['touch-jump'].span.textContent, 'ESCI');
     assert.equal(parts['touch-vehicle'].hidden, true);
     parts['touch-jump'].dispatchEvent(pointer('pointerdown', 11, 0, 0));

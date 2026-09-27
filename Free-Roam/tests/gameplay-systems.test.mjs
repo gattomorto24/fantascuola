@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { AmbientWorld } from '../js/world/AmbientWorld.js';
-import { PARKED_CARS, MOVING_CARS, PEDESTRIANS } from '../js/world/AmbientMapData.js';
+import { PARKED_CARS, MOVING_CARS, PARKED_MOTORCYCLES, MOVING_MOTORCYCLES,
+  PEDESTRIANS, sampleRoute } from '../js/world/AmbientMapData.js';
 import { WorldCollision } from '../js/world/WorldCollision.js';
 import { VehicleController } from '../js/player/VehicleController.js';
 import { WantedState } from '../js/world/WantedState.js';
-import { PoliceSystem } from '../js/world/PoliceSystem.js';
+import { PoliceSystem, POLICE_SPAWN_DISTANCE } from '../js/world/PoliceSystem.js';
 import { loadGraphicsSettings, saveGraphicsSettings, normalizeGraphicsSettings } from '../js/ui/GraphicsSettings.js';
 
 function player(x, y, z) {
@@ -113,8 +114,11 @@ test('notorietà e polizia crescono coi crimini, inseguono e decadono', () => {
   try {
     const target = new THREE.Vector3(0, 0, 0);
     const initial = police.updateLocal('local', 1, target, 0, 0.05);
+    assert.equal(Math.hypot(initial.x - target.x, initial.z - target.z), POLICE_SPAWN_DISTANCE);
+    assert.equal(police.touchesLocal('local', target), false);
     for (let i = 0; i < 100; i += 1) police.updateLocal('local', 1, target, 0, 0.05);
     assert.ok(police.poseOf('local').z > initial.z);
+    assert.ok(Math.hypot(police.poseOf('local').x, police.poseOf('local').z) > 100);
     police.receive({ playerId: 'remote', wanted: 2,
       policePose: { x: 10, y: 0, z: 12, yaw: 0 } });
     assert.equal(police.units.has('remote'), true);
@@ -123,6 +127,90 @@ test('notorietà e polizia crescono coi crimini, inseguono e decadono', () => {
     wanted.clear();
     assert.equal(wanted.stars, 0);
   } finally { police.dispose(); }
+});
+
+test('la pattuglia lontana continua ad avvicinarsi anche fuori dalle zone mobile caricate', () => {
+  const blockedWorld = { ...world(null), streamedMap: { canMoveTo: () => false },
+    resolveHorizontalMovement(position) { return position.clone(); } };
+  const police = new PoliceSystem(new THREE.Scene(), blockedWorld);
+  try {
+    police.updateLocal('local', 1, new THREE.Vector3(0, 0, 0), 0, 0.05);
+    police.updateLocal('local', 1, new THREE.Vector3(0, 0, 0), 0, 0.05);
+    assert.ok(police.poseOf('local').z > -POLICE_SPAWN_DISTANCE);
+  } finally { police.dispose(); }
+});
+
+test('auto guidate e traffico si fermano al contatto invece di attraversarsi', () => {
+  const ambient = new AmbientWorld(new THREE.Scene(), new WorldCollision());
+  const car = PARKED_CARS[0];
+  const other = PARKED_CARS[1];
+  const avatar = player(car.position[0], car.position[1], car.position[2]);
+  const drive = new VehicleController(avatar, world(ambient), { yaw: 0, pitch: 0 }, 'driver');
+  try {
+    ambient.update(0.25, avatar.root.position, 0);
+    assert.equal(drive.enter(), true);
+    ambient.setDrivenPose(car.id, 'driver', { x: 0, y: 0, z: 0, yaw: 0 }, true);
+    ambient.setDrivenPose(other.id, 'remote', { x: 0, y: 0, z: 4, yaw: 0 });
+    drive.speed = 8;
+    for (let i = 0; i < 12; i += 1) drive.update(0.05, { moveX: 0, moveY: 1 });
+    assert.ok(ambient.vehiclePose(car.id).z < 1.5);
+    assert.ok(ambient.conditionOf(car.id) < 100);
+    assert.equal(ambient.resolveVehicleMovement(car.id,
+      { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 10 }).hitId, other.id);
+    ambient.setDrivenPose(other.id, 'remote', { x: 2.3, y: 0, z: 4, yaw: 0 });
+    assert.equal(ambient.resolveVehicleMovement(car.id,
+      { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 10 }).hitId, null);
+  } finally { ambient.dispose(); }
+});
+
+test('le pattuglie sono ostacoli anche per auto e moto dei giocatori', () => {
+  const ambient = new AmbientWorld(new THREE.Scene(), new WorldCollision());
+  const police = new PoliceSystem(new THREE.Scene(), world(ambient));
+  try {
+    ambient.externalVehicles = () => police.collisionVehicles();
+    police.receive({ playerId: 'remote', wanted: 1,
+      policePose: { x: 0, y: 0, z: 5, yaw: 0 } });
+    const result = ambient.resolveVehicleMovement(PARKED_CARS[0].id,
+      { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 10 });
+    assert.equal(result.hitId, 'police:remote');
+    assert.ok(result.z < 2.4);
+  } finally { police.dispose(); ambient.dispose(); }
+});
+
+test('le moto parcheggiate e in movimento condividono guida, collisioni e coordinate', () => {
+  const ambient = new AmbientWorld(new THREE.Scene(), new WorldCollision());
+  const bike = PARKED_MOTORCYCLES[0];
+  const rider = player(...bike.position);
+  const drive = new VehicleController(rider, world(ambient), { yaw: 0, pitch: 0 }, 'rider');
+  try {
+    ambient.update(0.25, rider.root.position, 0);
+    assert.equal(ambient.active.get(bike.id)?.root.name, 'AmbientMotorcycle');
+    assert.equal(ambient.nearestVehicle(rider.root.position)?.type, 'motorcycle');
+    assert.equal(drive.enter(), true);
+    assert.equal(ambient.vehicleType(drive.vehicleId), 'motorcycle');
+    drive.update(0.05, { moveX: 0, moveY: 1 });
+    assert.equal(drive.exit(), true);
+    assert.equal(ambient.vehicleStates.has(bike.id), true);
+    const moving = MOVING_MOTORCYCLES[0];
+    assert.ok(ambient.vehiclePose(moving.id));
+    assert.equal(ambient.vehicleType(moving.id), 'motorcycle');
+    const before = { ...ambient.vehiclePose(moving.id) };
+    const obstructed = sampleRoute(moving.path, moving.speed, moving.phase, 200);
+    ambient.setDrivenPose(PARKED_CARS[1].id, 'other', obstructed);
+    ambient.update(0.2, rider.root.position, 200);
+    assert.deepEqual(ambient.vehiclePose(moving.id), before);
+  } finally { ambient.dispose(); }
+});
+
+test('il traffico procede accanto ai veicoli parcheggiati senza falsi urti', () => {
+  const ambient = new AmbientWorld(new THREE.Scene(), new WorldCollision());
+  try {
+    ambient.update(0.05, new THREE.Vector3(0, 0, 0), 0);
+    const before = { ...ambient.vehiclePose(MOVING_CARS[0].id) };
+    ambient.update(0.05, new THREE.Vector3(0, 0, 0), 50);
+    const after = ambient.vehiclePose(MOVING_CARS[0].id);
+    assert.ok(Math.hypot(after.x - before.x, after.z - before.z) > 0.1);
+  } finally { ambient.dispose(); }
 });
 
 test('impostazioni grafiche partono da Bassa e si salvano fino a Ultra', () => {

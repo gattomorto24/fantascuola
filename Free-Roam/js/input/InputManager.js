@@ -253,7 +253,7 @@ export class InputManager {
     this.driving = Boolean(value);
     if (this.jumpButton) {
       this.jumpButton.classList.toggle('vehicle-exit', this.driving);
-      this.jumpButton.setAttribute('aria-label', this.driving ? "Esci dall'auto" : 'Salta');
+      this.jumpButton.setAttribute('aria-label', this.driving ? 'Esci dal veicolo' : 'Salta');
       const label = this.jumpButton.querySelector('span');
       if (label) label.textContent = this.driving ? 'ESCI' : '↑';
     }
@@ -262,8 +262,12 @@ export class InputManager {
     if (this.weaponButton) this.weaponButton.hidden = this.driving;
   }
 
-  setVehicleAvailable(value, passengerAvailable = value) {
-    if (this.vehicleButton) this.vehicleButton.hidden = !value || this.driving;
+  setVehicleAvailable(value, passengerAvailable = value, type = 'car') {
+    if (this.vehicleButton) {
+      this.vehicleButton.hidden = !value || this.driving;
+      this.vehicleButton.textContent = type === 'motorcycle' ? 'MOTO' : 'AUTO';
+      this.vehicleButton.setAttribute('aria-label', type === 'motorcycle' ? 'Sali sulla moto' : "Entra nell'auto");
+    }
     if (this.passengerButton) this.passengerButton.hidden = !passengerAvailable || this.driving;
   }
 

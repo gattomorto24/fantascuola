@@ -87,6 +87,7 @@ export class VehicleController {
     }
 
     const dt = Math.min(delta, 0.05);
+    const motorcycle = ambient.vehicleType(this.vehicleId) === 'motorcycle';
     const throttle = input.moveY;
     if (Math.abs(throttle) > 0.05) {
       this.speed += throttle * (this.speed * throttle < 0 ? 10 : 6.5) * dt;
@@ -95,21 +96,26 @@ export class VehicleController {
     }
     const condition = ambient.conditionOf(this.vehicleId);
     const power = condition === 0 ? 0 : Math.max(0.25, condition / 100);
-    this.speed = THREE.MathUtils.clamp(this.speed, -4.5 * power, 12 * power);
+    this.speed = THREE.MathUtils.clamp(this.speed,
+      -(motorcycle ? 5.4 : 4.5) * power, (motorcycle ? 14 : 12) * power);
     if (Math.abs(this.speed) < 0.03) this.speed = 0;
 
     const pose = car.pose;
     if (Math.abs(this.speed) > 0.15) {
       const steering = THREE.MathUtils.clamp(input.moveX, -1, 1);
-      pose.yaw += steering * 1.45 * dt * Math.sign(this.speed)
+      pose.yaw += steering * (motorcycle ? 2.1 : 1.45) * dt * Math.sign(this.speed)
         * Math.min(1, Math.abs(this.speed) / 3);
     }
     movement.set(Math.sin(pose.yaw) * this.speed * dt, 0,
       Math.cos(pose.yaw) * this.speed * dt);
     candidate.set(pose.x, pose.y, pose.z);
-    const resolved = this.world.resolveHorizontalMovement(candidate, movement, 1.25, 1.55);
-    const advanced = Math.hypot(resolved.x - pose.x, resolved.z - pose.z);
-    if (advanced < movement.length() * 0.45 && movement.length() > 0.01) {
+    const resolved = this.world.resolveHorizontalMovement(candidate, movement,
+      motorcycle ? 0.67 : 1.25, motorcycle ? 1.25 : 1.55);
+    const vehicleCollision = ambient.resolveVehicleMovement(this.vehicleId, pose, resolved);
+    const nextX = vehicleCollision.x;
+    const nextZ = vehicleCollision.z;
+    const advanced = Math.hypot(nextX - pose.x, nextZ - pose.z);
+    if ((vehicleCollision.hitId || advanced < movement.length() * 0.45) && movement.length() > 0.01) {
       if (Math.abs(this.speed) > 2) {
         const damage = Math.max(4, Math.round(Math.abs(this.speed) * 2.6));
         ambient.damageVehicle(this.vehicleId, damage);
@@ -117,11 +123,11 @@ export class VehicleController {
       }
       this.speed = 0;
     }
-    const ground = this.world.groundHeightAt(resolved.x, resolved.z, pose.y, 0.9, 2.5);
+    const ground = this.world.groundHeightAt(nextX, nextZ, pose.y, 0.9, 2.5);
     if (Number.isFinite(ground) && Math.abs(ground - pose.y) <= 1.3) {
-      pose.x = resolved.x;
+      pose.x = nextX;
       pose.y = ground;
-      pose.z = resolved.z;
+      pose.z = nextZ;
     } else {
       this.speed = 0;
     }

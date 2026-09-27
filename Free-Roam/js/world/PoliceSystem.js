@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 
 const validPose = (pose) => pose && [pose.x, pose.y, pose.z, pose.yaw].every(Number.isFinite);
+export const POLICE_SPAWN_DISTANCE = 200;
 
 export class PoliceSystem {
   constructor(scene, world) {
     this.scene = scene;
     this.world = world;
     this.units = new Map();
-    this.boxes = [];
+    this.boxes = new Map();
     this.materials = [];
     this.lastContactAt = 0;
     this.body = this.material(0xe5e9ed);
@@ -23,8 +24,9 @@ export class PoliceSystem {
   }
 
   box(root, size, position, material) {
-    const geometry = new THREE.BoxGeometry(...size);
-    this.boxes.push(geometry);
+    const key = size.join(':');
+    if (!this.boxes.has(key)) this.boxes.set(key, new THREE.BoxGeometry(...size));
+    const geometry = this.boxes.get(key);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(...position);
     root.add(mesh);
@@ -61,19 +63,29 @@ export class PoliceSystem {
     if (!stars) { this.remove(id); return null; }
     let unit = this.units.get(id);
     if (!unit) {
-      unit = this.create(id, { x: position.x - Math.sin(yaw) * 12,
-        y: position.y, z: position.z - Math.cos(yaw) * 12, yaw });
+      const x = position.x - Math.sin(yaw) * POLICE_SPAWN_DISTANCE;
+      const z = position.z - Math.cos(yaw) * POLICE_SPAWN_DISTANCE;
+      const height = this.world.groundHeightAt(x, z, position.y, 2, 20);
+      unit = this.create(id, { x, y: Number.isFinite(height) ? height : position.y, z, yaw });
+      return { ...unit.pose };
     }
     const dx = position.x - unit.pose.x;
     const dz = position.z - unit.pose.z;
     const distance = Math.hypot(dx, dz);
     if (distance > 2.1) {
-      const step = Math.min(distance - 2.1, (5.5 + stars * 1.8) * Math.min(delta, 0.05));
+      const step = Math.min(distance - 2.1, (14 + stars * 2) * Math.min(delta, 0.05));
       const direction = new THREE.Vector3(dx / distance * step, 0, dz / distance * step);
-      const next = this.world.resolveHorizontalMovement(unit.root.position, direction, 0.9, 1.4);
-      unit.pose.x = next.x;
-      unit.pose.z = next.z;
-      const ground = this.world.groundHeightAt(next.x, next.z, unit.pose.y, 1.1, 3);
+      // Le zone mobile a 200 m non sono ancora caricate: avanza fuori vista e
+      // attiva le collisioni della mappa appena la pattuglia entra nelle zone pronte.
+      const outsideLoadedMap = this.world.streamedMap
+        && !this.world.streamedMap.canMoveTo(unit.pose.x, unit.pose.z);
+      const next = outsideLoadedMap
+        ? unit.root.position.clone().add(direction)
+        : this.world.resolveHorizontalMovement(unit.root.position, direction, 0.9, 1.4);
+      const traffic = this.world.ambient?.resolveVehicleMovement(`police:${id}`, unit.pose, next);
+      unit.pose.x = traffic?.x ?? next.x;
+      unit.pose.z = traffic?.z ?? next.z;
+      const ground = this.world.groundHeightAt(unit.pose.x, unit.pose.z, unit.pose.y, 1.1, 3);
       if (Number.isFinite(ground)) unit.pose.y = ground;
       unit.pose.yaw = Math.atan2(dx, dz);
     }
@@ -118,9 +130,18 @@ export class PoliceSystem {
 
   poseOf(id) { return this.units.get(id)?.pose || null; }
 
+  collisionVehicles() {
+    return [...this.units].map(([id, unit]) => ({
+      id: `police:${id}`, radius: 1.37,
+      pose: { x: unit.root.position.x, y: unit.root.position.y, z: unit.root.position.z,
+        yaw: unit.root.rotation.y },
+    }));
+  }
+
   dispose() {
     for (const id of [...this.units.keys()]) this.remove(id);
-    for (const geometry of this.boxes) geometry.dispose();
+    for (const geometry of this.boxes.values()) geometry.dispose();
+    this.boxes.clear();
     for (const material of this.materials) material.dispose();
   }
 }

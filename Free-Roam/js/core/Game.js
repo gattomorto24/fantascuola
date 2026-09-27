@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
-import { InputManager } from '../input/InputManager.js?v=gameplay-v1';
-import { WorldManager } from '../world/WorldManager.js?v=gameplay-v1';
+import { InputManager } from '../input/InputManager.js?v=motorcycles-v1';
+import { WorldManager } from '../world/WorldManager.js?v=motorcycles-v1';
 import { AvatarManager } from '../avatars/AvatarManager.js';
 import { Player } from '../player/Player.js?v=gameplay-v1';
 import { CombatState, findPlayerHit, plausibleHit, PISTOL_DAMAGE, SHOT_RANGE } from '../player/Combat.js?v=gameplay-v1';
 import { WantedState } from '../world/WantedState.js';
-import { PoliceSystem } from '../world/PoliceSystem.js';
+import { PoliceSystem } from '../world/PoliceSystem.js?v=motorcycles-v1';
 import { PlayerController } from '../player/PlayerController.js';
-import { VehicleController } from '../player/VehicleController.js?v=gameplay-v1';
+import { VehicleController } from '../player/VehicleController.js?v=motorcycles-v1';
 import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=gameplay-v1';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js?v=vehicle-v1';
 import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=gameplay-v1';
@@ -252,6 +252,7 @@ export class Game {
       onStage('Uso mappa locale di fallback…', 94);
     }
 
+    if (this.world.ambient) this.world.ambient.externalVehicles = () => this.police.collisionVehicles();
     onStage('Avvio sessione multiplayer…', 97);
     this.multiplayer = new MultiplayerManager(
       this.client,
@@ -502,7 +503,7 @@ export class Game {
     if (controls.shot && this.player.weapon.drawn && !this.vehicle.riding) this.fire(controls.shot);
     const nearby = !this.vehicle.riding && this.world.ambient?.nearestVehicle(this.player.root.position);
     const passengerNearby = !this.vehicle.riding && this.world.ambient?.nearestVehicle(this.player.root.position, 3.3, true);
-    this.input.setVehicleAvailable(Boolean(nearby), Boolean(passengerNearby));
+    this.input.setVehicleAvailable(Boolean(nearby), Boolean(passengerNearby), nearby?.type);
     if (this.vehicleHealthHud) {
       this.vehicleHealthHud.hidden = !this.vehicle.riding;
       if (this.vehicle.riding) this.vehicleHealthHud.textContent =
@@ -510,8 +511,9 @@ export class Game {
     }
     if (this.vehiclePrompt) {
       this.vehiclePrompt.hidden = !this.input.enabled || (!nearby && !passengerNearby && !this.vehicle.riding);
-      this.vehiclePrompt.textContent = this.vehicle.riding ? "Premi E per uscire dall'auto"
-        : nearby ? 'E guida · F passeggero' : 'F sali come passeggero';
+      this.vehiclePrompt.textContent = this.vehicle.riding ? 'Premi E per scendere'
+        : nearby ? `E guida ${nearby.type === 'motorcycle' ? 'la moto' : "l'auto"} · F passeggero`
+          : 'F sali come passeggero';
     }
     if (this.aimReticle) {
       this.aimReticle.hidden = !aiming;

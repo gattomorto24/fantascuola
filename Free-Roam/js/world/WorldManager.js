@@ -4,8 +4,8 @@ import { WorldCollision } from './WorldCollision.js';
 import { settings } from '../config/settings.js';
 import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=gameplay-v1';
 import { mobileManifestUrl } from './MobileManifest.js';
-import { AmbientWorld } from './AmbientWorld.js?v=gameplay-v1';
-import { matchesAmbientMap } from './AmbientMapData.js?v=ambient-v1';
+import { AmbientWorld } from './AmbientWorld.js?v=motorcycles-v1';
+import { matchesAmbientMap } from './AmbientMapData.js?v=motorcycles-v1';
 
 export class WorldManager {
   constructor(scene) {

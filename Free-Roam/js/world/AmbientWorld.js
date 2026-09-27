@@ -1,27 +1,58 @@
 import * as THREE from 'three';
 import { createPixelAvatar } from '../avatars/PixelAvatarRenderer.js';
-import { MOVING_CARS, PARKED_CARS, PEDESTRIANS, sampleRoute } from './AmbientMapData.js?v=ambient-v1';
+import { MOVING_VEHICLES, PARKED_VEHICLES, PEDESTRIANS, sampleRoute } from './AmbientMapData.js?v=motorcycles-v1';
 
 const GLASS = '#263d48';
 const RUBBER = '#1b1d20';
 const CHROME = '#a8adb0';
-const VEHICLE_IDS = new Set([...PARKED_CARS, ...MOVING_CARS].map((item) => item.id));
-const MOVING_IDS = new Set(MOVING_CARS.map((item) => item.id));
+const VEHICLES = [...PARKED_VEHICLES, ...MOVING_VEHICLES];
+const VEHICLE_IDS = new Set(VEHICLES.map((item) => item.id));
+const VEHICLE_BY_ID = new Map(VEHICLES.map((item) => [item.id, item]));
+const MOVING_IDS = new Set(MOVING_VEHICLES.map((item) => item.id));
 const PEDESTRIAN_IDS = new Set(PEDESTRIANS.map((item) => item.id));
 
 const copyPose = (pose) => ({ x: pose.x, y: pose.y, z: pose.z, yaw: pose.yaw });
+
+function vehicleFootprint(pose, motorcycle) {
+  const yaw = Number.isFinite(pose.yaw) ? pose.yaw : 0;
+  return { x: pose.x, z: pose.z,
+    rightX: Math.cos(yaw), rightZ: -Math.sin(yaw),
+    forwardX: Math.sin(yaw), forwardZ: Math.cos(yaw),
+    halfWidth: motorcycle ? 0.42 : 0.96,
+    halfLength: motorcycle ? 1.05 : 1.86 };
+}
+
+function overlapsOnAxis(a, b, dx, dz, ax, az) {
+  const separation = Math.abs(dx * ax + dz * az);
+  const extentA = a.halfWidth * Math.abs(a.rightX * ax + a.rightZ * az)
+    + a.halfLength * Math.abs(a.forwardX * ax + a.forwardZ * az);
+  const extentB = b.halfWidth * Math.abs(b.rightX * ax + b.rightZ * az)
+    + b.halfLength * Math.abs(b.forwardX * ax + b.forwardZ * az);
+  return separation < extentA + extentB;
+}
+
+function footprintsOverlap(a, b) {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  return overlapsOnAxis(a, b, dx, dz, a.rightX, a.rightZ)
+    && overlapsOnAxis(a, b, dx, dz, a.forwardX, a.forwardZ)
+    && overlapsOnAxis(a, b, dx, dz, b.rightX, b.rightZ)
+    && overlapsOnAxis(a, b, dx, dz, b.forwardX, b.forwardZ);
+}
 
 export class AmbientWorld {
   constructor(scene, collision, { isMobile = false, tileReady = () => true } = {}) {
     this.scene = scene;
     this.collision = collision;
     this.tileReady = tileReady;
+    this.externalVehicles = () => [];
     this.radius = isMobile ? 37 : 75;
     this.active = new Map();
     this.geometries = new Map();
     this.materials = new Map();
     this.vehicleStates = new Map();
     this.vehicleConditions = new Map();
+    this.trafficStates = new Map();
     this.drivers = new Map();
     this.passengers = new Map();
     this.pedestrianHealth = new Map();
@@ -97,6 +128,40 @@ export class AmbientWorld {
     return { root, collider: body, bodyMaterial, basePaint: new THREE.Color(paint), damageMarks, smoke, bumpers };
   }
 
+  makeMotorcycle(paint) {
+    const root = new THREE.Group();
+    root.name = 'AmbientMotorcycle';
+    if (!this.geometries.has('motorcycle-tire')) {
+      this.geometries.set('motorcycle-tire', new THREE.CylinderGeometry(0.41, 0.41, 0.17, 12));
+    }
+    for (const z of [-0.83, 0.83]) {
+      const tire = new THREE.Mesh(this.geometries.get('motorcycle-tire'), this.material(RUBBER));
+      tire.rotation.z = Math.PI / 2;
+      tire.position.set(0, 0.41, z);
+      root.add(tire);
+      this.box(root, [0.09, 0.58, 0.09], [0, 0.7, z], CHROME, 0.42);
+    }
+    const body = this.box(root, [0.62, 0.55, 1.62], [0, 0.67, 0], paint, 0.2);
+    const bodyMaterial = body.material.clone();
+    body.material = bodyMaterial;
+    this.box(root, [0.7, 0.36, 0.68], [0, 0.96, 0.12], paint, 0.2);
+    this.box(root, [0.57, 0.12, 0.73], [0, 1.02, -0.43], '#252527');
+    const handlebar = this.box(root, [0.94, 0.08, 0.08], [0, 1.34, 0.76], CHROME, 0.42);
+    this.box(root, [0.33, 0.25, 0.1], [0, 0.93, 0.88], '#f8e6bb');
+    this.box(root, [0.3, 0.14, 0.1], [0, 0.84, -0.9], '#ba3231');
+    const damageMarks = [this.box(root, [0.5, 0.03, 0.38], [0, 1.16, 0.1], '#302725')];
+    damageMarks[0].visible = false;
+    if (!this.geometries.has('motorcycle-smoke')) {
+      this.geometries.set('motorcycle-smoke', new THREE.SphereGeometry(0.18, 7, 5));
+    }
+    const smoke = new THREE.Mesh(this.geometries.get('motorcycle-smoke'), this.material('#404342'));
+    smoke.position.set(0.24, 0.86, -0.8);
+    smoke.visible = false;
+    root.add(smoke);
+    return { root, collider: body, bodyMaterial, basePaint: new THREE.Color(paint),
+      damageMarks, smoke, handlebar };
+  }
+
   makePedestrian(config) {
     const visual = createPixelAvatar(config);
     const root = new THREE.Group();
@@ -109,8 +174,9 @@ export class AmbientWorld {
   activate(definition, kind, pose) {
     const instance = kind === 'pedestrian'
       ? this.makePedestrian(definition.avatar)
-      : this.makeCar(definition.paint);
+      : definition.type === 'motorcycle' ? this.makeMotorcycle(definition.paint) : this.makeCar(definition.paint);
     instance.kind = kind;
+    instance.type = definition.type || 'car';
     instance.id = definition.id;
     instance.root.position.set(pose.x, pose.y, pose.z);
     instance.root.rotation.y = pose.yaw + (kind === 'pedestrian' ? Math.PI : 0);
@@ -145,7 +211,8 @@ export class AmbientWorld {
       const distance = dx * dx + dz * dz;
       if (distance < best && Math.abs(instance.root.position.y - position.y) < 2.2) {
         best = distance;
-        closest = { id, kind: instance.kind, pose: { x: instance.root.position.x, y: instance.root.position.y,
+        closest = { id, kind: instance.kind, type: instance.type,
+          pose: { x: instance.root.position.x, y: instance.root.position.y,
           z: instance.root.position.z, yaw: instance.root.rotation.y } };
       }
     }
@@ -168,9 +235,76 @@ export class AmbientWorld {
   }
 
   vehiclePose(id) {
-    return this.drivers.get(id)?.pose || this.vehicleStates.get(id)?.pose || (this.active.has(id)
+    return this.drivers.get(id)?.pose || this.vehicleStates.get(id)?.pose || this.trafficStates.get(id)?.pose || (this.active.has(id)
       ? { x: this.active.get(id).root.position.x, y: this.active.get(id).root.position.y,
-        z: this.active.get(id).root.position.z, yaw: this.active.get(id).root.rotation.y } : null);
+        z: this.active.get(id).root.position.z, yaw: this.active.get(id).root.rotation.y }
+      : VEHICLE_BY_ID.has(id) && !MOVING_IDS.has(id)
+        ? { x: VEHICLE_BY_ID.get(id).position[0], y: VEHICLE_BY_ID.get(id).position[1],
+          z: VEHICLE_BY_ID.get(id).position[2], yaw: VEHICLE_BY_ID.get(id).yaw } : null);
+  }
+
+  vehicleType(id) { return VEHICLE_BY_ID.get(id)?.type || 'car'; }
+  resolveVehicleMovement(id, from, destination) {
+    const dx = destination.x - from.x;
+    const dz = destination.z - from.z;
+    const travelSq = dx * dx + dz * dz;
+    if (travelSq < 0.000001) return { x: destination.x, z: destination.z, hitId: null };
+    const travel = Math.sqrt(travelSq);
+    const own = vehicleFootprint(from, this.vehicleType(id) === 'motorcycle');
+    let fraction = 1;
+    let hitId = null;
+    for (const other of [...VEHICLES, ...this.externalVehicles()]) {
+      if (other.id === id) continue;
+      const pose = other.pose || this.vehiclePose(other.id);
+      if (!pose || Math.abs(pose.y - from.y) > 2.1) continue;
+      const target = vehicleFootprint(pose, other.type === 'motorcycle');
+      const centerDistance = Math.hypot(from.x - target.x, from.z - target.z);
+      if (centerDistance > travel + 4.5) continue;
+      own.x = from.x;
+      own.z = from.z;
+      if (footprintsOverlap(own, target)) {
+        if (Math.hypot(destination.x - target.x, destination.z - target.z) < centerDistance) {
+          fraction = 0;
+          hitId = other.id;
+        }
+        continue;
+      }
+      const steps = Math.max(1, Math.ceil(travel / 0.25));
+      for (let step = 1; step <= steps; step += 1) {
+        const t = step / steps;
+        if (t > fraction) break;
+        own.x = from.x + dx * t;
+        own.z = from.z + dz * t;
+        if (!footprintsOverlap(own, target)) continue;
+        fraction = Math.max(0, (step - 1) / steps - 0.02 / travel);
+        hitId = other.id;
+        break;
+      }
+    }
+    return { x: from.x + dx * fraction, z: from.z + dz * fraction, hitId };
+  }
+
+  updateTraffic(delta, timeMs) {
+    for (const item of MOVING_VEHICLES) {
+      if (this.drivers.has(item.id) || this.vehicleStates.has(item.id)) continue;
+      let state = this.trafficStates.get(item.id);
+      if (!state) {
+        state = { pose: sampleRoute(item.path, item.speed, item.phase, timeMs), delayMs: 0 };
+        this.trafficStates.set(item.id, state);
+        continue;
+      }
+      const next = sampleRoute(item.path, item.speed, item.phase, timeMs - state.delayMs);
+      if (!next) continue;
+      const advance = Math.hypot(next.x - state.pose.x, next.z - state.pose.z);
+      // A clock resync or background tab can skip an entire route; resume without a long sweep.
+      if (advance > item.speed * Math.max(delta, 0.05) * 3 + 1) {
+        state.pose = next;
+        continue;
+      }
+      const movement = this.resolveVehicleMovement(item.id, state.pose, next);
+      if (movement.hitId) state.delayMs += Math.max(0, delta) * 1000;
+      else state.pose = next;
+    }
   }
 
   conditionOf(id) { return this.vehicleConditions.get(id) ?? 100; }
@@ -187,12 +321,15 @@ export class AmbientWorld {
     if (instance.lastCondition !== condition) {
       const damage = (100 - condition) / 100;
       instance.bodyMaterial.color.copy(instance.basePaint).lerp(new THREE.Color('#262323'), damage * 0.67);
-      instance.bumpers[0].rotation.y = damage * 0.22;
-      instance.bumpers[0].position.z = 1.87 + damage * 0.18;
-      instance.bumpers[1].rotation.y = -damage * 0.16;
-      instance.bumpers[1].position.z = -1.87 - damage * 0.11;
+      if (instance.bumpers) {
+        instance.bumpers[0].rotation.y = damage * 0.22;
+        instance.bumpers[0].position.z = 1.87 + damage * 0.18;
+        instance.bumpers[1].rotation.y = -damage * 0.16;
+        instance.bumpers[1].position.z = -1.87 - damage * 0.11;
+      }
+      if (instance.handlebar) instance.handlebar.rotation.y = damage * 0.3;
       instance.damageMarks[0].visible = condition <= 70;
-      instance.damageMarks[1].visible = condition <= 35;
+      if (instance.damageMarks[1]) instance.damageMarks[1].visible = condition <= 35;
       instance.smoke.visible = condition <= 25;
       instance.lastCondition = condition;
     }
@@ -352,6 +489,7 @@ export class AmbientWorld {
 
   update(delta, playerPosition, timeMs = Date.now()) {
     if (this.disposed) return;
+    this.updateTraffic(delta, timeMs);
     for (const [id, angry] of this.angryDrivers) {
       if (Date.now() >= angry.until) {
         this.scene.remove(angry.root);
@@ -432,10 +570,10 @@ export class AmbientWorld {
       else this.applyCarDamage(instance, this.conditionOf(definition.id), timeMs);
     };
 
-    for (const item of PARKED_CARS) {
+    for (const item of PARKED_VEHICLES) {
       visit(item, 'parked', { x: item.position[0], y: item.position[1], z: item.position[2], yaw: item.yaw });
     }
-    for (const item of MOVING_CARS) visit(item, 'moving', sampleRoute(item.path, item.speed, item.phase, timeMs));
+    for (const item of MOVING_VEHICLES) visit(item, 'moving', this.trafficStates.get(item.id)?.pose);
     for (const item of PEDESTRIANS) visit(item, 'pedestrian', sampleRoute(item.path, item.speed, item.phase, timeMs, true));
   }
 
@@ -448,6 +586,7 @@ export class AmbientWorld {
     this.geometries.clear();
     this.materials.clear();
     this.vehicleConditions.clear();
+    this.trafficStates.clear();
     this.passengers.clear();
     this.pedestrianHealth.clear();
     this.deadPedestrians.clear();
@@ -457,5 +596,6 @@ export class AmbientWorld {
     }
     this.angryDrivers.clear();
     this.playerTargets.clear();
+    this.externalVehicles = () => [];
   }
 }

@@ -22,7 +22,7 @@
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=gameplay-v1"></script>
+  <script type="module" src="./js/main.js?v=motorcycles-v1"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -67,9 +67,9 @@
 
   <section id="welcome" class="welcome">
     <div class="welcome-card">
-      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.12.0</p>
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.13.0</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
-      <p>Su PC usa WASD, P per la pistola, E per guidare, F per salire come passeggero ed Esc per le impostazioni. Su telefono usa il joystick e i tasti AUTO o PASSEGGERO vicino a un veicolo. La chat si apre con Invio o toccando CHAT.</p>
+      <p>Su PC usa WASD, P per la pistola, E per guidare auto e moto, F per salire come passeggero ed Esc per le impostazioni. Su telefono usa il joystick e i tasti AUTO/MOTO o PASS. vicino a un veicolo. La chat si apre con Invio o toccando CHAT.</p>
 
       <label class="menu-field" for="player-name">
         Nome giocatore
@@ -177,7 +177,7 @@
   </section>
 
   <aside id="hud" class="hud" aria-live="off" hidden>
-    <div class="hud-top"><strong>FREE ROAM <small>v0.12.0</small></strong><span class="hud-actions"><button class="settings-open" type="button">Impostazioni</button><a href="../index.html">Esci</a></span></div>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.13.0</small></strong><span class="hud-actions"><button class="settings-open" type="button">Impostazioni</button><a href="../index.html">Esci</a></span></div>
     <dl>
       <div><dt>FPS</dt><dd id="fps">—</dd></div>
       <div><dt>Multiplayer</dt><dd id="network">Offline</dd></div>
@@ -206,7 +206,7 @@
   </aside>
 
   <div id="aim-reticle" class="aim-reticle" hidden aria-hidden="true"><span></span></div>
-  <div id="vehicle-prompt" class="vehicle-prompt" hidden>Premi E per guidare l'auto</div>
+  <div id="vehicle-prompt" class="vehicle-prompt" hidden>Premi E per guidare</div>
 
   <section id="global-chat" class="global-chat" aria-label="Chat globale" hidden>
     <div id="chat-messages" class="chat-messages" aria-live="polite" aria-relevant="additions"></div>

@@ -41,6 +41,12 @@ export const PARKED_CARS = Object.freeze([
   car('piazza-michelangelo-2', 44.4, -9.9, 251, 0, '#d1c4a5'),
 ]);
 
+export const PARKED_MOTORCYCLES = Object.freeze([
+  { ...car('moto-via-trinita', -13.2, viaY(19), 19, 0, '#292f39'), type: 'motorcycle' },
+  { ...car('moto-viale-1', -12.0, roadY(149), 149, 0, '#b73430'), type: 'motorcycle' },
+  { ...car('moto-piazza', 44.4, -9.9, 244, 0, '#d4c7a3'), type: 'motorcycle' },
+]);
+
 const vialeTraffic = [
   [-9.8, 116], [-9.8, 135], [-9.8, 150], [-9.8, 165], [-9.8, 180], [-9.8, 205],
   [-9.3, 210], [-8.5, 212], [-7.6, 210], [-7.2, 205],
@@ -55,6 +61,16 @@ export const MOVING_CARS = Object.freeze([
     path: [[4, 6], [4, 20], [4, 39], [5, 43], [6, 44], [7, 39],
       [7, 20], [7, 6], [6, 3], [5, 4]].map(([x, z]) => [x, viaY(z), z]) },
 ]);
+
+export const MOVING_MOTORCYCLES = Object.freeze([
+  { id: 'moto-traffico-viale', type: 'motorcycle', paint: '#264963', speed: 6.4,
+    phase: 0.78, path: vialeTraffic },
+  { id: 'moto-traffico-trinita', type: 'motorcycle', paint: '#ca5235', speed: 4.2,
+    phase: 0.68, path: MOVING_CARS[2].path },
+]);
+
+export const PARKED_VEHICLES = Object.freeze([...PARKED_CARS, ...PARKED_MOTORCYCLES]);
+export const MOVING_VEHICLES = Object.freeze([...MOVING_CARS, ...MOVING_MOTORCYCLES]);
 
 const rightWalk = [120, 135, 150, 165, 180, 195, 210]
   .map((z) => [-3.3, roadY(z) + 0.173, z]);
