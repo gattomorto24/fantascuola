@@ -56,25 +56,20 @@ export function plausibleHit(snapshot, victimPosition, world, victimInVehicle = 
 export class CombatState {
   constructor() {
     this.health = MAX_HEALTH;
-    this.respawnAt = 0;
     this.invulnerableUntil = 0;
   }
 
   hit(now = Date.now()) {
     if (this.health <= 0 || now < this.invulnerableUntil) return false;
     this.health = Math.max(0, this.health - PISTOL_DAMAGE);
-    if (this.health === 0) this.respawnAt = now + 2500;
-    else this.invulnerableUntil = now + 100;
+    if (this.health > 0) this.invulnerableUntil = now + 100;
     return true;
   }
 
-  readyToRespawn(now = Date.now()) {
-    return this.health === 0 && this.respawnAt > 0 && now >= this.respawnAt;
-  }
-
   respawn(now = Date.now()) {
+    if (this.health > 0) return false;
     this.health = MAX_HEALTH;
-    this.respawnAt = 0;
     this.invulnerableUntil = now + 1800;
+    return true;
   }
 }

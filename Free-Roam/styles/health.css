@@ -27,3 +27,43 @@
   .health-track { height: 9px; }
   .gameplay-active .hud { top: max(63px, calc(env(safe-area-inset-top) + 56px)); }
 }
+
+.death-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  background: #000;
+  color: #fff;
+  text-align: center;
+}
+.death-screen[hidden] { display: none; }
+.death-content { width: min(100%, 450px); }
+.death-content h2 {
+  margin: 0 0 32px;
+  color: #f24848;
+  font: 900 clamp(42px, 9vw, 80px)/1 system-ui, sans-serif;
+  letter-spacing: .08em;
+  text-shadow: 0 0 28px rgba(242, 72, 72, .3);
+}
+.death-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; }
+.death-actions a, .death-actions button {
+  min-width: 145px;
+  min-height: 52px;
+  display: inline-grid;
+  place-items: center;
+  padding: 12px 20px;
+  border: 2px solid #f24848;
+  border-radius: 9px;
+  font: 800 15px/1 system-ui, sans-serif;
+  letter-spacing: .06em;
+  text-decoration: none;
+  cursor: pointer;
+}
+.death-actions a { background: #000; color: #f24848; }
+.death-actions button { background: #f24848; color: #120303; }
+.death-actions a:hover, .death-actions a:focus-visible { background: #2b0909; }
+.death-actions button:hover, .death-actions button:focus-visible { background: #ff7777; }
+.death-actions button:disabled { opacity: .55; cursor: wait; }

@@ -28,15 +28,15 @@ test('il ricevente controlla distanza, bersaglio e ostacoli', () => {
   assert.equal(plausibleHit(shot, new THREE.Vector3(4, 0, -4), { raycastShot: () => null }), false);
 });
 
-test('quattro colpi tolgono 100 punti vita e il respawn protegge brevemente', () => {
+test('quattro colpi tolgono 100 punti vita; il rientro è manuale e protegge brevemente', () => {
   const state = new CombatState();
   for (let i = 0; i < 4; i += 1) assert.equal(state.hit(1000 + i * 400), true);
   assert.equal(state.health, 0);
   assert.equal(state.hit(3000), false);
-  assert.equal(state.readyToRespawn(4699), false);
-  assert.equal(state.readyToRespawn(4700), true);
-  state.respawn(4700);
+  assert.equal(state.health, 0);
+  assert.equal(state.respawn(4700), true);
   assert.equal(state.health, 100);
+  assert.equal(state.respawn(4701), false);
   assert.equal(state.hit(4800), false);
   assert.equal(state.hit(6500), true);
 });

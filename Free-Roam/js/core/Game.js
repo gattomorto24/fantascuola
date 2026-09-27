@@ -5,7 +5,7 @@ import { InputManager } from '../input/InputManager.js?v=chat-v1';
 import { WorldManager } from '../world/WorldManager.js?v=vehicle-v1';
 import { AvatarManager } from '../avatars/AvatarManager.js';
 import { Player } from '../player/Player.js?v=health-v1';
-import { CombatState, findPlayerHit, plausibleHit, SHOT_RANGE } from '../player/Combat.js';
+import { CombatState, findPlayerHit, plausibleHit, SHOT_RANGE } from '../player/Combat.js?v=death-v1';
 import { PlayerController } from '../player/PlayerController.js';
 import { VehicleController } from '../player/VehicleController.js?v=chat-v1';
 import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=health-v1';
@@ -70,6 +70,12 @@ export class Game {
     this.healthHud = document.getElementById('health-hud');
     this.healthFill = document.getElementById('health-fill');
     this.healthValue = document.getElementById('health-value');
+    this.deathScreen = document.getElementById('death-screen');
+    this.reenterButton = document.getElementById('death-reenter');
+    this.onReenter = () => {
+      if (this.combat.health === 0 && !this.respawning) void this.respawn();
+    };
+    this.reenterButton?.addEventListener('click', this.onReenter);
     this.respawning = false;
     this.disposed = false;
     this.controller = new PlayerController(this.player, this.world, settings.player);
@@ -100,13 +106,14 @@ export class Game {
         if (!this.multiplayer) return;
         this.multiplayer.continueOffline();
         this.disconnectScreen.hide();
-        this.input.setEnabled(true);
+        this.input.setEnabled(this.combat.health > 0);
       },
     });
 
     this.exitHoldTimer = null;
     this.onExitKeyDown = (event) => {
-      if (this.isTouchDevice || this.chat.active || event.code !== 'Escape' || this.exitHoldTimer) return;
+      if (this.isTouchDevice || this.chat.active || this.combat.health === 0
+        || event.code !== 'Escape' || this.exitHoldTimer) return;
       event.preventDefault();
       this.exitHoldTimer = setTimeout(() => {
         this.exitHoldTimer = null;
@@ -247,7 +254,7 @@ export class Game {
         this.hud.setNetwork(online, detail);
         if (online) {
           this.disconnectScreen.hide();
-          this.input.setEnabled(true);
+          this.input.setEnabled(this.combat.health > 0);
         }
       },
       (latency) => this.hud.setLatency(latency),
@@ -259,7 +266,7 @@ export class Game {
         },
         onRecovered: () => {
           this.disconnectScreen.hide();
-          this.input.setEnabled(true);
+          this.input.setEnabled(this.combat.health > 0);
         },
         onReconnectStart: () => {
           this.chat.close();
@@ -269,7 +276,7 @@ export class Game {
         onOffline: () => {
           this.chat.close();
           this.disconnectScreen.hide();
-          this.input.setEnabled(true);
+          this.input.setEnabled(this.combat.health > 0);
         },
         getVehicleState: () => ({
           vehicleId: this.vehicle?.vehicleId,
@@ -393,7 +400,6 @@ export class Game {
       this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
       this.world.updateAmbient(delta, this.player.root.position, Date.now() + (this.multiplayer?.serverTimeOffset || 0));
       this.followCamera.update(delta, { cameraX: controls.cameraX, cameraY: controls.cameraY, zoom: controls.zoom }, this.player.root.position);
-      if (this.combat.readyToRespawn() && !this.respawning) void this.respawn();
       this.multiplayer?.update(delta);
       this.hud.update(delta, this.player, this.remotes.size);
       this.updateAdaptiveResolution(delta);
@@ -488,6 +494,9 @@ export class Game {
     void this.healthHud?.offsetWidth;
     this.healthHud?.classList.add('health-hit');
     if (this.combat.health === 0) {
+      this.cancelExitHold();
+      this.input.setEnabled(false);
+      this.chat.setEnabled(false);
       if (this.vehicle?.driving) this.vehicle.exit();
       this.input.setDriving(false);
       this.player.weapon.setDrawn(false);
@@ -495,12 +504,19 @@ export class Game {
       this.input.setWeaponDrawn(false);
       this.player.root.visible = false;
       this.controller.velocity.set(0, 0, 0);
+      if (this.deathScreen) this.deathScreen.hidden = false;
+      this.reenterButton?.focus();
     }
     this.multiplayer?.sendStateNow();
   }
 
   async respawn() {
+    if (this.respawning || this.combat.health > 0 || this.disposed) return;
     this.respawning = true;
+    if (this.reenterButton) {
+      this.reenterButton.disabled = true;
+      this.reenterButton.textContent = 'RIENTRO…';
+    }
     let spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
     try {
       await this.world.ensureAt(spawn[0], spawn[2]);
@@ -518,7 +534,14 @@ export class Game {
       this.combat.respawn();
       this.player.health = this.combat.health;
       this.updateHealthHud();
+      if (this.deathScreen) this.deathScreen.hidden = true;
+      this.chat.setEnabled(true);
+      this.input.setEnabled(Boolean(this.multiplayer?.online || this.multiplayer?.offlineMode));
       this.multiplayer?.sendStateNow();
+    }
+    if (this.reenterButton) {
+      this.reenterButton.disabled = false;
+      this.reenterButton.textContent = 'RIENTRA';
     }
     this.respawning = false;
   }
@@ -544,6 +567,8 @@ export class Game {
     if (this.aimReticle) this.aimReticle.hidden = true;
     if (this.vehiclePrompt) this.vehiclePrompt.hidden = true;
     if (this.healthHud) this.healthHud.hidden = true;
+    if (this.deathScreen) this.deathScreen.hidden = true;
+    this.reenterButton?.removeEventListener('click', this.onReenter);
     document.body.classList.remove('gameplay-active', 'network-disconnected');
     this.disconnectScreen.hide();
     this.input.dispose();
