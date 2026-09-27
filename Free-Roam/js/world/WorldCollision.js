@@ -40,6 +40,7 @@ export class WorldCollision {
     this.globalIndices = [];
     this.groundCache = new Map();
     this.roots = new Map();
+    this.activeMeshes = new Set();
     this.ready = false;
   }
 
@@ -49,6 +50,7 @@ export class WorldCollision {
     this.globalIndices.length = 0;
     this.groundCache.clear();
     this.roots.clear();
+    this.activeMeshes.clear();
     this.ready = false;
   }
 
@@ -65,7 +67,10 @@ export class WorldCollision {
 
     for (let i = 0; i < meshes.length; i += 1) {
       const proxy = this.proxyFor(meshes[i]);
-      if (proxy) this.indexProxy(this.proxies.push(proxy) - 1, proxy);
+      if (proxy) {
+        this.indexProxy(this.proxies.push(proxy) - 1, proxy);
+        this.activeMeshes.add(proxy.mesh);
+      }
 
       if (i % 80 === 0) {
         onProgress(i / total);
@@ -113,6 +118,7 @@ export class WorldCollision {
       if (proxy) {
         meshes.push(node);
         this.indexProxy(this.proxies.push(proxy) - 1, proxy);
+        this.activeMeshes.add(node);
       }
     });
     this.roots.set(root, meshes);
@@ -124,6 +130,7 @@ export class WorldCollision {
     const meshes = this.roots.get(root);
     if (!meshes) return;
     const removed = new Set(meshes);
+    for (const mesh of removed) this.activeMeshes.delete(mesh);
     this.roots.delete(root);
     this.proxies = this.proxies.filter((proxy) => !removed.has(proxy.mesh));
     this.cells.clear();

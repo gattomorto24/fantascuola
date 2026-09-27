@@ -130,16 +130,18 @@ class TileWriter {
     this.x = x; this.z = z; this.tempDir = tempDir;
     this.groups = new Map();
   }
-  group(material) {
-    if (!this.groups.has(material)) this.groups.set(material, {
-      file: join(this.tempDir, `${this.x}_${this.z}_${material}.bin`),
+  group(material, noClimb = false) {
+    const key = `${material}:${Number(noClimb)}`;
+    if (!this.groups.has(key)) this.groups.set(key, {
+      material, noClimb,
+      file: join(this.tempDir, `${this.x}_${this.z}_${material}_${Number(noClimb)}.bin`),
       buffer: Buffer.allocUnsafe(CHUNK_VERTICES * VERTEX_FLOATS * 4), count: 0, total: 0,
       min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity],
     });
-    return this.groups.get(material);
+    return this.groups.get(key);
   }
-  async write(material, vertices) {
-    const group = this.group(material);
+  async write(material, vertices, noClimb = false) {
+    const group = this.group(material, noClimb);
     for (const vertex of vertices) {
       const offset = group.count * VERTEX_FLOATS * 4;
       for (let i = 0; i < VERTEX_FLOATS; i += 1) group.buffer.writeFloatLE(vertex[i], offset + i * 4);
@@ -252,12 +254,21 @@ async function build() {
     const scene = doc.scenes?.[doc.scene || 0];
     if (!scene) throw new Error('Scena GLB assente.');
     let triangleCount = 0;
-    async function traverse(index, parent) {
+    async function traverse(index, parent, inheritedNoClimb = false) {
       const node = doc.nodes[index];
       const matrix = matrixMultiply(parent, nodeMatrix(node));
       const flipWinding = determinant3(matrix) < 0;
+      const nodeNoClimb = inheritedNoClimb || node.extras?.noClimb === true
+        || node.extras?.climbable === false || node.extras?.parkour === false;
       if (Number.isInteger(node.mesh)) {
         for (const primitive of doc.meshes[node.mesh].primitives || []) {
+          const materialFlags = sourceMaterials[primitive.material]?.extras;
+          const meshFlags = doc.meshes[node.mesh].extras;
+          const noClimb = nodeNoClimb || meshFlags?.noClimb === true
+            || meshFlags?.climbable === false || meshFlags?.parkour === false
+            || primitive.extras?.noClimb === true || primitive.extras?.climbable === false
+            || primitive.extras?.parkour === false || materialFlags?.noClimb === true
+            || materialFlags?.climbable === false || materialFlags?.parkour === false;
           if (primitive.extensions || (primitive.mode !== undefined && primitive.mode !== 4)) throw new Error('Primitive compresse o non triangolari non supportate.');
           const position = await accessor(primitive.attributes.POSITION);
           const normal = Number.isInteger(primitive.attributes.NORMAL) ? await accessor(primitive.attributes.NORMAL) : null;
@@ -326,20 +337,20 @@ async function build() {
               if (!clipped.length) continue;
               const key = `${x}:${z}`;
               if (!tiles.has(key)) tiles.set(key, new TileWriter(x, z, tempDir));
-              await tiles.get(key).write(material, clipped);
+              await tiles.get(key).write(material, clipped, noClimb);
             }
             triangleCount += 1;
           }
         }
       }
-      for (const child of node.children || []) await traverse(child, matrix);
+      for (const child of node.children || []) await traverse(child, matrix, nodeNoClimb);
     }
     for (const node of scene.nodes || []) await traverse(node, rootMatrix);
     if (!tiles.size) throw new Error('La mappa non contiene triangoli visibili.');
     const manifestTiles = [];
     for (const tile of tiles.values()) {
       const chunks = [];
-      const views = [], accessors = [], primitives = [], materials = [], textures = [], imageDefs = [];
+      const views = [], accessors = [], primitives = [], noClimbPrimitives = [], materials = [], textures = [], imageDefs = [];
       let cursor = 0;
       const append = (bytes) => {
         const offset = cursor;
@@ -348,7 +359,8 @@ async function build() {
         if (cursor % 4) { const padding = Buffer.alloc(4 - cursor % 4); chunks.push(padding); cursor += padding.length; }
         return offset;
       };
-      for (const [sourceIndex, group] of tile.groups) {
+      for (const group of tile.groups.values()) {
+        const sourceIndex = group.material;
         await tile.flush(group);
         const geometry = await readFile(group.file);
         const geometryOffset = append(geometry);
@@ -384,12 +396,18 @@ async function build() {
           material.pbrMetallicRoughness.baseColorTexture = { index: textureIndex };
         }
         const materialIndex = materials.push(material) - 1;
-        primitives.push({ attributes, material: materialIndex, mode: 4 });
+        (group.noClimb ? noClimbPrimitives : primitives).push({ attributes, material: materialIndex, mode: 4 });
         await rm(group.file, { force: true });
       }
       const bin = Buffer.concat(chunks, cursor);
+      const meshes = [], nodes = [];
+      if (primitives.length) { nodes.push({ mesh: meshes.length }); meshes.push({ primitives }); }
+      if (noClimbPrimitives.length) {
+        nodes.push({ mesh: meshes.length, extras: { noClimb: true } });
+        meshes.push({ primitives: noClimbPrimitives });
+      }
       const tileDoc = { asset: { version: '2.0', generator: 'FantaScuola mobile map builder' }, scene: 0,
-        scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }], meshes: [{ primitives }],
+        scenes: [{ nodes: nodes.map((_, index) => index) }], nodes, meshes,
         buffers: [{ byteLength: bin.length }], bufferViews: views, accessors, materials,
         ...(imageDefs.length ? { images: imageDefs, textures, samplers: doc.samplers || [] } : {}),
         ...(materials.some((material) => material.extensions?.KHR_materials_unlit) ? { extensionsUsed: ['KHR_materials_unlit'] } : {}),

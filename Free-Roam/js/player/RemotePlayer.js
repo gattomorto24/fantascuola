@@ -17,7 +17,7 @@ export class RemotePlayer extends Player {
   applySnapshot(snapshot) {
     this.targetPosition.set(snapshot.position.x, snapshot.position.y, snapshot.position.z);
     this.targetRotation = snapshot.rotation;
-    this.movementState = snapshot.movementState;
+    this.movementState = snapshot.parkourState || snapshot.movementState;
     this.setName(snapshot.displayName);
     this.lastSeen = performance.now();
     this.weapon.setDrawn(snapshot.weaponDrawn === true);

@@ -2,17 +2,17 @@ import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
 import { InputManager } from '../input/InputManager.js?v=motorcycles-v1';
-import { WorldManager } from '../world/WorldManager.js?v=tiles-v2';
-import { AvatarManager } from '../avatars/AvatarManager.js';
+import { WorldManager } from '../world/WorldManager.js?v=parkour-v1';
+import { AvatarManager } from '../avatars/AvatarManager.js?v=parkour-v1';
 import { Player } from '../player/Player.js?v=gameplay-v1';
 import { CombatState, findPlayerHit, plausibleHit, PISTOL_DAMAGE, SHOT_RANGE } from '../player/Combat.js?v=gameplay-v1';
 import { WantedState } from '../world/WantedState.js';
 import { PoliceSystem } from '../world/PoliceSystem.js?v=motorcycles-v1';
-import { PlayerController } from '../player/PlayerController.js';
+import { PlayerController } from '../player/PlayerController.js?v=parkour-v1';
 import { VehicleController } from '../player/VehicleController.js?v=motorcycles-v1';
-import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=gameplay-v1';
+import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=parkour-v1';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js?v=vehicle-v1';
-import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=gameplay-v1';
+import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=parkour-v1';
 import { DebugHud } from '../ui/DebugHud.js';
 import { GlobalChat } from '../ui/GlobalChat.js';
 import { DisconnectScreen } from '../ui/DisconnectScreen.js';
@@ -484,6 +484,7 @@ export class Game {
     if (wasDriving !== this.vehicle.riding) {
       this.controller.velocity.set(0, 0, 0);
       this.controller.grounded = true;
+      this.controller.parkour.reset();
     }
     this.input.setDriving(this.vehicle.riding);
     this.input.setWeaponDrawn(this.player.weapon.drawn);
@@ -647,6 +648,7 @@ export class Game {
       this.player.root.visible = false;
       if (this.vehicleHealthHud) this.vehicleHealthHud.hidden = true;
       this.controller.velocity.set(0, 0, 0);
+      this.controller.parkour.reset();
       if (this.deathScreen) this.deathScreen.hidden = false;
       this.reenterButton?.focus();
     }
@@ -673,6 +675,7 @@ export class Game {
       this.player.root.position.set(...spawn);
       this.controller.velocity.set(0, 0, 0);
       this.controller.grounded = true;
+      this.controller.parkour.reset();
       this.player.root.visible = true;
       this.combat.respawn();
       this.player.health = this.combat.health;
@@ -720,6 +723,7 @@ export class Game {
     await this.multiplayer?.disconnect();
     this.remotes.clear();
     this.player.dispose();
+    this.controller.parkour.dispose();
     this.police.dispose();
     this.world.dispose();
     this.renderer.dispose();

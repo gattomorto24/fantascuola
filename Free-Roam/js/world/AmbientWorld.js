@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createPixelAvatar } from '../avatars/PixelAvatarRenderer.js';
+import { createPixelAvatar } from '../avatars/PixelAvatarRenderer.js?v=parkour-v1';
 import { MOVING_VEHICLES, PARKED_VEHICLES, PEDESTRIANS, sampleRoute } from './AmbientMapData.js?v=motorcycles-v1';
 
 const GLASS = '#263d48';
@@ -185,6 +185,7 @@ export class AmbientWorld {
     instance.colliderRegistered = false;
     if (kind !== 'pedestrian' && !this.drivers.has(definition.id)
       && (kind === 'parked' || this.vehicleStates.has(definition.id))) {
+      instance.collider.userData.noClimb = true;
       this.collision.add(instance.collider);
       instance.colliderRegistered = true;
     }
@@ -563,6 +564,7 @@ export class AmbientWorld {
       if (kind === 'pedestrian') instance.root.rotation.x = dead ? -Math.PI / 2 : 0;
       if (shouldCollide && !instance.colliderRegistered) {
         instance.root.updateMatrixWorld(true);
+        instance.collider.userData.noClimb = true;
         this.collision.add(instance.collider);
         instance.colliderRegistered = true;
       }

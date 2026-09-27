@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { loadGLB } from '../assets/GLBLoader.js';
 import { assetUrl } from '../config/paths.js';
-import { createPixelAvatar } from './PixelAvatarRenderer.js';
+import { createPixelAvatar } from './PixelAvatarRenderer.js?v=parkour-v1';
 import { normalizePixelAvatarConfig } from './AvatarConfig.js';
 
 const registry = new Map([['default', { id: 'default', name: 'Default / Placeholder', modelPath: null, thumbnail: null, animations: {} }]]);

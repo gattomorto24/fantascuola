@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { MapLoader } from './MapLoader.js';
-import { WorldCollision } from './WorldCollision.js';
+import { WorldCollision } from './WorldCollision.js?v=parkour-v1';
 import { settings } from '../config/settings.js';
 import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=tiles-v2';
 import { mobileManifestUrl } from './MobileManifest.js';
-import { AmbientWorld } from './AmbientWorld.js?v=motorcycles-v1';
+import { AmbientWorld } from './AmbientWorld.js?v=parkour-v1';
 import { matchesAmbientMap } from './AmbientMapData.js?v=motorcycles-v1';
 
 export class WorldManager {

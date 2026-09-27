@@ -1,5 +1,24 @@
 # FantaScuola Free Roam
 
+## Parkour automatico
+
+Durante un salto o una caduta il controller cerca pareti vicine e verifica con
+raycast il piano sopra il bordo. Un bordo reale ha sempre priorità sulla
+scalata della parete; su una parete continua senza bordo il giocatore si
+aggancia e sale tenendo avanti. I raycast usano l'indice collisioni della
+mappa e partono solo quando il personaggio è in aria o sta scalando.
+
+Da un bordo: avanti o Salto sale sul tetto se c'è spazio; sinistra/destra
+segue il bordo; Salto più laterale tenta un salto corto; indietro più Salto
+si stacca dalla parete. Durante la scalata fallback, avanti sale, laterale
+attraversa, Salto più avanti cerca un appiglio più alto e Salto più laterale
+prova una presa adiacente. I controlli sono gli stessi su PC e telefono.
+
+Le mesh con `userData.noClimb = true`, `userData.climbable = false` oppure
+`userData.parkour = false` sono escluse. Per visualizzare raggi, normali,
+traiettoria, candidati, target e score aggiungere `?parkourDebug=1` all'URL
+di Free Roam. Senza il parametro non vengono creati oggetti di debug.
+
 ## Mappe mobile a zone
 
 Il desktop usa il GLB originale. Il telefono usa un manifest e GLB per zona,

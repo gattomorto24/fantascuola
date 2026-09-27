@@ -331,6 +331,8 @@ export function createPixelAvatar(configInput = DEFAULT_PIXEL_AVATAR) {
     const running = state === 'Running';
     const walking = state === 'Walking';
     const jumping = state === 'Jumping';
+    const hanging = state === 'LEDGE_GRAB' || state === 'HANGING' || state === 'SHIMMY';
+    const climbing = state === 'FALLBACK_GRAB' || state === 'FALLBACK_CLIMB' || state === 'CLIMB_UP';
     const moving = running || walking;
     const rate = running ? 12 : walking ? 7.8 : 2;
 
@@ -365,6 +367,18 @@ export function createPixelAvatar(configInput = DEFAULT_PIXEL_AVATAR) {
     body.position.y = jumping
       ? 0
       : Math.sin(phase * 0.5) * (moving ? 0.012 : 0.006);
+    if (hanging || climbing) {
+      const cycle = climbing || state === 'SHIMMY' ? Math.sin(phase * 1.6) : 0;
+      leftArm.rotation.x = -2.25 + cycle * 0.18;
+      rightArm.rotation.x = -2.25 - cycle * 0.18;
+      leftForearm.rotation.x = -0.3;
+      rightForearm.rotation.x = -0.3;
+      leftLeg.rotation.x = climbing ? 0.35 + cycle * 0.28 : 0.22;
+      rightLeg.rotation.x = climbing ? 0.35 - cycle * 0.28 : 0.22;
+      leftShin.rotation.x = climbing ? -0.28 : 0;
+      rightShin.rotation.x = climbing ? -0.28 : 0;
+      body.position.y = 0;
+    }
   };
 
   return {

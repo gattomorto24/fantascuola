@@ -34,6 +34,7 @@ function validSnapshot(snapshot) {
   if (!snapshot.position || !validNumber(snapshot.position.x) || !validNumber(snapshot.position.y) || !validNumber(snapshot.position.z)) return false;
   if (!Number.isFinite(snapshot.rotation)) return false;
   if (!['Idle', 'Walking', 'Running', 'Jumping'].includes(snapshot.movementState)) return false;
+  if (snapshot.parkourState !== undefined && !['LEDGE_GRAB', 'HANGING', 'SHIMMY', 'CLIMB_UP', 'FALLBACK_GRAB', 'FALLBACK_CLIMB'].includes(snapshot.parkourState)) return false;
   if (!Number.isFinite(snapshot.timestamp)) return false;
   if (snapshot.mapVersion !== undefined && (typeof snapshot.mapVersion !== 'string' || snapshot.mapVersion.length > 128)) return false;
   if (snapshot.weaponDrawn !== undefined && typeof snapshot.weaponDrawn !== 'boolean') return false;

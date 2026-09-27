@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ParkourController } from './ParkourController.js';
 
 const direction = new THREE.Vector3();
 const forward = new THREE.Vector3();
@@ -12,6 +13,7 @@ export class PlayerController {
     this.config = config;
     this.velocity = new THREE.Vector3();
     this.grounded = true;
+    this.parkour = new ParkourController(this, world);
   }
 
   update(delta, input, cameraYaw) {
@@ -21,6 +23,8 @@ export class PlayerController {
     right.set(Math.cos(cameraYaw), 0, -Math.sin(cameraYaw));
     direction.copy(forward).multiplyScalar(input.moveY).addScaledVector(right, input.moveX);
     if (direction.lengthSq() > 1) direction.normalize();
+
+    if (this.parkour.update(delta, input)) return;
 
     const moving = direction.lengthSq() > 0;
     const speed = input.sprint ? config.runSpeed : config.walkSpeed;
@@ -80,6 +84,7 @@ export class PlayerController {
 
     // Evita di perdere il player sotto una mappa con buchi reali.
     if (player.root.position.y < config.respawnY) {
+      this.parkour.reset();
       const spawn = this.world.spawn;
       player.root.position.set(spawn[0], spawn[1], spawn[2]);
       const spawnGround = this.world.groundHeightAt(spawn[0], spawn[2], spawn[1], 3, 20);
@@ -102,6 +107,12 @@ export class PlayerController {
       : moving
         ? input.sprint ? 'Running' : 'Walking'
         : 'Idle';
+
+    if (!this.grounded && this.parkour.tryAcquire(delta, input, direction, cameraYaw)) {
+      player.movementState = this.parkour.state;
+    } else if (this.grounded && this.parkour.state !== 'GROUND') {
+      this.parkour.transition('GROUND', null);
+    }
 
     player.updateVisual(delta);
   }

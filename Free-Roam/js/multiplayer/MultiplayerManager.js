@@ -2,6 +2,7 @@ import { WebSocketTransport } from './WebSocketTransport.js';
 import { isPixelAvatarConfig } from '../avatars/AvatarConfig.js';
 
 const STATES = new Set(['Idle', 'Walking', 'Running', 'Jumping']);
+const PARKOUR_STATES = new Set(['LEDGE_GRAB', 'HANGING', 'SHIMMY', 'CLIMB_UP', 'FALLBACK_GRAB', 'FALLBACK_CLIMB']);
 const AVATAR_REF = /^(default|pixel|published:[0-9a-f-]{36})$/i;
 const validNumber = (value) => Number.isFinite(value) && Math.abs(value) < 100000;
 const validVehicleState = (state) => state && typeof state.id === 'string' && state.id.length <= 64
@@ -29,6 +30,7 @@ export function validSnapshot(value, maxAge = 60000) {
     typeof value.avatarId === 'string' && (AVATAR_REF.test(value.avatarId) || value.avatarId.length <= 160) &&
     value.position && validNumber(value.position.x) && validNumber(value.position.y) && validNumber(value.position.z) &&
     validNumber(value.rotation) && STATES.has(value.movementState) &&
+    (value.parkourState === undefined || PARKOUR_STATES.has(value.parkourState)) &&
     Number.isFinite(value.timestamp) && Math.abs(Date.now() - value.timestamp) < maxAge
     && (value.mapVersion === undefined || (typeof value.mapVersion === 'string' && value.mapVersion.length <= 128))
     && (value.weaponDrawn === undefined || typeof value.weaponDrawn === 'boolean')
@@ -98,7 +100,7 @@ export class MultiplayerManager {
         : { type: p.avatarId, version: 1 },
       position: { x: p.root.position.x, y: p.root.position.y, z: p.root.position.z },
       rotation: p.root.rotation.y,
-      movementState: p.movementState,
+      movementState: p.parkourState ? 'Jumping' : p.movementState,
       timestamp: Date.now(),
       mapVersion: this.mapVersion,
       weaponDrawn: p.weapon?.drawn || false,
@@ -106,6 +108,7 @@ export class MultiplayerManager {
       shotId: p.weapon?.shotId || 0,
       health: p.health ?? 100,
     };
+    if (p.parkourState) snapshot.parkourState = p.parkourState;
     if (p.weapon?.shotTarget) snapshot.shotTarget = p.weapon.shotTarget;
     if (p.weapon?.shotOrigin) snapshot.shotOrigin = p.weapon.shotOrigin;
     if (p.weapon?.shotVictimId) snapshot.shotVictimId = p.weapon.shotVictimId;

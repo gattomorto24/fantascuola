@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createPixelAvatar } from './PixelAvatarRenderer.js';
+import { createPixelAvatar } from './PixelAvatarRenderer.js?v=parkour-v1';
 import { DEFAULT_PIXEL_AVATAR, PIXEL_AVATAR_OPTIONS, normalizePixelAvatarConfig, pixelAvatarLabel } from './AvatarConfig.js';
 
 const ORDER = ['skinTone', 'hairVariant', 'hairColor', 'eyeColor', 'shirtPrimaryColor', 'shirtSecondaryColor', 'shirtPattern', 'pantsColor', 'pantsLength', 'shoeVariant', 'bodyType', 'heightType'];
