@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { NameTag } from './NameTag.js';
 import { settings } from '../config/settings.js';
-import { Pistol } from './Pistol.js?v=health-v1';
+import { Pistol } from './Pistol.js?v=gameplay-v1';
 
 export class Player {
   constructor(scene, avatars, remote = false) {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Player } from './Player.js?v=health-v1';
+import { Player } from './Player.js?v=gameplay-v1';
 
 export class RemotePlayer extends Player {
   constructor(scene, avatars, id, config) {

@@ -3,8 +3,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { validateMobileManifest } from './MobileManifest.js';
 
 const loader = new GLTFLoader();
-const TILE_RADIUS = 1;
-const KEEP_RADIUS = 1;
 
 function tileKey(x, z) { return `${x}:${z}`; }
 
@@ -43,6 +41,8 @@ export class StreamedMap {
     this.queue = [];
     this.active = 0;
     this.maxConcurrent = options.maxConcurrent || 1;
+    this.tileRadius = 1;
+    this.anisotropy = 1;
     // WebKit requires Window.fetch to be called with Window as its receiver.
     this.fetcher = options.fetcher || ((...args) => globalThis.fetch(...args));
     this.parse = options.parse || ((bytes) => loader.parseAsync(bytes, this.baseUrl.href));
@@ -138,6 +138,7 @@ export class StreamedMap {
         return;
       }
       root.updateMatrixWorld(true);
+      this.applyTextureQuality(root);
       this.scene.add(root);
       this.collision.add(root);
       this.loaded.set(job.key, root);
@@ -175,6 +176,7 @@ export class StreamedMap {
     for (let distance = 0; distance <= radius * 2; distance += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
         for (let dz = -radius; dz <= radius; dz += 1) {
+          if (radius > 1 && Math.abs(dx) + Math.abs(dz) > radius) continue;
           if (Math.abs(dx) + Math.abs(dz) !== distance) continue;
           const key = tileKey(cx + dx, cz + dz);
           if (this.tiles.has(key)) result.push(key);
@@ -182,6 +184,32 @@ export class StreamedMap {
       }
     }
     return result;
+  }
+
+  applyTextureQuality(root) {
+    root.traverse((node) => {
+      for (const material of (Array.isArray(node.material) ? node.material : [node.material])) {
+        if (!material) continue;
+        for (const value of Object.values(material)) {
+          if (value?.isTexture && value.anisotropy !== this.anisotropy) {
+            value.anisotropy = this.anisotropy;
+            value.needsUpdate = true;
+          }
+        }
+      }
+    });
+  }
+
+  setQuality(anisotropy) {
+    this.anisotropy = anisotropy;
+    for (const root of this.loaded.values()) this.applyTextureQuality(root);
+  }
+
+  setTileRadius(radius) {
+    const next = Math.max(1, Math.min(2, Math.round(radius)));
+    if (next === this.tileRadius) return;
+    this.tileRadius = next;
+    this.center = null;
   }
 
   async start(x, z) {
@@ -222,10 +250,9 @@ export class StreamedMap {
     }
     this.center = tileKey(cx, cz);
     this.lastRecheck = Date.now();
-    const wanted = new Set(this.nearbyKeys(cx, cz, TILE_RADIUS));
+    const wanted = new Set(this.nearbyKeys(cx, cz, this.tileRadius));
     for (const key of [...this.loaded.keys(), ...this.pending.keys()]) {
-      const [tx, tz] = key.split(':').map(Number);
-      if (Math.max(Math.abs(tx - cx), Math.abs(tz - cz)) > KEEP_RADIUS) this.unload(key);
+      if (!wanted.has(key)) this.unload(key);
     }
     for (const key of wanted) {
       if ((this.failures.get(key)?.count || 0) < 3) this.request(key).catch(this.onError);

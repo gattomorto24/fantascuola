@@ -139,6 +139,12 @@ test('valida snapshot e configurazione avatar pixel', () => {
   assert.equal(validSnapshot({ ...state, shotVictimId: '<'.repeat(121) }), false);
   assert.equal(validSnapshot({ ...state, health: 101 }), false);
   assert.equal(validSnapshot({ ...state, vehicleId: 42 }), false);
+  assert.equal(validSnapshot({ ...state, vehicleRole: 'pilot' }), false);
+  assert.equal(validSnapshot({ ...state, vehicleCondition: 101 }), false);
+  assert.equal(validSnapshot({ ...state, wanted: 6 }), false);
+  assert.equal(validSnapshot({ ...state, policePose: { x: Infinity, y: 0, z: 0, yaw: 0 } }), false);
+  assert.equal(validSnapshot({ ...state, npcStates: [{ id: 'npc', until: Date.now() + 10000,
+    x: 0, y: 0, z: 0, yaw: 0 }] }), true);
   assert.equal(validSnapshot({ ...state, vehicleStates: [{ id: 'auto', pose: { x: Infinity, y: 0, z: 0, yaw: 0 },
     revision: 1, author: 'a' }] }), false);
   assert.equal(validSnapshot({ ...state, chat: { id: 1, text: '<script>', at: Date.now() } }), false);
@@ -172,6 +178,27 @@ test('il danno arriva una volta per colpo e non viene ripetuto dalla snapshot in
   assert.deepEqual(hits, [4]);
   manager.receiveMessage({ type: 'state', player: { ...enemy, shotId: 5, mapVersion: 'other-map' } });
   assert.deepEqual(hits, [4]);
+});
+
+test('passeggeri, condizione auto, NPC e polizia viaggiano nello stesso snapshot crossplay', () => {
+  const received = [];
+  const manager = new MultiplayerManager(null, { userId: 'local', displayName: 'Tony' }, player(), remotes(),
+    { serverUrl: 'wss://test/room/main' }, () => {}, () => {}, {
+      getVehicleState: () => ({ vehicleId: 'via-trinita-1', vehicleRole: 'passenger',
+        vehicleCondition: 42, npcStates: [{ id: 'passante-viale-est-1',
+          until: Date.now() + 60000, x: 1, y: 2, z: 3, yaw: 0 }],
+        wanted: 3, policePose: { x: 4, y: 0, z: 5, yaw: 1 } }),
+      onVehicleSnapshot: (snapshot) => received.push(snapshot),
+    }, 'map-a');
+  const local = manager.snapshot();
+  assert.equal(validSnapshot(local), true);
+  assert.equal(local.vehicleRole, 'passenger');
+  assert.equal(local.vehicleCondition, 42);
+  assert.equal(local.npcStates.length, 1);
+  assert.equal(local.wanted, 3);
+  manager.receiveMessage({ type: 'state', player: { ...local, playerId: 'remote' } });
+  assert.equal(received.length, 1);
+  assert.equal(received[0].policePose.x, 4);
 });
 
 test('il pong sincronizza il tempo del traffico senza cambiare il protocollo dei giocatori', () => {

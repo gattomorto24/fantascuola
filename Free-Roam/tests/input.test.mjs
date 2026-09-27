@@ -98,7 +98,7 @@ test('setEnabled blocca input durante overlay di disconnessione', () => {
     canvas.dispatchEvent(pointer('pointerdown', 1, 10, 10));
     canvas.dispatchEvent(pointer('pointermove', 1, 40, 50));
     assert.deepEqual({ ...input.read() }, { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0,
-      zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, exitVehicle: false });
+      zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, passenger: false, exitVehicle: false });
     assert.equal(root.hidden, true);
     input.dispose();
   } finally {
@@ -160,12 +160,15 @@ test('E entra o esce dall’auto e sul telefono Salto diventa ESCI', () => {
   try {
     const canvas = new Element();
     const root = new Element();
-    const parts = Object.fromEntries(['move-pad', 'move-thumb', 'touch-jump', 'touch-weapon', 'touch-vehicle']
+    const parts = Object.fromEntries(['move-pad', 'move-thumb', 'touch-jump', 'touch-weapon', 'touch-vehicle', 'touch-passenger']
       .map((id) => [id, new Element()]));
     root.querySelector = (selector) => parts[selector.slice(1)];
     const input = new InputManager(canvas, root);
     input.setVehicleAvailable(true);
     assert.equal(parts['touch-vehicle'].hidden, false);
+    assert.equal(parts['touch-passenger'].hidden, false);
+    parts['touch-passenger'].dispatchEvent(pointer('pointerdown', 12, 0, 0));
+    assert.equal(input.read().passenger, true);
     parts['touch-vehicle'].dispatchEvent(pointer('pointerdown', 10, 0, 0));
     assert.equal(input.read().interact, true);
     input.setDriving(true);

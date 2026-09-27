@@ -12,11 +12,27 @@
 .touch-pad,
 .touch-jump,
 .touch-weapon,
-.touch-vehicle {
+.touch-vehicle,
+.touch-passenger {
   pointer-events: auto;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
+.touch-passenger {
+  position: absolute;
+  right: max(110px, calc(env(safe-area-inset-right) + 92px));
+  bottom: max(206px, calc(env(safe-area-inset-bottom) + 187px));
+  width: 62px;
+  height: 62px;
+  border: 2px solid #d7e8ff;
+  border-radius: 50%;
+  background: rgba(39, 71, 105, .88);
+  color: white;
+  font: 900 11px/1 system-ui, sans-serif;
+  pointer-events: auto;
+  touch-action: none;
+}
+.touch-passenger[hidden] { display: none; }
 
 .touch-pad {
   position: absolute;
@@ -262,6 +278,13 @@
     width: 52px;
     height: 52px;
     font-size: 10px;
+  }
+  .touch-passenger {
+    right: max(91px, calc(env(safe-area-inset-right) + 73px));
+    bottom: max(166px, calc(env(safe-area-inset-bottom) + 153px));
+    width: 52px;
+    height: 52px;
+    font-size: 9px;
   }
   .hud dl > div:nth-child(n+4) { display: none; }
 }

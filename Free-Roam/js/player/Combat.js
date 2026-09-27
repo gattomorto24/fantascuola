@@ -60,8 +60,13 @@ export class CombatState {
   }
 
   hit(now = Date.now()) {
+    return this.damage(PISTOL_DAMAGE, now);
+  }
+
+  damage(amount, now = Date.now()) {
     if (this.health <= 0 || now < this.invulnerableUntil) return false;
-    this.health = Math.max(0, this.health - PISTOL_DAMAGE);
+    if (!(amount > 0)) return false;
+    this.health = Math.max(0, this.health - Math.round(amount));
     if (this.health > 0) this.invulnerableUntil = now + 100;
     return true;
   }

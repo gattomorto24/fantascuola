@@ -15,6 +15,7 @@ export class Pistol {
     this.shotTarget = null;
     this.shotOrigin = null;
     this.shotVictimId = null;
+    this.shotNpcId = null;
     this.cooldown = 0;
     this.recoil = 0;
     this.group = null;
@@ -74,7 +75,7 @@ export class Pistol {
     this.aiming = this.drawn && Boolean(value);
   }
 
-  fireTo(target, { local = false, origin = null, victimId = null } = {}) {
+  fireTo(target, { local = false, origin = null, victimId = null, npcId = null } = {}) {
     if (!this.drawn || !Array.isArray(target) || target.length !== 3 || !target.every(Number.isFinite)) return false;
     if (local && this.cooldown > 0) return false;
     this.build();
@@ -100,6 +101,7 @@ export class Pistol {
       this.shotTarget = [...target];
       this.shotOrigin = origin ? [...origin] : null;
       this.shotVictimId = victimId;
+      this.shotNpcId = npcId;
     }
     return true;
   }

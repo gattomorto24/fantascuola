@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { MapLoader } from './MapLoader.js';
 import { WorldCollision } from './WorldCollision.js';
 import { settings } from '../config/settings.js';
-import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=mobile-tiles-v2';
+import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=gameplay-v1';
 import { mobileManifestUrl } from './MobileManifest.js';
-import { AmbientWorld } from './AmbientWorld.js?v=vehicle-v1';
+import { AmbientWorld } from './AmbientWorld.js?v=gameplay-v1';
 import { matchesAmbientMap } from './AmbientMapData.js?v=ambient-v1';
 
 export class WorldManager {
@@ -180,6 +180,24 @@ export class WorldManager {
 
   updateStreaming(x, z) { this.streamedMap?.update(x, z); }
   updateAmbient(delta, playerPosition, timeMs) { this.ambient?.update(delta, playerPosition, timeMs); }
+  setViewSettings(distance, tiles, anisotropy) {
+    this.scene.fog.near = distance * 0.42;
+    this.scene.fog.far = distance;
+    this.streamedMap?.setTileRadius(tiles);
+    this.streamedMap?.setQuality(anisotropy);
+    if (this.ambient) this.ambient.radius = Math.min(distance * 0.86, this.streamedMap ? 92 : 220);
+    this.mapLoader.object?.traverse((node) => {
+      for (const material of (Array.isArray(node.material) ? node.material : [node.material])) {
+        if (!material) continue;
+        for (const value of Object.values(material)) {
+          if (value?.isTexture && value.anisotropy !== anisotropy) {
+            value.anisotropy = anisotropy;
+            value.needsUpdate = true;
+          }
+        }
+      }
+    });
+  }
   raycastShot(origin, direction, maxDistance = 70) {
     if (!this.collision.ready) return null;
     this.shotRay.set(origin, direction);

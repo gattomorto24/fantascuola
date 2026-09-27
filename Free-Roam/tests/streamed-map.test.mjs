@@ -82,3 +82,22 @@ test('una zona fallita può essere richiesta di nuovo', async () => {
   assert.equal(attempts, 2);
   stream.dispose();
 });
+
+test('la distanza visiva aumenta le zone richieste e poi libera quelle lontane', () => {
+  const tiles = [];
+  for (let x = -2; x <= 2; x += 1) {
+    for (let z = -2; z <= 2; z += 1) tiles.push({ x, z, file: `tiles/${x}_${z}.glb`, bytes: 4 });
+  }
+  const stream = new StreamedMap(new THREE.Scene(), new WorldCollision(),
+    { tileSize: 32, tiles }, manifestUrl);
+  assert.equal(stream.tileRadius, 1);
+  assert.equal(stream.nearbyKeys(0, 0, stream.tileRadius).length, 9);
+  stream.setTileRadius(2);
+  assert.equal(stream.tileRadius, 2);
+  assert.equal(stream.nearbyKeys(0, 0, stream.tileRadius).length, 13);
+  assert.equal(stream.nearbyKeys(0, 0, stream.tileRadius).includes('2:2'), false);
+  stream.setTileRadius(1);
+  assert.equal(stream.tileRadius, 1);
+  assert.equal(stream.nearbyKeys(0, 0, stream.tileRadius).length, 9);
+  stream.dispose();
+});

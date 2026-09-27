@@ -8,10 +8,14 @@ const validVehicleState = (state) => state && typeof state.id === 'string' && st
   && state.pose && validNumber(state.pose.x) && validNumber(state.pose.y)
   && validNumber(state.pose.z) && validNumber(state.pose.yaw)
   && Number.isSafeInteger(state.revision) && state.revision >= 0 && state.revision < 1_000_000_000
-  && typeof state.author === 'string' && state.author.length <= 120;
+  && typeof state.author === 'string' && state.author.length <= 120
+  && (state.condition === undefined || (Number.isInteger(state.condition) && state.condition >= 0 && state.condition <= 100));
 const validChat = (chat) => chat && Number.isSafeInteger(chat.id) && chat.id > 0 && chat.id < 1_000_000_000
   && typeof chat.text === 'string' && chat.text.length > 0 && chat.text.length <= 160
   && !/[<>\u0000-\u001f\u007f]/.test(chat.text) && Number.isFinite(chat.at);
+const validNpcState = (state) => state && typeof state.id === 'string' && state.id.length <= 64
+  && Number.isFinite(state.until) && state.until > 0
+  && [state.x, state.y, state.z, state.yaw].every(validNumber);
 
 export function cleanChatText(value) {
   return String(value || '').replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
@@ -33,10 +37,18 @@ export function validSnapshot(value, maxAge = 60000) {
     && (value.shotTarget === undefined || (Array.isArray(value.shotTarget) && value.shotTarget.length === 3 && value.shotTarget.every(validNumber)))
     && (value.shotOrigin === undefined || (Array.isArray(value.shotOrigin) && value.shotOrigin.length === 3 && value.shotOrigin.every(validNumber)))
     && (value.shotVictimId === undefined || (typeof value.shotVictimId === 'string' && value.shotVictimId.length > 0 && value.shotVictimId.length <= 120))
+    && (value.shotNpcId === undefined || (typeof value.shotNpcId === 'string' && value.shotNpcId.length > 0 && value.shotNpcId.length <= 64))
     && (value.health === undefined || (Number.isInteger(value.health) && value.health >= 0 && value.health <= 100))
     && (value.vehicleId === undefined || (typeof value.vehicleId === 'string' && value.vehicleId.length <= 64))
+    && (value.vehicleRole === undefined || ['driver', 'passenger'].includes(value.vehicleRole))
+    && (value.vehicleCondition === undefined || (Number.isInteger(value.vehicleCondition) && value.vehicleCondition >= 0 && value.vehicleCondition <= 100))
     && (value.vehicleStates === undefined || (Array.isArray(value.vehicleStates) && value.vehicleStates.length <= 24
       && value.vehicleStates.every(validVehicleState)))
+    && (value.npcStates === undefined || (Array.isArray(value.npcStates) && value.npcStates.length <= 16
+      && value.npcStates.every(validNpcState)))
+    && (value.wanted === undefined || (Number.isInteger(value.wanted) && value.wanted >= 0 && value.wanted <= 5))
+    && (value.policePose === undefined || (value.policePose && [value.policePose.x, value.policePose.y,
+      value.policePose.z, value.policePose.yaw].every(validNumber)))
     && (value.chat === undefined || validChat(value.chat)))) return false;
 
   const avatarConfig = value.avatar?.type === 'pixel' ? value.avatar.config : value.avatarConfig;
@@ -97,10 +109,18 @@ export class MultiplayerManager {
     if (p.weapon?.shotTarget) snapshot.shotTarget = p.weapon.shotTarget;
     if (p.weapon?.shotOrigin) snapshot.shotOrigin = p.weapon.shotOrigin;
     if (p.weapon?.shotVictimId) snapshot.shotVictimId = p.weapon.shotVictimId;
+    if (p.weapon?.shotNpcId) snapshot.shotNpcId = p.weapon.shotNpcId;
     if (this.chat && Date.now() - this.chat.at < 30000) snapshot.chat = this.chat;
     const vehicles = this.events.getVehicleState?.();
     if (vehicles?.vehicleId) snapshot.vehicleId = vehicles.vehicleId;
+    if (vehicles?.vehicleId && vehicles.vehicleRole) snapshot.vehicleRole = vehicles.vehicleRole;
+    if (vehicles?.vehicleId && Number.isInteger(vehicles.vehicleCondition)) {
+      snapshot.vehicleCondition = vehicles.vehicleCondition;
+    }
     if (vehicles?.vehicleStates?.length) snapshot.vehicleStates = vehicles.vehicleStates;
+    if (vehicles?.npcStates?.length) snapshot.npcStates = vehicles.npcStates;
+    if (Number.isInteger(vehicles?.wanted)) snapshot.wanted = vehicles.wanted;
+    if (vehicles?.policePose) snapshot.policePose = vehicles.policePose;
     if (p.avatarId === 'pixel' && p.avatarConfig) snapshot.avatarConfig = p.avatarConfig;
     return snapshot;
   }
@@ -141,6 +161,8 @@ export class MultiplayerManager {
       && snapshot.shotVictimId === this.playerId && snapshot.weaponDrawn === true) {
       this.events.onShotAtMe?.(snapshot);
     }
+    if (!initial && previous !== undefined && shotId !== previous
+      && snapshot.shotNpcId && snapshot.weaponDrawn === true) this.events.onNpcShot?.(snapshot);
   }
 
   sendStateNow() {

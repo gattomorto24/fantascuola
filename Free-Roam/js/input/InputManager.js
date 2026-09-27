@@ -6,6 +6,7 @@ export class InputManager {
     this.jumpQueued = false;
     this.weaponToggleQueued = false;
     this.interactQueued = false;
+    this.passengerQueued = false;
     this.exitVehicleQueued = false;
     this.driving = false;
     this.shotQueued = null;
@@ -30,18 +31,19 @@ export class InputManager {
     this.touchDisposers = [];
 
     this.state = { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0,
-      zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, exitVehicle: false };
+      zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, passenger: false, exitVehicle: false };
 
     this.onKeyDown = (event) => {
       if (!this.enabled || this.textEntry || event.target?.isContentEditable
         || event.target?.matches?.('input, textarea, select')) return;
-      if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ShiftLeft','ShiftRight','KeyP','KeyE'].includes(event.code)) event.preventDefault();
+      if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ShiftLeft','ShiftRight','KeyP','KeyE','KeyF'].includes(event.code)) event.preventDefault();
       if (event.code === 'Space' && !this.keys.has('Space')) {
         if (this.driving) this.exitVehicleQueued = true;
         else this.jumpQueued = true;
       }
       if (event.code === 'KeyP' && !this.keys.has('KeyP')) this.weaponToggleQueued = true;
       if (event.code === 'KeyE' && !this.keys.has('KeyE')) this.interactQueued = true;
+      if (event.code === 'KeyF' && !this.keys.has('KeyF')) this.passengerQueued = true;
       this.keys.add(event.code);
     };
 
@@ -123,6 +125,7 @@ export class InputManager {
     const jumpButton = this.touchRoot.querySelector('#touch-jump');
     const weaponButton = this.touchRoot.querySelector('#touch-weapon');
     const vehicleButton = this.touchRoot.querySelector('#touch-vehicle');
+    const passengerButton = this.touchRoot.querySelector('#touch-passenger');
     this.jumpButton = jumpButton;
     this.moveThumb = this.touchRoot.querySelector('#move-thumb');
 
@@ -233,6 +236,17 @@ export class InputManager {
       this.touchDisposers.push(() => vehicleButton.removeEventListener('pointerdown', enter));
       this.vehicleButton = vehicleButton;
     }
+    if (passengerButton) {
+      const enter = (event) => {
+        if (!this.enabled || this.driving) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.passengerQueued = true;
+      };
+      passengerButton.addEventListener('pointerdown', enter);
+      this.touchDisposers.push(() => passengerButton.removeEventListener('pointerdown', enter));
+      this.passengerButton = passengerButton;
+    }
   }
 
   setDriving(value) {
@@ -244,11 +258,13 @@ export class InputManager {
       if (label) label.textContent = this.driving ? 'ESCI' : '↑';
     }
     if (this.driving && this.vehicleButton) this.vehicleButton.hidden = true;
+    if (this.driving && this.passengerButton) this.passengerButton.hidden = true;
     if (this.weaponButton) this.weaponButton.hidden = this.driving;
   }
 
-  setVehicleAvailable(value) {
+  setVehicleAvailable(value, passengerAvailable = value) {
     if (this.vehicleButton) this.vehicleButton.hidden = !value || this.driving;
+    if (this.passengerButton) this.passengerButton.hidden = !passengerAvailable || this.driving;
   }
 
   setWeaponDrawn(value) {
@@ -278,6 +294,7 @@ export class InputManager {
     this.touchJumpQueued = false;
     this.weaponToggleQueued = false;
     this.interactQueued = false;
+    this.passengerQueued = false;
     this.exitVehicleQueued = false;
     this.shotQueued = null;
     this.aimHeld = false;
@@ -309,7 +326,7 @@ export class InputManager {
     const input = this.state;
     if (!this.enabled || this.textEntry) {
       Object.assign(input, { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0,
-        zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, exitVehicle: false });
+        zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, passenger: false, exitVehicle: false });
       return input;
     }
 
@@ -332,6 +349,7 @@ export class InputManager {
     input.aim = this.aimHeld;
     input.shot = this.shotQueued;
     input.interact = this.interactQueued;
+    input.passenger = this.passengerQueued;
     input.exitVehicle = this.exitVehicleQueued;
 
     this.jumpQueued = false;
@@ -342,6 +360,7 @@ export class InputManager {
     this.weaponToggleQueued = false;
     this.shotQueued = null;
     this.interactQueued = false;
+    this.passengerQueued = false;
     this.exitVehicleQueued = false;
     return input;
   }

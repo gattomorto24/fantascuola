@@ -13,15 +13,16 @@
   <link rel="apple-touch-icon" href="../logo.png">
   <link rel="preload" as="image" href="./assets/models/Unknown.png">
   <link rel="stylesheet" href="./styles/main.css?v=mobile-tiles-v1">
-  <link rel="stylesheet" href="./styles/touch.css?v=vehicle-v1">
+  <link rel="stylesheet" href="./styles/touch.css?v=gameplay-v1">
   <link rel="stylesheet" href="./styles/chat.css?v=chat-v1">
   <link rel="stylesheet" href="./styles/health.css?v=death-v1">
+  <link rel="stylesheet" href="./styles/settings.css?v=gameplay-v1">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=death-v1"></script>
+  <script type="module" src="./js/main.js?v=gameplay-v1"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -66,9 +67,9 @@
 
   <section id="welcome" class="welcome">
     <div class="welcome-card">
-      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.11.1</p>
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.12.0</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
-      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift, Spazio e P per la pistola; destro per mirare e sinistro per sparare. Premi E vicino a un'auto per guidarla, WASD per muoverla ed E per uscire. Premi Invio per la chat globale. Su mobile usa il joystick, il tasto AUTO vicino a un veicolo, ESCI al posto di Salto durante la guida e tocca CHAT per scrivere.</p>
+      <p>Su PC usa WASD, P per la pistola, E per guidare, F per salire come passeggero ed Esc per le impostazioni. Su telefono usa il joystick e i tasti AUTO o PASSEGGERO vicino a un veicolo. La chat si apre con Invio o toccando CHAT.</p>
 
       <label class="menu-field" for="player-name">
         Nome giocatore
@@ -176,7 +177,7 @@
   </section>
 
   <aside id="hud" class="hud" aria-live="off" hidden>
-    <div class="hud-top"><strong>FREE ROAM <small>v0.11.1</small></strong><a href="../index.html">Esci</a></div>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.12.0</small></strong><span class="hud-actions"><button class="settings-open" type="button">Impostazioni</button><a href="../index.html">Esci</a></span></div>
     <dl>
       <div><dt>FPS</dt><dd id="fps">—</dd></div>
       <div><dt>Multiplayer</dt><dd id="network">Offline</dd></div>
@@ -195,11 +196,13 @@
     <div class="health-label"><span>VITA</span><strong id="health-value">100/100</strong></div>
     <div class="health-track"><span id="health-fill" class="health-fill"></span></div>
   </aside>
+  <aside id="wanted-hud" class="wanted-hud" aria-live="polite" hidden></aside>
+  <aside id="vehicle-health" class="vehicle-health" hidden></aside>
 
   <aside id="compact-hud" class="compact-hud" aria-live="off" hidden>
     <div id="compact-stats" class="compact-stats">-- FPS - 1 Players</div>
-    <div class="compact-desktop-exit">Tieni premuto Esc per uscire</div>
-    <a class="compact-mobile-exit" href="../index.html">ESCI</a>
+    <div class="compact-desktop-exit">Esc: impostazioni</div>
+    <div class="compact-mobile-actions"><button class="settings-open" type="button">MENU</button><a class="compact-mobile-exit" href="../index.html">ESCI</a></div>
   </aside>
 
   <div id="aim-reticle" class="aim-reticle" hidden aria-hidden="true"><span></span></div>
@@ -230,7 +233,27 @@
       <span>PISTOLA</span>
     </button>
     <button id="touch-vehicle" class="touch-vehicle" type="button" aria-label="Entra nell'auto" hidden>AUTO</button>
+    <button id="touch-passenger" class="touch-passenger" type="button" aria-label="Sali come passeggero" hidden>PASS.</button>
   </div>
+
+  <section id="settings-screen" class="settings-screen" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="settings-card">
+      <h2 id="settings-title">IMPOSTAZIONI</h2>
+      <label>Qualità grafica
+        <select id="graphics-quality">
+          <option value="low">Bassa</option><option value="medium">Media</option>
+          <option value="high">Alta</option><option value="ultra">Ultra</option>
+        </select>
+      </label>
+      <label>Distanza visiva
+        <select id="render-distance">
+          <option value="near">Vicina</option><option value="normal">Normale</option>
+          <option value="far">Lontana</option><option value="ultra">Massima</option>
+        </select>
+      </label>
+      <button class="settings-open settings-close" type="button">TORNA AL GIOCO</button>
+    </div>
+  </section>
 
   <section id="death-screen" class="death-screen" hidden role="dialog" aria-modal="true" aria-labelledby="death-title">
     <div class="death-content">

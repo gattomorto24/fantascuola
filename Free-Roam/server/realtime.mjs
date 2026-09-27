@@ -16,10 +16,14 @@ const validVehicleState = (state) => state && typeof state.id === 'string' && st
   && state.pose && validNumber(state.pose.x) && validNumber(state.pose.y)
   && validNumber(state.pose.z) && validNumber(state.pose.yaw)
   && Number.isSafeInteger(state.revision) && state.revision >= 0 && state.revision < 1_000_000_000
-  && typeof state.author === 'string' && state.author.length <= 120;
+  && typeof state.author === 'string' && state.author.length <= 120
+  && (state.condition === undefined || (Number.isInteger(state.condition) && state.condition >= 0 && state.condition <= 100));
 const validChat = (chat) => chat && Number.isSafeInteger(chat.id) && chat.id > 0 && chat.id < 1_000_000_000
   && typeof chat.text === 'string' && chat.text.length > 0 && chat.text.length <= 160
   && !/[<>\u0000-\u001f\u007f]/.test(chat.text) && Number.isFinite(chat.at);
+const validNpcState = (state) => state && typeof state.id === 'string' && state.id.length <= 64
+  && Number.isFinite(state.until) && state.until > 0
+  && [state.x, state.y, state.z, state.yaw].every(validNumber);
 
 function validSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return false;
@@ -38,9 +42,16 @@ function validSnapshot(snapshot) {
   if (snapshot.shotTarget !== undefined && (!Array.isArray(snapshot.shotTarget) || snapshot.shotTarget.length !== 3 || !snapshot.shotTarget.every(validNumber))) return false;
   if (snapshot.shotOrigin !== undefined && (!Array.isArray(snapshot.shotOrigin) || snapshot.shotOrigin.length !== 3 || !snapshot.shotOrigin.every(validNumber))) return false;
   if (snapshot.shotVictimId !== undefined && (typeof snapshot.shotVictimId !== 'string' || snapshot.shotVictimId.length < 1 || snapshot.shotVictimId.length > 120)) return false;
+  if (snapshot.shotNpcId !== undefined && (typeof snapshot.shotNpcId !== 'string' || snapshot.shotNpcId.length < 1 || snapshot.shotNpcId.length > 64)) return false;
   if (snapshot.health !== undefined && (!Number.isInteger(snapshot.health) || snapshot.health < 0 || snapshot.health > 100)) return false;
   if (snapshot.vehicleId !== undefined && (typeof snapshot.vehicleId !== 'string' || snapshot.vehicleId.length > 64)) return false;
+  if (snapshot.vehicleRole !== undefined && !['driver', 'passenger'].includes(snapshot.vehicleRole)) return false;
+  if (snapshot.vehicleCondition !== undefined && (!Number.isInteger(snapshot.vehicleCondition) || snapshot.vehicleCondition < 0 || snapshot.vehicleCondition > 100)) return false;
   if (snapshot.vehicleStates !== undefined && (!Array.isArray(snapshot.vehicleStates) || snapshot.vehicleStates.length > 24 || !snapshot.vehicleStates.every(validVehicleState))) return false;
+  if (snapshot.npcStates !== undefined && (!Array.isArray(snapshot.npcStates) || snapshot.npcStates.length > 16 || !snapshot.npcStates.every(validNpcState))) return false;
+  if (snapshot.wanted !== undefined && (!Number.isInteger(snapshot.wanted) || snapshot.wanted < 0 || snapshot.wanted > 5)) return false;
+  if (snapshot.policePose !== undefined && (!snapshot.policePose || ![snapshot.policePose.x,
+    snapshot.policePose.y, snapshot.policePose.z, snapshot.policePose.yaw].every(validNumber))) return false;
   if (snapshot.chat !== undefined && !validChat(snapshot.chat)) return false;
   return true;
 }

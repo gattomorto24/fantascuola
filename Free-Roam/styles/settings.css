@@ -1,0 +1,57 @@
+.hud-actions { display: flex; align-items: center; gap: 8px; }
+.hud-actions button, .compact-mobile-actions button {
+  border: 0; background: transparent; color: #dcecf7;
+  font: inherit; text-decoration: underline; cursor: pointer;
+}
+.compact-mobile-actions { display: none; align-items: center; gap: 10px; }
+.compact-mobile-actions button { pointer-events: auto; }
+.settings-screen {
+  position: fixed; inset: 0; z-index: 250;
+  display: grid; place-items: center;
+  padding: 20px; background: rgba(2, 10, 18, .88);
+}
+.settings-screen[hidden] { display: none; }
+.settings-card {
+  width: min(440px, 100%); display: grid; gap: 18px;
+  padding: clamp(22px, 5vw, 36px); border: 1px solid #7fd2c3;
+  border-radius: 18px; background: #102637; color: #f1fff9;
+  box-shadow: 0 22px 60px #0009;
+}
+.settings-card h2 { margin: 0; font: 900 26px/1.1 system-ui, sans-serif; }
+.settings-card label { display: grid; gap: 7px; font: 700 13px/1.3 system-ui, sans-serif; }
+.settings-card select {
+  width: 100%; padding: 11px; border: 1px solid #ffffff55;
+  border-radius: 9px; background: #0a1925; color: #fff;
+  font: 15px/1.3 system-ui, sans-serif;
+}
+.settings-close {
+  min-height: 44px; border: 0; border-radius: 9px;
+  background: #75dfc5; color: #102c39; font: 900 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .compact-mobile-actions { display: flex; }
+  .compact-mobile-actions button { min-height: 34px; padding: 4px 8px; }
+}
+.wanted-hud {
+  position: fixed; z-index: 36;
+  top: max(72px, calc(env(safe-area-inset-top) + 55px));
+  right: max(18px, env(safe-area-inset-right));
+  padding: 8px 12px; border-radius: 9px;
+  background: rgba(23, 20, 23, .8); color: #ffd86d;
+  font: 900 14px/1 system-ui, sans-serif; letter-spacing: .09em;
+  text-shadow: 0 1px 4px #000;
+  pointer-events: none;
+}
+.vehicle-health {
+  position: fixed; z-index: 36; top: max(15px, env(safe-area-inset-top));
+  left: 50%; transform: translateX(-50%);
+  padding: 8px 12px; border-radius: 9px;
+  background: rgba(18, 40, 52, .8); color: #e9fff8;
+  font: 800 12px/1 system-ui, sans-serif;
+  white-space: nowrap; pointer-events: none;
+}
+@media (pointer: coarse) {
+  .wanted-hud { top: max(56px, calc(env(safe-area-inset-top) + 47px)); font-size: 11px; }
+  .vehicle-health { top: auto; bottom: max(8px, env(safe-area-inset-bottom)); font-size: 10px; }
+}

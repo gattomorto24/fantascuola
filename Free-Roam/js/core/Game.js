@@ -1,21 +1,24 @@
 import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
-import { InputManager } from '../input/InputManager.js?v=chat-v1';
-import { WorldManager } from '../world/WorldManager.js?v=vehicle-v1';
+import { InputManager } from '../input/InputManager.js?v=gameplay-v1';
+import { WorldManager } from '../world/WorldManager.js?v=gameplay-v1';
 import { AvatarManager } from '../avatars/AvatarManager.js';
-import { Player } from '../player/Player.js?v=health-v1';
-import { CombatState, findPlayerHit, plausibleHit, SHOT_RANGE } from '../player/Combat.js?v=death-v1';
+import { Player } from '../player/Player.js?v=gameplay-v1';
+import { CombatState, findPlayerHit, plausibleHit, PISTOL_DAMAGE, SHOT_RANGE } from '../player/Combat.js?v=gameplay-v1';
+import { WantedState } from '../world/WantedState.js';
+import { PoliceSystem } from '../world/PoliceSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
-import { VehicleController } from '../player/VehicleController.js?v=chat-v1';
-import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=health-v1';
+import { VehicleController } from '../player/VehicleController.js?v=gameplay-v1';
+import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=gameplay-v1';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js?v=vehicle-v1';
-import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=health-v1';
+import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=gameplay-v1';
 import { DebugHud } from '../ui/DebugHud.js';
 import { GlobalChat } from '../ui/GlobalChat.js';
 import { DisconnectScreen } from '../ui/DisconnectScreen.js';
 import { StressHarness } from '../debug/StressHarness.js';
 import { spawnForPlayer } from '../world/spawn.js';
+import { GRAPHICS_QUALITY, VIEW_DISTANCE, loadGraphicsSettings, saveGraphicsSettings } from '../ui/GraphicsSettings.js';
 
 export class Game {
   constructor(container, hudRoot, { client, identity, displayName, avatarSelection, storage }) {
@@ -51,19 +54,39 @@ export class Game {
     });
 
     const nativeRatio = Math.max(1, globalThis.devicePixelRatio || 1);
-    this.pixelRatioCap = Math.min(
-      nativeRatio,
-      coarsePointer ? settings.rendering.pixelRatioMobileMax : settings.rendering.pixelRatioMax,
-    );
-    this.pixelRatio = Math.max(settings.rendering.pixelRatioMin, this.pixelRatioCap);
+    this.pixelRatioCap = Math.min(nativeRatio, 2);
+    this.pixelRatio = Math.min(this.pixelRatioCap, GRAPHICS_QUALITY[this.graphics?.quality || 'low'].pixelRatio);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.append(this.renderer.domElement);
+    this.graphics = loadGraphicsSettings();
+    this.settingsOpen = false;
+    this.settingsScreen = document.getElementById('settings-screen');
+    this.qualitySelect = document.getElementById('graphics-quality');
+    this.distanceSelect = document.getElementById('render-distance');
+    this.settingsButtons = [...document.querySelectorAll('.settings-open')];
+    this.onSettingsButton = () => this.toggleSettings();
+    this.onGraphicsChange = () => {
+      this.graphics = saveGraphicsSettings({
+        quality: this.qualitySelect.value,
+        distance: this.distanceSelect.value,
+      });
+      this.applyGraphicsSettings();
+    };
+    for (const button of this.settingsButtons) button.addEventListener('click', this.onSettingsButton);
+    this.qualitySelect?.addEventListener('change', this.onGraphicsChange);
+    this.distanceSelect?.addEventListener('change', this.onGraphicsChange);
+    if (this.qualitySelect) this.qualitySelect.value = this.graphics.quality;
+    if (this.distanceSelect) this.distanceSelect.value = this.graphics.distance;
 
     this.resolutionElapsed = 0;
     this.resolutionFrames = 0;
 
     this.world = new WorldManager(this.scene);
+    this.wanted = new WantedState();
+    this.police = new PoliceSystem(this.scene, this.world);
+    this.wantedHud = document.getElementById('wanted-hud');
+    this.vehicleHealthHud = document.getElementById('vehicle-health');
     this.avatars = new AvatarManager(storage);
     this.player = new Player(this.scene, this.avatars);
     this.combat = new CombatState();
@@ -106,33 +129,19 @@ export class Game {
         if (!this.multiplayer) return;
         this.multiplayer.continueOffline();
         this.disconnectScreen.hide();
-        this.input.setEnabled(this.combat.health > 0);
+        this.input.setEnabled(this.combat.health > 0 && !this.settingsOpen);
       },
     });
 
-    this.exitHoldTimer = null;
-    this.onExitKeyDown = (event) => {
-      if (this.isTouchDevice || this.chat.active || this.combat.health === 0
-        || event.code !== 'Escape' || this.exitHoldTimer) return;
+    this.onSettingsKeyDown = (event) => {
+      if (event.code !== 'Escape' || event.repeat || this.combat.health === 0 || this.chat.active) return;
       event.preventDefault();
-      this.exitHoldTimer = setTimeout(() => {
-        this.exitHoldTimer = null;
-        window.location.href = '../index.html';
-      }, 900);
-    };
-    this.cancelExitHold = () => {
-      clearTimeout(this.exitHoldTimer);
-      this.exitHoldTimer = null;
-    };
-    this.onExitKeyUp = (event) => {
-      if (event.code === 'Escape') this.cancelExitHold();
+      this.toggleSettings();
     };
 
     this.resize = this.resize.bind(this);
     window.addEventListener('resize', this.resize);
-    window.addEventListener('keydown', this.onExitKeyDown, true);
-    window.addEventListener('keyup', this.onExitKeyUp, true);
-    window.addEventListener('blur', this.cancelExitHold);
+    window.addEventListener('keydown', this.onSettingsKeyDown, true);
     this.resize();
 
     this.loop = new GameLoop(
@@ -254,21 +263,23 @@ export class Game {
         this.hud.setNetwork(online, detail);
         if (online) {
           this.disconnectScreen.hide();
-          this.input.setEnabled(this.combat.health > 0);
+          this.input.setEnabled(this.combat.health > 0 && !this.settingsOpen);
         }
       },
       (latency) => this.hud.setLatency(latency),
       {
         onDisconnected: () => {
+          this.toggleSettings(false);
           this.chat.close();
           this.input.setEnabled(false);
           this.disconnectScreen.show();
         },
         onRecovered: () => {
           this.disconnectScreen.hide();
-          this.input.setEnabled(this.combat.health > 0);
+          this.input.setEnabled(this.combat.health > 0 && !this.settingsOpen);
         },
         onReconnectStart: () => {
+          this.toggleSettings(false);
           this.chat.close();
           this.input.setEnabled(false);
           this.disconnectScreen.setReconnecting(true);
@@ -276,34 +287,63 @@ export class Game {
         onOffline: () => {
           this.chat.close();
           this.disconnectScreen.hide();
-          this.input.setEnabled(this.combat.health > 0);
+          this.input.setEnabled(this.combat.health > 0 && !this.settingsOpen);
         },
         getVehicleState: () => ({
           vehicleId: this.vehicle?.vehicleId,
+          vehicleRole: this.vehicle?.role,
+          vehicleCondition: this.vehicle?.vehicleId
+            ? this.world.ambient?.conditionOf(this.vehicle.vehicleId) : undefined,
           vehicleStates: this.world.ambient?.networkVehicleStates() || [],
+          npcStates: this.world.ambient?.networkNpcStates() || [],
+          wanted: this.wanted.stars,
+          policePose: this.police.poseOf(this.multiplayer?.playerId),
         }),
         onVehicleSnapshot: (snapshot) => {
           this.world.ambient?.receiveVehicleSnapshot(snapshot);
+          this.world.ambient?.receiveNpcStates(snapshot.npcStates);
+          this.world.ambient?.setPlayerTarget(snapshot.playerId, snapshot.position);
+          this.police.receive(snapshot);
           if (this.vehicle?.driving
             && this.world.ambient?.drivers.get(this.vehicle.vehicleId)?.playerId !== this.multiplayer.playerId) {
             this.vehicle.exit(false);
             this.input.setDriving(false);
           }
+          if (this.vehicle?.role === 'passenger'
+            && this.world.ambient?.passengers.get(this.vehicle.vehicleId) !== this.multiplayer.playerId) {
+            this.vehicle.exit(false);
+            this.input.setDriving(false);
+          }
         },
-        onVehicleLeave: (playerId) => this.world.ambient?.releaseDriver(playerId),
+        onVehicleLeave: (playerId) => {
+          this.world.ambient?.releaseDriver(playerId);
+          this.world.ambient?.releasePassenger(playerId);
+          this.world.ambient?.playerTargets.delete(playerId);
+          this.police.remove(playerId);
+        },
         onVehicleReconcile: (present) => {
           for (const driver of this.world.ambient?.drivers.values() || []) {
             if (driver.playerId !== this.multiplayer.playerId && !present.has(driver.playerId)) {
               this.world.ambient.releaseDriver(driver.playerId);
             }
           }
+          for (const passenger of this.world.ambient?.passengers.values() || []) {
+            if (passenger !== this.multiplayer.playerId && !present.has(passenger)) {
+              this.world.ambient.releasePassenger(passenger);
+            }
+          }
         },
         onChat: (message) => this.chat.add(message.displayName, message.text),
         onShotAtMe: (snapshot) => this.receiveShot(snapshot),
+        onNpcShot: (snapshot) => this.receiveNpcShot(snapshot),
       },
       this.mapVersion,
     );
-    this.vehicle = new VehicleController(this.player, this.world, this.followCamera, this.multiplayer.playerId);
+    this.vehicle = new VehicleController(this.player, this.world, this.followCamera,
+      this.multiplayer.playerId, {
+        onTheft: (id, pose) => this.onCarTheft(id, pose),
+        onNpcKilled: (id) => this.onNpcKilled(id),
+      });
 
     let spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
     try {
@@ -319,6 +359,7 @@ export class Game {
     const spawnGround = this.world.groundHeightAt(spawn[0], spawn[2], spawn[1], 3, 20);
     if (Number.isFinite(spawnGround)) spawn[1] = spawnGround;
     this.player.root.position.set(...spawn);
+    this.applyGraphicsSettings();
     this.world.updateAmbient(0, this.player.root.position, Date.now());
 
     this.followCamera.update(0, { cameraX: 0, cameraY: 0, zoom: 0 }, this.player.root.position);
@@ -351,12 +392,40 @@ export class Game {
 
     this.loop.start();
     this.updateHealthHud();
+    this.updateWantedHud();
     if (this.healthHud) this.healthHud.hidden = false;
     this.chat.setEnabled(true);
     this.input.showTouchControls();
     this.multiplayer.connect();
     this.hud.startCompactCountdown(5000);
     onStage('Mondo pronto', 100);
+  }
+
+  applyGraphicsSettings() {
+    const quality = GRAPHICS_QUALITY[this.graphics.quality];
+    const distance = VIEW_DISTANCE[this.graphics.distance];
+    const view = this.isMobilePlatform ? distance.mobile : distance.desktop;
+    this.camera.far = view + 30;
+    this.camera.updateProjectionMatrix();
+    this.world.setViewSettings(view, distance.tiles, quality.anisotropy);
+    this.pixelRatio = Math.min(this.pixelRatioCap, quality.pixelRatio);
+    this.renderer.setPixelRatio(this.pixelRatio);
+    this.resize();
+  }
+
+  toggleSettings(force = !this.settingsOpen) {
+    if (!this.settingsScreen || (force && this.combat.health === 0)) return;
+    this.settingsOpen = Boolean(force);
+    this.settingsScreen.hidden = !this.settingsOpen;
+    if (this.settingsOpen) {
+      this.chat.setEnabled(false);
+      this.input.setEnabled(false);
+      this.qualitySelect?.focus();
+    } else {
+      this.chat.setEnabled(this.combat.health > 0);
+      this.input.setEnabled(this.combat.health > 0
+        && Boolean(this.multiplayer?.online || this.multiplayer?.offlineMode));
+    }
   }
 
   updateAdaptiveResolution(delta) {
@@ -374,10 +443,8 @@ export class Game {
     if (fps < target - 8) next -= 0.15;
     else if (fps > target + 7) next += 0.1;
 
-    next = Math.max(
-      settings.rendering.pixelRatioMin,
-      Math.min(this.pixelRatioCap, Math.round(next * 20) / 20),
-    );
+    const qualityCap = Math.min(this.pixelRatioCap, GRAPHICS_QUALITY[this.graphics.quality].pixelRatio);
+    next = Math.max(Math.min(qualityCap, 0.75), Math.min(qualityCap, Math.round(next * 20) / 20));
 
     if (Math.abs(next - this.pixelRatio) >= 0.05) {
       this.pixelRatio = next;
@@ -399,42 +466,52 @@ export class Game {
       this.player.updateVisual(delta);
       this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
       this.world.updateAmbient(delta, this.player.root.position, Date.now() + (this.multiplayer?.serverTimeOffset || 0));
+      this.police.updateRemote(delta, this.multiplayer?.playerId);
       this.followCamera.update(delta, { cameraX: controls.cameraX, cameraY: controls.cameraY, zoom: controls.zoom }, this.player.root.position);
       this.multiplayer?.update(delta);
       this.hud.update(delta, this.player, this.remotes.size);
       this.updateAdaptiveResolution(delta);
       return;
     }
-    const wasDriving = this.vehicle.driving;
+    const wasDriving = this.vehicle.riding;
     if (controls.interact) {
-      if (this.vehicle.driving) this.vehicle.exit();
+      if (this.vehicle.riding) this.vehicle.exit();
       else this.vehicle.enter();
     }
-    if (controls.exitVehicle && this.vehicle.driving) this.vehicle.exit();
-    if (wasDriving !== this.vehicle.driving) {
+    if (controls.passenger && !this.vehicle.riding) this.vehicle.enterPassenger();
+    if (controls.exitVehicle && this.vehicle.riding) this.vehicle.exit();
+    if (wasDriving !== this.vehicle.riding) {
       this.controller.velocity.set(0, 0, 0);
       this.controller.grounded = true;
     }
-    this.input.setDriving(this.vehicle.driving);
+    this.input.setDriving(this.vehicle.riding);
     this.input.setWeaponDrawn(this.player.weapon.drawn);
-    if (controls.toggleWeapon && !this.vehicle.driving) {
+    if (controls.toggleWeapon && !this.vehicle.riding) {
       this.player.weapon.setDrawn(!this.player.weapon.drawn);
       this.input.setWeaponDrawn(this.player.weapon.drawn);
     }
-    const aiming = !this.vehicle.driving && this.input.enabled && this.player.weapon.drawn
+    const aiming = !this.vehicle.riding && this.input.enabled && this.player.weapon.drawn
       && (this.isTouchDevice || controls.aim);
     this.player.weapon.setAiming(aiming);
     this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
-    if (this.vehicle.driving) this.vehicle.update(delta, controls);
+    if (this.vehicle.riding) this.vehicle.update(delta, controls);
     else this.controller.update(delta, { ...controls, aiming }, this.followCamera.yaw);
     this.world.updateAmbient(delta, this.player.root.position, Date.now() + (this.multiplayer?.serverTimeOffset || 0));
-    this.followCamera.update(delta, { ...controls, aiming, driving: this.vehicle.driving }, this.player.root.position);
-    if (controls.shot && this.player.weapon.drawn && !this.vehicle.driving) this.fire(controls.shot);
-    const nearby = !this.vehicle.driving && this.world.ambient?.nearestVehicle(this.player.root.position);
-    this.input.setVehicleAvailable(Boolean(nearby));
+    this.updatePursuit(delta);
+    this.followCamera.update(delta, { ...controls, aiming, driving: this.vehicle.riding }, this.player.root.position);
+    if (controls.shot && this.player.weapon.drawn && !this.vehicle.riding) this.fire(controls.shot);
+    const nearby = !this.vehicle.riding && this.world.ambient?.nearestVehicle(this.player.root.position);
+    const passengerNearby = !this.vehicle.riding && this.world.ambient?.nearestVehicle(this.player.root.position, 3.3, true);
+    this.input.setVehicleAvailable(Boolean(nearby), Boolean(passengerNearby));
+    if (this.vehicleHealthHud) {
+      this.vehicleHealthHud.hidden = !this.vehicle.riding;
+      if (this.vehicle.riding) this.vehicleHealthHud.textContent =
+        `AUTO ${this.world.ambient?.conditionOf(this.vehicle.vehicleId) ?? 100}% · ${this.vehicle.role === 'passenger' ? 'PASSEGGERO' : 'GUIDA'}`;
+    }
     if (this.vehiclePrompt) {
-      this.vehiclePrompt.hidden = !this.input.enabled || (!nearby && !this.vehicle.driving);
-      this.vehiclePrompt.textContent = this.vehicle.driving ? "Premi E per uscire dall'auto" : "Premi E per guidare l'auto";
+      this.vehiclePrompt.hidden = !this.input.enabled || (!nearby && !passengerNearby && !this.vehicle.riding);
+      this.vehiclePrompt.textContent = this.vehicle.riding ? "Premi E per uscire dall'auto"
+        : nearby ? 'E guida · F passeggero' : 'F sali come passeggero';
     }
     if (this.aimReticle) {
       this.aimReticle.hidden = !aiming;
@@ -460,7 +537,11 @@ export class Game {
     const { origin, direction } = this.shotRaycaster.ray;
     const hit = this.world.raycastShot(origin, direction, SHOT_RANGE);
     const playerHit = findPlayerHit(this.shotRaycaster.ray, hit, this.remotes.players, SHOT_RANGE);
-    const target = playerHit?.point || hit || origin.clone().addScaledVector(direction, SHOT_RANGE);
+    const npcHit = this.world.ambient?.raycastPedestrian(this.shotRaycaster.ray, hit, SHOT_RANGE);
+    const selectedPlayer = playerHit && (!npcHit || playerHit.distance <= npcHit.distance) ? playerHit : null;
+    const selectedNpc = !selectedPlayer ? npcHit : null;
+    const target = selectedPlayer?.point || selectedNpc?.point || hit
+      || origin.clone().addScaledVector(direction, SHOT_RANGE);
     if (shot.touch) {
       this.player.root.rotation.y = Math.atan2(-direction.x, -direction.z);
       if (this.aimReticle) {
@@ -472,8 +553,60 @@ export class Game {
     if (this.player.weapon.fireTo(target.toArray(), {
       local: true,
       origin: origin.toArray(),
-      victimId: playerHit?.playerId || null,
-    })) this.multiplayer?.sendStateNow();
+      victimId: selectedPlayer?.playerId || null,
+      npcId: selectedNpc?.id || null,
+    })) {
+      if (selectedPlayer) this.onCrime(1);
+      if (selectedNpc) {
+        const killed = this.world.ambient.hitPedestrian(selectedNpc.id, PISTOL_DAMAGE);
+        this.onCrime(killed ? 2 : 1);
+      }
+      this.multiplayer?.sendStateNow();
+    }
+  }
+
+  onCrime(severity) {
+    this.wanted.crime(severity);
+    this.updateWantedHud();
+    this.multiplayer?.sendStateNow();
+  }
+
+  onCarTheft() { this.onCrime(1); }
+  onNpcKilled() { this.onCrime(2); }
+
+  updateWantedHud() {
+    if (!this.wantedHud) return;
+    this.wantedHud.hidden = this.wanted.stars === 0;
+    this.wantedHud.textContent = `RICERCATO ${'★'.repeat(this.wanted.stars)}${'☆'.repeat(5 - this.wanted.stars)}`;
+  }
+
+  updatePursuit(delta) {
+    const id = this.multiplayer?.playerId;
+    if (!id) return;
+    this.world.ambient?.setPlayerTarget(id, this.player.root.position);
+    const previous = this.wanted.stars;
+    this.wanted.update();
+    if (previous !== this.wanted.stars) this.updateWantedHud();
+    this.police.updateLocal(id, this.wanted.stars,
+      this.player.root.position, this.player.root.rotation.y, delta);
+    this.police.updateRemote(delta, id);
+    if (this.wanted.stars > 0 && this.police.touchesLocal(id, this.player.root.position)) this.applyDamage(15);
+    if (!this.vehicle.riding && this.world.ambient?.angryDriverTouches(id, this.player.root.position)) {
+      this.applyDamage(10);
+    }
+  }
+
+  receiveNpcShot(snapshot) {
+    const ambient = this.world.ambient;
+    if (!ambient || !Array.isArray(snapshot.shotOrigin) || !Array.isArray(snapshot.shotTarget)) return;
+    const origin = new THREE.Vector3(...snapshot.shotOrigin);
+    const target = new THREE.Vector3(...snapshot.shotTarget);
+    const distance = origin.distanceTo(target);
+    if (distance > SHOT_RANGE + 1 || distance < 0.05) return;
+    const ray = new THREE.Ray(origin, target.sub(origin).normalize());
+    const wall = this.world.raycastShot(origin, ray.direction, distance);
+    const hit = ambient.raycastPedestrian(ray, wall, distance + 1);
+    if (hit?.id === snapshot.shotNpcId) ambient.hitPedestrian(hit.id, PISTOL_DAMAGE);
   }
 
   updateHealthHud() {
@@ -486,23 +619,31 @@ export class Game {
   }
 
   receiveShot(snapshot) {
-    if (!plausibleHit(snapshot, this.player.root.position, this.world, this.vehicle?.driving)) return;
-    if (!this.combat.hit()) return;
+    if (!plausibleHit(snapshot, this.player.root.position, this.world, this.vehicle?.riding)) return;
+    this.applyDamage(PISTOL_DAMAGE);
+  }
+
+  applyDamage(amount) {
+    if (!this.combat.damage(amount)) return;
     this.player.health = this.combat.health;
     this.updateHealthHud();
     this.healthHud?.classList.remove('health-hit');
     void this.healthHud?.offsetWidth;
     this.healthHud?.classList.add('health-hit');
     if (this.combat.health === 0) {
-      this.cancelExitHold();
+      this.toggleSettings(false);
+      this.wanted.clear();
+      this.updateWantedHud();
+      this.police.remove(this.multiplayer?.playerId);
       this.input.setEnabled(false);
       this.chat.setEnabled(false);
-      if (this.vehicle?.driving) this.vehicle.exit();
+      if (this.vehicle?.riding) this.vehicle.exit();
       this.input.setDriving(false);
       this.player.weapon.setDrawn(false);
       this.player.weapon.setAiming(false);
       this.input.setWeaponDrawn(false);
       this.player.root.visible = false;
+      if (this.vehicleHealthHud) this.vehicleHealthHud.hidden = true;
       this.controller.velocity.set(0, 0, 0);
       if (this.deathScreen) this.deathScreen.hidden = false;
       this.reenterButton?.focus();
@@ -558,10 +699,11 @@ export class Game {
     this.disposed = true;
     this.loop.stop();
     window.removeEventListener('resize', this.resize);
-    window.removeEventListener('keydown', this.onExitKeyDown, true);
-    window.removeEventListener('keyup', this.onExitKeyUp, true);
-    window.removeEventListener('blur', this.cancelExitHold);
-    this.cancelExitHold();
+    window.removeEventListener('keydown', this.onSettingsKeyDown, true);
+    for (const button of this.settingsButtons) button.removeEventListener('click', this.onSettingsButton);
+    this.qualitySelect?.removeEventListener('change', this.onGraphicsChange);
+    this.distanceSelect?.removeEventListener('change', this.onGraphicsChange);
+    if (this.settingsScreen) this.settingsScreen.hidden = true;
     this.hud.dispose();
     this.chat.dispose();
     if (this.aimReticle) this.aimReticle.hidden = true;
@@ -576,6 +718,7 @@ export class Game {
     await this.multiplayer?.disconnect();
     this.remotes.clear();
     this.player.dispose();
+    this.police.dispose();
     this.world.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();

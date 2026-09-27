@@ -4,24 +4,51 @@ const movement = new THREE.Vector3();
 const candidate = new THREE.Vector3();
 
 export class VehicleController {
-  constructor(player, world, camera, playerId = '') {
+  constructor(player, world, camera, playerId = '', events = {}) {
     this.player = player;
     this.world = world;
     this.camera = camera;
     this.playerId = playerId;
+    this.events = events;
     this.vehicleId = null;
+    this.role = null;
     this.speed = 0;
     this.savedWeapon = false;
     this.lastFootPosition = null;
   }
 
-  get driving() { return this.vehicleId !== null; }
+  get driving() { return this.role === 'driver'; }
+  get riding() { return this.vehicleId !== null; }
 
   enter() {
+    if (this.riding) return false;
     const ambient = this.world.ambient;
     const nearby = ambient?.nearestVehicle(this.player.root.position);
     if (!nearby || !ambient.setDrivenPose(nearby.id, this.playerId, nearby.pose, true)) return false;
     this.vehicleId = nearby.id;
+    this.role = 'driver';
+    this.speed = 0;
+    this.savedWeapon = this.player.weapon.drawn;
+    this.lastFootPosition = this.player.root.position.clone();
+    this.player.weapon.setDrawn(false);
+    this.player.setVehiclePresence(true);
+    this.player.root.position.set(nearby.pose.x, nearby.pose.y, nearby.pose.z);
+    this.player.root.rotation.y = nearby.pose.yaw;
+    this.camera.yaw = nearby.pose.yaw + Math.PI;
+    this.camera.pitch = 0.3;
+    if (nearby.kind === 'moving' && !ambient.vehicleStates.has(nearby.id)) {
+      this.events.onTheft?.(nearby.id, nearby.pose);
+    }
+    return true;
+  }
+
+  enterPassenger() {
+    if (this.riding) return false;
+    const ambient = this.world.ambient;
+    const nearby = ambient?.nearestVehicle(this.player.root.position, 3.3, true);
+    if (!nearby || !ambient.setPassenger(nearby.id, this.playerId)) return false;
+    this.vehicleId = nearby.id;
+    this.role = 'passenger';
     this.speed = 0;
     this.savedWeapon = this.player.weapon.drawn;
     this.lastFootPosition = this.player.root.position.clone();
@@ -35,8 +62,24 @@ export class VehicleController {
   }
 
   update(delta, input) {
-    if (!this.driving) return;
+    if (!this.riding) return;
     const ambient = this.world.ambient;
+    if (this.role === 'passenger') {
+      if (ambient?.passengers.get(this.vehicleId) !== this.playerId) {
+        this.exit(false);
+        return;
+      }
+      const pose = ambient.vehiclePose(this.vehicleId);
+      if (!pose) return;
+      this.player.root.position.set(pose.x, pose.y, pose.z);
+      this.player.root.rotation.y = pose.yaw;
+      this.player.movementState = 'Idle';
+      this.player.updateVisual(delta);
+      const cameraYaw = pose.yaw + Math.PI;
+      this.camera.yaw += Math.atan2(Math.sin(cameraYaw - this.camera.yaw),
+        Math.cos(cameraYaw - this.camera.yaw)) * Math.min(1, 1.8 * delta);
+      return;
+    }
     const car = ambient?.drivers.get(this.vehicleId);
     if (!car || car.playerId !== this.playerId) {
       this.exit(false);
@@ -50,7 +93,9 @@ export class VehicleController {
     } else {
       this.speed -= Math.sign(this.speed) * Math.min(Math.abs(this.speed), 4.8 * dt);
     }
-    this.speed = THREE.MathUtils.clamp(this.speed, -4.5, 12);
+    const condition = ambient.conditionOf(this.vehicleId);
+    const power = condition === 0 ? 0 : Math.max(0.25, condition / 100);
+    this.speed = THREE.MathUtils.clamp(this.speed, -4.5 * power, 12 * power);
     if (Math.abs(this.speed) < 0.03) this.speed = 0;
 
     const pose = car.pose;
@@ -64,7 +109,14 @@ export class VehicleController {
     candidate.set(pose.x, pose.y, pose.z);
     const resolved = this.world.resolveHorizontalMovement(candidate, movement, 1.25, 1.55);
     const advanced = Math.hypot(resolved.x - pose.x, resolved.z - pose.z);
-    if (advanced < movement.length() * 0.45 && movement.length() > 0.01) this.speed = 0;
+    if (advanced < movement.length() * 0.45 && movement.length() > 0.01) {
+      if (Math.abs(this.speed) > 2) {
+        const damage = Math.max(4, Math.round(Math.abs(this.speed) * 2.6));
+        ambient.damageVehicle(this.vehicleId, damage);
+        this.events.onCrash?.(this.vehicleId, damage);
+      }
+      this.speed = 0;
+    }
     const ground = this.world.groundHeightAt(resolved.x, resolved.z, pose.y, 0.9, 2.5);
     if (Number.isFinite(ground) && Math.abs(ground - pose.y) <= 1.3) {
       pose.x = resolved.x;
@@ -74,6 +126,11 @@ export class VehicleController {
       this.speed = 0;
     }
     this.player.root.position.set(pose.x, pose.y, pose.z);
+    if (Math.abs(this.speed) > 3) {
+      for (const npcId of ambient.hitPedestriansNear(this.player.root.position, 1.25)) {
+        this.events.onNpcKilled?.(npcId);
+      }
+    }
     this.player.root.rotation.y = pose.yaw;
     this.player.movementState = this.speed === 0 ? 'Idle' : 'Walking';
     this.player.updateVisual(delta);
@@ -83,16 +140,19 @@ export class VehicleController {
   }
 
   exit(park = true) {
-    if (!this.driving) return false;
+    if (!this.riding) return false;
     const id = this.vehicleId;
     const ambient = this.world.ambient;
-    const pose = ambient?.drivers.get(id)?.pose || {
+    const pose = ambient?.vehiclePose(id) || {
       x: this.player.root.position.x, y: this.player.root.position.y,
       z: this.player.root.position.z, yaw: this.player.root.rotation.y,
     };
     this.vehicleId = null;
+    const role = this.role;
+    this.role = null;
     this.speed = 0;
-    if (park) ambient?.parkVehicle(id, this.playerId, pose);
+    if (role === 'driver' && park) ambient?.parkVehicle(id, this.playerId, pose);
+    if (role === 'passenger') ambient?.releasePassenger(this.playerId);
 
     const sideX = Math.cos(pose.yaw);
     const sideZ = -Math.sin(pose.yaw);
