@@ -1,16 +1,17 @@
 import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
-import { InputManager } from '../input/InputManager.js?v=vehicle-v1';
+import { InputManager } from '../input/InputManager.js?v=chat-v1';
 import { WorldManager } from '../world/WorldManager.js?v=vehicle-v1';
 import { AvatarManager } from '../avatars/AvatarManager.js';
 import { Player } from '../player/Player.js?v=vehicle-v1';
 import { PlayerController } from '../player/PlayerController.js';
-import { VehicleController } from '../player/VehicleController.js';
+import { VehicleController } from '../player/VehicleController.js?v=chat-v1';
 import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=vehicle-v1';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js?v=vehicle-v1';
-import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=vehicle-v1';
+import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=chat-v1';
 import { DebugHud } from '../ui/DebugHud.js';
+import { GlobalChat } from '../ui/GlobalChat.js';
 import { DisconnectScreen } from '../ui/DisconnectScreen.js';
 import { StressHarness } from '../debug/StressHarness.js';
 import { spawnForPlayer } from '../world/spawn.js';
@@ -66,6 +67,10 @@ export class Game {
     this.player = new Player(this.scene, this.avatars);
     this.controller = new PlayerController(this.player, this.world, settings.player);
     this.input = new InputManager(this.renderer.domElement, document.getElementById('touch-controls'), settings.touch);
+    this.chat = new GlobalChat(document.getElementById('global-chat'), {
+      onSend: (text) => this.multiplayer?.sendChat(text),
+      onOpenChange: (active) => this.input.setTextEntry(active),
+    });
     this.followCamera = new ThirdPersonCamera(this.camera, settings.camera);
     this.shotRaycaster = new THREE.Raycaster();
     this.shotNdc = new THREE.Vector2();
@@ -94,7 +99,7 @@ export class Game {
 
     this.exitHoldTimer = null;
     this.onExitKeyDown = (event) => {
-      if (this.isTouchDevice || event.code !== 'Escape' || this.exitHoldTimer) return;
+      if (this.isTouchDevice || this.chat.active || event.code !== 'Escape' || this.exitHoldTimer) return;
       event.preventDefault();
       this.exitHoldTimer = setTimeout(() => {
         this.exitHoldTimer = null;
@@ -241,6 +246,7 @@ export class Game {
       (latency) => this.hud.setLatency(latency),
       {
         onDisconnected: () => {
+          this.chat.close();
           this.input.setEnabled(false);
           this.disconnectScreen.show();
         },
@@ -249,10 +255,12 @@ export class Game {
           this.input.setEnabled(true);
         },
         onReconnectStart: () => {
+          this.chat.close();
           this.input.setEnabled(false);
           this.disconnectScreen.setReconnecting(true);
         },
         onOffline: () => {
+          this.chat.close();
           this.disconnectScreen.hide();
           this.input.setEnabled(true);
         },
@@ -276,6 +284,7 @@ export class Game {
             }
           }
         },
+        onChat: (message) => this.chat.add(message.displayName, message.text),
       },
       this.mapVersion,
     );
@@ -326,6 +335,7 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
 
     this.loop.start();
+    this.chat.setEnabled(true);
     this.input.showTouchControls();
     this.multiplayer.connect();
     this.hud.startCompactCountdown(5000);
@@ -447,6 +457,7 @@ export class Game {
     window.removeEventListener('blur', this.cancelExitHold);
     this.cancelExitHold();
     this.hud.dispose();
+    this.chat.dispose();
     if (this.aimReticle) this.aimReticle.hidden = true;
     if (this.vehiclePrompt) this.vehiclePrompt.hidden = true;
     document.body.classList.remove('gameplay-active', 'network-disconnected');

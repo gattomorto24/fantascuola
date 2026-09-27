@@ -17,6 +17,9 @@ const validVehicleState = (state) => state && typeof state.id === 'string' && st
   && validNumber(state.pose.z) && validNumber(state.pose.yaw)
   && Number.isSafeInteger(state.revision) && state.revision >= 0 && state.revision < 1_000_000_000
   && typeof state.author === 'string' && state.author.length <= 120;
+const validChat = (chat) => chat && Number.isSafeInteger(chat.id) && chat.id > 0 && chat.id < 1_000_000_000
+  && typeof chat.text === 'string' && chat.text.length > 0 && chat.text.length <= 160
+  && !/[<>\u0000-\u001f\u007f]/.test(chat.text) && Number.isFinite(chat.at);
 
 function validSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return false;
@@ -35,6 +38,7 @@ function validSnapshot(snapshot) {
   if (snapshot.shotTarget !== undefined && (!Array.isArray(snapshot.shotTarget) || snapshot.shotTarget.length !== 3 || !snapshot.shotTarget.every(validNumber))) return false;
   if (snapshot.vehicleId !== undefined && (typeof snapshot.vehicleId !== 'string' || snapshot.vehicleId.length > 64)) return false;
   if (snapshot.vehicleStates !== undefined && (!Array.isArray(snapshot.vehicleStates) || snapshot.vehicleStates.length > 24 || !snapshot.vehicleStates.every(validVehicleState))) return false;
+  if (snapshot.chat !== undefined && !validChat(snapshot.chat)) return false;
   return true;
 }
 

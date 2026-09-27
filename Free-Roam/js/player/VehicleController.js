@@ -29,7 +29,7 @@ export class VehicleController {
     this.player.setVehiclePresence(true);
     this.player.root.position.set(nearby.pose.x, nearby.pose.y, nearby.pose.z);
     this.player.root.rotation.y = nearby.pose.yaw;
-    this.camera.yaw = nearby.pose.yaw;
+    this.camera.yaw = nearby.pose.yaw + Math.PI;
     this.camera.pitch = 0.3;
     return true;
   }
@@ -56,11 +56,11 @@ export class VehicleController {
     const pose = car.pose;
     if (Math.abs(this.speed) > 0.15) {
       const steering = THREE.MathUtils.clamp(input.moveX, -1, 1);
-      pose.yaw -= steering * 1.45 * dt * Math.sign(this.speed)
+      pose.yaw += steering * 1.45 * dt * Math.sign(this.speed)
         * Math.min(1, Math.abs(this.speed) / 3);
     }
-    movement.set(-Math.sin(pose.yaw) * this.speed * dt, 0,
-      -Math.cos(pose.yaw) * this.speed * dt);
+    movement.set(Math.sin(pose.yaw) * this.speed * dt, 0,
+      Math.cos(pose.yaw) * this.speed * dt);
     candidate.set(pose.x, pose.y, pose.z);
     const resolved = this.world.resolveHorizontalMovement(candidate, movement, 1.25, 1.55);
     const advanced = Math.hypot(resolved.x - pose.x, resolved.z - pose.z);
@@ -77,8 +77,9 @@ export class VehicleController {
     this.player.root.rotation.y = pose.yaw;
     this.player.movementState = this.speed === 0 ? 'Idle' : 'Walking';
     this.player.updateVisual(delta);
-    this.camera.yaw += Math.atan2(Math.sin(pose.yaw - this.camera.yaw),
-      Math.cos(pose.yaw - this.camera.yaw)) * Math.min(1, 1.8 * dt);
+    const cameraYaw = pose.yaw + Math.PI;
+    this.camera.yaw += Math.atan2(Math.sin(cameraYaw - this.camera.yaw),
+      Math.cos(cameraYaw - this.camera.yaw)) * Math.min(1, 1.8 * dt);
   }
 
   exit(park = true) {
@@ -97,7 +98,7 @@ export class VehicleController {
     const sideZ = -Math.sin(pose.yaw);
     let exitPosition = null;
     for (const [dx, dz] of [[sideX * 2.35, sideZ * 2.35],
-      [-sideX * 2.35, -sideZ * 2.35], [Math.sin(pose.yaw) * 2.8, Math.cos(pose.yaw) * 2.8]]) {
+      [-sideX * 2.35, -sideZ * 2.35], [-Math.sin(pose.yaw) * 2.8, -Math.cos(pose.yaw) * 2.8]]) {
       const x = pose.x + dx;
       const z = pose.z + dz;
       const ground = this.world.groundHeightAt(x, z, pose.y, 1, 2);
@@ -114,7 +115,8 @@ export class VehicleController {
     this.lastFootPosition = null;
     this.player.setVehiclePresence(false);
     this.player.weapon.setDrawn(this.savedWeapon);
-    this.camera.yaw = pose.yaw;
+    this.player.root.rotation.y = pose.yaw + Math.PI;
+    this.camera.yaw = pose.yaw + Math.PI;
     return true;
   }
 }

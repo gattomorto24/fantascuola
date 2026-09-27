@@ -184,3 +184,24 @@ test('E entra o esce dall’auto e sul telefono Salto diventa ESCI', () => {
     input.dispose();
   } finally { globalThis.window = previousWindow; }
 });
+
+test('scrivere in chat sospende movimento e sparo senza perdere i controlli', () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = new EventTarget();
+  try {
+    const canvas = new Element();
+    const root = new Element();
+    root.querySelector = () => null;
+    const input = new InputManager(canvas, root);
+    input.setTextEntry(true);
+    const key = new Event('keydown', { cancelable: true });
+    Object.assign(key, { code: 'KeyW' });
+    window.dispatchEvent(key);
+    assert.equal(input.read().moveY, 0);
+    assert.equal(root.hidden, true);
+    input.setTextEntry(false);
+    window.dispatchEvent(key);
+    assert.equal(input.read().moveY, 1);
+    input.dispose();
+  } finally { globalThis.window = previousWindow; }
+});

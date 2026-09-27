@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MultiplayerManager, validAvatarConfig, validSnapshot } from '../js/multiplayer/MultiplayerManager.js';
+import { MultiplayerManager, cleanChatText, validAvatarConfig, validSnapshot } from '../js/multiplayer/MultiplayerManager.js';
 
 const avatarConfig = {
   version: 1,
@@ -138,6 +138,8 @@ test('valida snapshot e configurazione avatar pixel', () => {
   assert.equal(validSnapshot({ ...state, vehicleId: 42 }), false);
   assert.equal(validSnapshot({ ...state, vehicleStates: [{ id: 'auto', pose: { x: Infinity, y: 0, z: 0, yaw: 0 },
     revision: 1, author: 'a' }] }), false);
+  assert.equal(validSnapshot({ ...state, chat: { id: 1, text: '<script>', at: Date.now() } }), false);
+  assert.equal(cleanChatText('  ciao <b>  mondo  '), 'ciao b mondo');
 });
 
 test('crossplay sincronizza solo giocatori nella stessa versione della mappa', () => {
@@ -259,4 +261,39 @@ test('micro-disconnessione si riconnette prima del grace period senza overlay', 
   assert.equal(a.offlineMode, true);
   assert.equal(a.online, false);
   await a.disconnect();
+});
+
+test('la chat globale invia subito e mostra un solo messaggio per ID ai client della stessa mappa', async () => {
+  server.sockets.clear();
+  server.players.clear();
+  const received = [];
+  const config = { serverUrl: 'wss://test/room/main', sendHz: 10,
+    reconnectBaseMs: 5, reconnectMaxMs: 20, connectTimeoutMs: 100, pingSeconds: 5 };
+  const a = new MultiplayerManager(null, { userId: crypto.randomUUID(), displayName: 'Tony' },
+    player(), remotes(), config, () => {}, () => {}, {}, 'same-map');
+  const b = new MultiplayerManager(null, { userId: crypto.randomUUID(), displayName: 'Amico' },
+    player(), remotes(), config, () => {}, () => {}, { onChat: (message) => received.push(message) }, 'same-map');
+  const otherMapMessages = [];
+  const c = new MultiplayerManager(null, { userId: crypto.randomUUID(), displayName: 'Altra mappa' },
+    player(), remotes(), config, () => {}, () => {},
+    { onChat: (message) => otherMapMessages.push(message) }, 'different-map');
+  try {
+    a.connect();
+    b.connect();
+    c.connect();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const sent = a.sendChat('  Ciao <amici>  ');
+    assert.equal(sent.text, 'Ciao amici');
+    assert.equal(received.length, 1);
+    assert.equal(received[0].displayName, 'Tony');
+    assert.equal(received[0].text, 'Ciao amici');
+    assert.equal(otherMapMessages.length, 0);
+    a.update(0.11);
+    assert.equal(received.length, 1);
+    assert.equal(a.sendChat('troppo rapido'), null);
+  } finally {
+    await a.disconnect();
+    await b.disconnect();
+    await c.disconnect();
+  }
 });

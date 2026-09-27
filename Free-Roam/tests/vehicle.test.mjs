@@ -32,8 +32,10 @@ test('si sale su un’auto, si guida in coordinate globali e si parcheggia con c
     assert.equal(player.weapon.drawn, false);
     assert.equal(collision.roots.has(ambient.active.get(car.id).collider), false);
     for (let i = 0; i < 30; i += 1) drive.update(1 / 30, { moveX: 0, moveY: 1 });
+    for (let i = 0; i < 12; i += 1) drive.update(1 / 30, { moveX: 1, moveY: 1 });
     ambient.update(0.25, player.root.position, 0);
-    assert.ok(player.root.position.z < car.position[2] - 2);
+    assert.ok(player.root.position.z > car.position[2] + 2);
+    assert.ok(player.root.position.x > car.position[0]);
     assert.equal(ambient.active.get(car.id).root.position.z, player.root.position.z);
     assert.equal(drive.exit(), true);
     ambient.update(0.25, player.root.position, 0);
@@ -41,7 +43,7 @@ test('si sale su un’auto, si guida in coordinate globali e si parcheggia con c
     assert.equal(player.weapon.drawn, true);
     assert.equal(collision.roots.has(ambient.active.get(car.id).collider), true);
     assert.equal(ambient.networkVehicleStates()[0].id, car.id);
-    assert.ok(ambient.networkVehicleStates()[0].pose.z < car.position[2] - 2);
+    assert.ok(ambient.networkVehicleStates()[0].pose.z > car.position[2] + 2);
   } finally { ambient.dispose(); }
 });
 

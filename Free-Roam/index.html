@@ -14,12 +14,13 @@
   <link rel="preload" as="image" href="./assets/models/Unknown.png">
   <link rel="stylesheet" href="./styles/main.css?v=mobile-tiles-v1">
   <link rel="stylesheet" href="./styles/touch.css?v=vehicle-v1">
+  <link rel="stylesheet" href="./styles/chat.css?v=chat-v1">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=vehicle-v1"></script>
+  <script type="module" src="./js/main.js?v=chat-v1"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -64,9 +65,9 @@
 
   <section id="welcome" class="welcome">
     <div class="welcome-card">
-      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.9.0</p>
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.10.0</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
-      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift, Spazio e P per la pistola; destro per mirare e sinistro per sparare. Premi E vicino a un'auto per guidarla, WASD per muoverla ed E per uscire. Su mobile usa il joystick, il tasto AUTO vicino a un veicolo e poi il tasto ESCI al posto di Salto.</p>
+      <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift, Spazio e P per la pistola; destro per mirare e sinistro per sparare. Premi E vicino a un'auto per guidarla, WASD per muoverla ed E per uscire. Premi Invio per la chat globale. Su mobile usa il joystick, il tasto AUTO vicino a un veicolo, ESCI al posto di Salto durante la guida e tocca CHAT per scrivere.</p>
 
       <label class="menu-field" for="player-name">
         Nome giocatore
@@ -174,7 +175,7 @@
   </section>
 
   <aside id="hud" class="hud" aria-live="off" hidden>
-    <div class="hud-top"><strong>FREE ROAM <small>v0.9.0</small></strong><a href="../index.html">Esci</a></div>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.10.0</small></strong><a href="../index.html">Esci</a></div>
     <dl>
       <div><dt>FPS</dt><dd id="fps">—</dd></div>
       <div><dt>Multiplayer</dt><dd id="network">Offline</dd></div>
@@ -197,6 +198,15 @@
 
   <div id="aim-reticle" class="aim-reticle" hidden aria-hidden="true"><span></span></div>
   <div id="vehicle-prompt" class="vehicle-prompt" hidden>Premi E per guidare l'auto</div>
+
+  <section id="global-chat" class="global-chat" aria-label="Chat globale" hidden>
+    <div id="chat-messages" class="chat-messages" aria-live="polite" aria-relevant="additions"></div>
+    <form id="chat-form" class="chat-form" hidden>
+      <input id="chat-input" type="text" maxlength="160" autocomplete="off" spellcheck="true" placeholder="Scrivi a tutti…" aria-label="Messaggio chat">
+      <button type="submit">INVIA</button>
+    </form>
+    <button id="chat-toggle" class="chat-toggle" type="button" aria-label="Apri chat globale" aria-expanded="false">CHAT</button>
+  </section>
 
   <div id="touch-controls" class="touch-controls" aria-label="Controlli di gioco touch" hidden>
     <div id="move-pad" class="touch-pad" data-sprinting="false" aria-label="Joystick movimento e sprint">

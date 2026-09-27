@@ -16,6 +16,7 @@ export class InputManager {
     this.touchRoot = touchRoot;
     this.config = config;
     this.enabled = true;
+    this.textEntry = false;
 
     this.cameraPointers = new Map();
     this.movePointerId = null;
@@ -32,7 +33,8 @@ export class InputManager {
       zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, exitVehicle: false };
 
     this.onKeyDown = (event) => {
-      if (!this.enabled) return;
+      if (!this.enabled || this.textEntry || event.target?.isContentEditable
+        || event.target?.matches?.('input, textarea, select')) return;
       if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ShiftLeft','ShiftRight','KeyP','KeyE'].includes(event.code)) event.preventDefault();
       if (event.code === 'Space' && !this.keys.has('Space')) {
         if (this.driving) this.exitVehicleQueued = true;
@@ -48,7 +50,7 @@ export class InputManager {
     this.onBlur = () => this.resetAll();
 
     this.onPointerDown = (event) => {
-      if (!this.enabled) return;
+      if (!this.enabled || this.textEntry) return;
       if (event.pointerType === 'touch') {
         event.preventDefault();
         this.lastTouchAt = performance.now();
@@ -82,13 +84,13 @@ export class InputManager {
     };
 
     this.onWheel = (event) => {
-      if (!this.enabled) return;
+      if (!this.enabled || this.textEntry) return;
       event.preventDefault();
       this.zoomDelta += event.deltaY;
     };
 
     this.onMouseDown = (event) => {
-      if (!this.enabled || performance.now() - this.lastTouchAt < 800) return;
+      if (!this.enabled || this.textEntry || performance.now() - this.lastTouchAt < 800) return;
       if (event.button === 2) {
         event.preventDefault();
         this.aimHeld = true;
@@ -288,7 +290,13 @@ export class InputManager {
   }
 
   showTouchControls() {
-    if (this.touchRoot) this.touchRoot.hidden = !this.enabled || !this.isTouchCapable();
+    if (this.touchRoot) this.touchRoot.hidden = !this.enabled || this.textEntry || !this.isTouchCapable();
+  }
+
+  setTextEntry(active) {
+    this.textEntry = Boolean(active);
+    this.resetAll();
+    this.showTouchControls();
   }
 
   setEnabled(enabled) {
@@ -299,7 +307,7 @@ export class InputManager {
 
   read() {
     const input = this.state;
-    if (!this.enabled) {
+    if (!this.enabled || this.textEntry) {
       Object.assign(input, { moveX: 0, moveY: 0, sprint: false, jump: false, cameraX: 0, cameraY: 0,
         zoom: 0, toggleWeapon: false, aim: false, shot: null, interact: false, exitVehicle: false });
       return input;
