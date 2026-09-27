@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MapLoader } from './MapLoader.js';
 import { WorldCollision } from './WorldCollision.js';
 import { settings } from '../config/settings.js';
-import { StreamedMap, validateMobileManifest } from './StreamedMap.js';
+import { StreamedMap, validateMobileManifest } from './StreamedMap.js?v=mobile-tiles-v2';
 import { mobileManifestUrl } from './MobileManifest.js';
 
 export class WorldManager {

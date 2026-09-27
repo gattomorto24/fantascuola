@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { settings } from '../config/settings.js';
 import { GameLoop } from './GameLoop.js';
 import { InputManager } from '../input/InputManager.js';
-import { WorldManager } from '../world/WorldManager.js';
+import { WorldManager } from '../world/WorldManager.js?v=mobile-tiles-v2';
 import { AvatarManager } from '../avatars/AvatarManager.js';
 import { Player } from '../player/Player.js';
 import { PlayerController } from '../player/PlayerController.js';

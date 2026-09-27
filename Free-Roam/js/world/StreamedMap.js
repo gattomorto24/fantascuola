@@ -43,7 +43,8 @@ export class StreamedMap {
     this.queue = [];
     this.active = 0;
     this.maxConcurrent = options.maxConcurrent || 1;
-    this.fetcher = options.fetcher || fetch;
+    // WebKit requires Window.fetch to be called with Window as its receiver.
+    this.fetcher = options.fetcher || ((...args) => globalThis.fetch(...args));
     this.parse = options.parse || ((bytes) => loader.parseAsync(bytes, this.baseUrl.href));
     this.disposed = false;
     this.center = null;

@@ -7,6 +7,26 @@ import { WorldCollision } from '../js/world/WorldCollision.js';
 const source = 'https://huggingface.co/buckets/a/b/resolve/world.glb';
 const manifestUrl = source.replace('.glb', '.mobile/manifest.json');
 
+test('il fetch nativo conserva il contesto Window richiesto da Safari', async () => {
+  const originalFetch = globalThis.fetch;
+  let requested = false;
+  globalThis.fetch = function () {
+    assert.equal(this, globalThis);
+    requested = true;
+    return Promise.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) });
+  };
+  const stream = new StreamedMap(new THREE.Scene(), new WorldCollision(),
+    { tileSize: 32, tiles: [{ x: 0, z: 0, file: 'tiles/0_0.glb', bytes: 4 }] }, manifestUrl,
+    { parse: async () => ({ scene: new THREE.Group() }) });
+  try {
+    await stream.start(1, 1);
+    assert.equal(requested, true);
+  } finally {
+    stream.dispose();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('carica una sola volta, indicizza collisioni e libera le zone lontane', async () => {
   const scene = new THREE.Scene();
   const collision = new WorldCollision();
