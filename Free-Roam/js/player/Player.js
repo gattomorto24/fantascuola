@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { NameTag } from './NameTag.js';
 import { settings } from '../config/settings.js';
-import { Pistol } from './Pistol.js';
+import { Pistol } from './Pistol.js?v=health-v1';
 
 export class Player {
   constructor(scene, avatars, remote = false) {
@@ -11,6 +11,7 @@ export class Player {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.weapon = new Pistol(scene, this.root);
+    this.health = 100;
     this.inVehicle = false;
     this.avatarId = 'default';
     this.avatarConfig = null;

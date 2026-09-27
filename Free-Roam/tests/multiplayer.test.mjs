@@ -135,6 +135,9 @@ test('valida snapshot e configurazione avatar pixel', () => {
   assert.equal(validSnapshot({ ...state, mapVersion: 42 }), false);
   assert.equal(validSnapshot({ ...state, weaponDrawn: 'yes' }), false);
   assert.equal(validSnapshot({ ...state, shotTarget: [0, Infinity, 0] }), false);
+  assert.equal(validSnapshot({ ...state, shotOrigin: [0, Infinity, 0] }), false);
+  assert.equal(validSnapshot({ ...state, shotVictimId: '<'.repeat(121) }), false);
+  assert.equal(validSnapshot({ ...state, health: 101 }), false);
   assert.equal(validSnapshot({ ...state, vehicleId: 42 }), false);
   assert.equal(validSnapshot({ ...state, vehicleStates: [{ id: 'auto', pose: { x: Infinity, y: 0, z: 0, yaw: 0 },
     revision: 1, author: 'a' }] }), false);
@@ -151,6 +154,24 @@ test('crossplay sincronizza solo giocatori nella stessa versione della mappa', (
   assert.equal(remote.items.size, 0);
   manager.receiveMessage({ type: 'join', player: { ...snapshot, mapVersion: 'map:version-1' } });
   assert.equal(remote.items.size, 1);
+});
+
+test('il danno arriva una volta per colpo e non viene ripetuto dalla snapshot iniziale', () => {
+  const hits = [];
+  const manager = new MultiplayerManager(null, { userId: 'local', displayName: 'Tony' }, player(), remotes(),
+    { serverUrl: 'wss://test/room/main' }, () => {}, () => {},
+    { onShotAtMe: (shot) => hits.push(shot.shotId) }, 'same-map');
+  const enemy = { ...manager.snapshot(), playerId: 'enemy', mapVersion: 'same-map',
+    weaponDrawn: true, shotId: 3, shotVictimId: manager.playerId,
+    shotOrigin: [0, 1, 2], shotTarget: [0, 1, -4] };
+  manager.receiveMessage({ type: 'snapshot', players: [enemy] });
+  manager.receiveMessage({ type: 'state', player: enemy });
+  assert.deepEqual(hits, []);
+  manager.receiveMessage({ type: 'state', player: { ...enemy, shotId: 4 } });
+  manager.receiveMessage({ type: 'state', player: { ...enemy, shotId: 4 } });
+  assert.deepEqual(hits, [4]);
+  manager.receiveMessage({ type: 'state', player: { ...enemy, shotId: 5, mapVersion: 'other-map' } });
+  assert.deepEqual(hits, [4]);
 });
 
 test('il pong sincronizza il tempo del traffico senza cambiare il protocollo dei giocatori', () => {

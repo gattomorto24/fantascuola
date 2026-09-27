@@ -4,12 +4,13 @@ import { GameLoop } from './GameLoop.js';
 import { InputManager } from '../input/InputManager.js?v=chat-v1';
 import { WorldManager } from '../world/WorldManager.js?v=vehicle-v1';
 import { AvatarManager } from '../avatars/AvatarManager.js';
-import { Player } from '../player/Player.js?v=vehicle-v1';
+import { Player } from '../player/Player.js?v=health-v1';
+import { CombatState, findPlayerHit, plausibleHit, SHOT_RANGE } from '../player/Combat.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { VehicleController } from '../player/VehicleController.js?v=chat-v1';
-import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=vehicle-v1';
+import { RemotePlayerManager } from '../player/RemotePlayerManager.js?v=health-v1';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js?v=vehicle-v1';
-import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=chat-v1';
+import { MultiplayerManager } from '../multiplayer/MultiplayerManager.js?v=health-v1';
 import { DebugHud } from '../ui/DebugHud.js';
 import { GlobalChat } from '../ui/GlobalChat.js';
 import { DisconnectScreen } from '../ui/DisconnectScreen.js';
@@ -65,6 +66,12 @@ export class Game {
     this.world = new WorldManager(this.scene);
     this.avatars = new AvatarManager(storage);
     this.player = new Player(this.scene, this.avatars);
+    this.combat = new CombatState();
+    this.healthHud = document.getElementById('health-hud');
+    this.healthFill = document.getElementById('health-fill');
+    this.healthValue = document.getElementById('health-value');
+    this.respawning = false;
+    this.disposed = false;
     this.controller = new PlayerController(this.player, this.world, settings.player);
     this.input = new InputManager(this.renderer.domElement, document.getElementById('touch-controls'), settings.touch);
     this.chat = new GlobalChat(document.getElementById('global-chat'), {
@@ -285,6 +292,7 @@ export class Game {
           }
         },
         onChat: (message) => this.chat.add(message.displayName, message.text),
+        onShotAtMe: (snapshot) => this.receiveShot(snapshot),
       },
       this.mapVersion,
     );
@@ -335,6 +343,8 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
 
     this.loop.start();
+    this.updateHealthHud();
+    if (this.healthHud) this.healthHud.hidden = false;
     this.chat.setEnabled(true);
     this.input.showTouchControls();
     this.multiplayer.connect();
@@ -375,6 +385,20 @@ export class Game {
 
   update(delta) {
     const controls = this.input.read();
+    if (this.combat.health === 0) {
+      this.input.setVehicleAvailable(false);
+      if (this.vehiclePrompt) this.vehiclePrompt.hidden = true;
+      if (this.aimReticle) this.aimReticle.hidden = true;
+      this.player.updateVisual(delta);
+      this.world.updateStreaming(this.player.root.position.x, this.player.root.position.z);
+      this.world.updateAmbient(delta, this.player.root.position, Date.now() + (this.multiplayer?.serverTimeOffset || 0));
+      this.followCamera.update(delta, { cameraX: controls.cameraX, cameraY: controls.cameraY, zoom: controls.zoom }, this.player.root.position);
+      if (this.combat.readyToRespawn() && !this.respawning) void this.respawn();
+      this.multiplayer?.update(delta);
+      this.hud.update(delta, this.player, this.remotes.size);
+      this.updateAdaptiveResolution(delta);
+      return;
+    }
     const wasDriving = this.vehicle.driving;
     if (controls.interact) {
       if (this.vehicle.driving) this.vehicle.exit();
@@ -428,8 +452,9 @@ export class Game {
     this.shotNdc.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1));
     this.shotRaycaster.setFromCamera(this.shotNdc, this.camera);
     const { origin, direction } = this.shotRaycaster.ray;
-    const hit = this.world.raycastShot(origin, direction, 70);
-    const target = hit || origin.clone().addScaledVector(direction, 70);
+    const hit = this.world.raycastShot(origin, direction, SHOT_RANGE);
+    const playerHit = findPlayerHit(this.shotRaycaster.ray, hit, this.remotes.players, SHOT_RANGE);
+    const target = playerHit?.point || hit || origin.clone().addScaledVector(direction, SHOT_RANGE);
     if (shot.touch) {
       this.player.root.rotation.y = Math.atan2(-direction.x, -direction.z);
       if (this.aimReticle) {
@@ -438,7 +463,64 @@ export class Game {
         this.reticleResetAt = performance.now() + 300;
       }
     }
-    this.player.weapon.fireTo(target.toArray(), { local: true });
+    if (this.player.weapon.fireTo(target.toArray(), {
+      local: true,
+      origin: origin.toArray(),
+      victimId: playerHit?.playerId || null,
+    })) this.multiplayer?.sendStateNow();
+  }
+
+  updateHealthHud() {
+    if (this.healthFill) this.healthFill.style.width = `${this.combat.health}%`;
+    if (this.healthValue) this.healthValue.textContent = `${this.combat.health}/${100}`;
+    if (this.healthHud) {
+      this.healthHud.dataset.low = String(this.combat.health <= 25);
+      this.healthHud.setAttribute('aria-label', `Vita ${this.combat.health} su 100`);
+    }
+  }
+
+  receiveShot(snapshot) {
+    if (!plausibleHit(snapshot, this.player.root.position, this.world, this.vehicle?.driving)) return;
+    if (!this.combat.hit()) return;
+    this.player.health = this.combat.health;
+    this.updateHealthHud();
+    this.healthHud?.classList.remove('health-hit');
+    void this.healthHud?.offsetWidth;
+    this.healthHud?.classList.add('health-hit');
+    if (this.combat.health === 0) {
+      if (this.vehicle?.driving) this.vehicle.exit();
+      this.input.setDriving(false);
+      this.player.weapon.setDrawn(false);
+      this.player.weapon.setAiming(false);
+      this.input.setWeaponDrawn(false);
+      this.player.root.visible = false;
+      this.controller.velocity.set(0, 0, 0);
+    }
+    this.multiplayer?.sendStateNow();
+  }
+
+  async respawn() {
+    this.respawning = true;
+    let spawn = spawnForPlayer(this.world.spawn, this.multiplayer.playerId);
+    try {
+      await this.world.ensureAt(spawn[0], spawn[2]);
+      const ground = this.world.groundHeightAt(spawn[0], spawn[2], spawn[1], 3, 20);
+      if (Number.isFinite(ground)) spawn[1] = ground;
+    } catch (error) {
+      console.warn('[Free Roam] Respawn nella zona corrente:', error);
+      spawn = this.player.root.position.toArray();
+    }
+    if (!this.disposed) {
+      this.player.root.position.set(...spawn);
+      this.controller.velocity.set(0, 0, 0);
+      this.controller.grounded = true;
+      this.player.root.visible = true;
+      this.combat.respawn();
+      this.player.health = this.combat.health;
+      this.updateHealthHud();
+      this.multiplayer?.sendStateNow();
+    }
+    this.respawning = false;
   }
 
   resize() {
@@ -450,6 +532,7 @@ export class Game {
   }
 
   async dispose() {
+    this.disposed = true;
     this.loop.stop();
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('keydown', this.onExitKeyDown, true);
@@ -460,6 +543,7 @@ export class Game {
     this.chat.dispose();
     if (this.aimReticle) this.aimReticle.hidden = true;
     if (this.vehiclePrompt) this.vehiclePrompt.hidden = true;
+    if (this.healthHud) this.healthHud.hidden = true;
     document.body.classList.remove('gameplay-active', 'network-disconnected');
     this.disconnectScreen.hide();
     this.input.dispose();

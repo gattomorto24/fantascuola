@@ -31,6 +31,9 @@ export function validSnapshot(value, maxAge = 60000) {
     && (value.aiming === undefined || typeof value.aiming === 'boolean')
     && (value.shotId === undefined || (Number.isSafeInteger(value.shotId) && value.shotId >= 0 && value.shotId < 1_000_000_000))
     && (value.shotTarget === undefined || (Array.isArray(value.shotTarget) && value.shotTarget.length === 3 && value.shotTarget.every(validNumber)))
+    && (value.shotOrigin === undefined || (Array.isArray(value.shotOrigin) && value.shotOrigin.length === 3 && value.shotOrigin.every(validNumber)))
+    && (value.shotVictimId === undefined || (typeof value.shotVictimId === 'string' && value.shotVictimId.length > 0 && value.shotVictimId.length <= 120))
+    && (value.health === undefined || (Number.isInteger(value.health) && value.health >= 0 && value.health <= 100))
     && (value.vehicleId === undefined || (typeof value.vehicleId === 'string' && value.vehicleId.length <= 64))
     && (value.vehicleStates === undefined || (Array.isArray(value.vehicleStates) && value.vehicleStates.length <= 24
       && value.vehicleStates.every(validVehicleState)))
@@ -69,6 +72,7 @@ export class MultiplayerManager {
     this.chatSequence = 0;
     this.lastChatSentAt = -Infinity;
     this.lastChatSeen = new Map();
+    this.lastShotSeen = new Map();
   }
 
   snapshot() {
@@ -88,8 +92,11 @@ export class MultiplayerManager {
       weaponDrawn: p.weapon?.drawn || false,
       aiming: p.weapon?.aiming || false,
       shotId: p.weapon?.shotId || 0,
+      health: p.health ?? 100,
     };
     if (p.weapon?.shotTarget) snapshot.shotTarget = p.weapon.shotTarget;
+    if (p.weapon?.shotOrigin) snapshot.shotOrigin = p.weapon.shotOrigin;
+    if (p.weapon?.shotVictimId) snapshot.shotVictimId = p.weapon.shotVictimId;
     if (this.chat && Date.now() - this.chat.at < 30000) snapshot.chat = this.chat;
     const vehicles = this.events.getVehicleState?.();
     if (vehicles?.vehicleId) snapshot.vehicleId = vehicles.vehicleId;
@@ -123,6 +130,23 @@ export class MultiplayerManager {
     this.lastChatSeen.set(snapshot.playerId, chat.id);
     if (this.lastChatSeen.size > 512) this.lastChatSeen.delete(this.lastChatSeen.keys().next().value);
     this.events.onChat?.({ ...chat, playerId: snapshot.playerId, displayName: snapshot.displayName });
+  }
+
+  receiveShot(snapshot, initial = false) {
+    const previous = this.lastShotSeen.get(snapshot.playerId);
+    const shotId = snapshot.shotId ?? 0;
+    this.lastShotSeen.set(snapshot.playerId, shotId);
+    if (this.lastShotSeen.size > 512) this.lastShotSeen.delete(this.lastShotSeen.keys().next().value);
+    if (!initial && previous !== undefined && shotId !== previous
+      && snapshot.shotVictimId === this.playerId && snapshot.weaponDrawn === true) {
+      this.events.onShotAtMe?.(snapshot);
+    }
+  }
+
+  sendStateNow() {
+    if (!this.online || this.offlineMode || !this.transport?.connected) return false;
+    this.elapsed = 0;
+    return this.transport.send({ type: 'state', player: this.snapshot() });
   }
 
   clearTimer(name) {
@@ -250,6 +274,7 @@ export class MultiplayerManager {
         if (!validSnapshot(snapshot, Infinity) || snapshot.playerId === this.playerId || snapshot.mapVersion !== this.mapVersion) continue;
         present.add(snapshot.playerId);
         this.remotes.receive(snapshot);
+        this.receiveShot(snapshot, true);
         this.events.onVehicleSnapshot?.(snapshot);
         this.receiveChat(snapshot);
       }
@@ -261,6 +286,7 @@ export class MultiplayerManager {
     if ((message.type === 'join' || message.type === 'state') && validSnapshot(message.player, Infinity) && message.player.mapVersion === this.mapVersion) {
       if (message.player.playerId !== this.playerId) {
         this.remotes.receive(message.player);
+        this.receiveShot(message.player, message.type === 'join');
         this.events.onVehicleSnapshot?.(message.player);
         this.receiveChat(message.player);
       }
@@ -269,6 +295,7 @@ export class MultiplayerManager {
 
     if (message.type === 'leave' && typeof message.playerId === 'string') {
       this.remotes.remove(message.playerId);
+      this.lastShotSeen.delete(message.playerId);
       this.events.onVehicleLeave?.(message.playerId);
       return;
     }
@@ -319,5 +346,6 @@ export class MultiplayerManager {
     this.transport = null;
     this.remotes.clear();
     this.lastChatSeen.clear();
+    this.lastShotSeen.clear();
   }
 }

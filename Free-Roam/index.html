@@ -15,12 +15,13 @@
   <link rel="stylesheet" href="./styles/main.css?v=mobile-tiles-v1">
   <link rel="stylesheet" href="./styles/touch.css?v=vehicle-v1">
   <link rel="stylesheet" href="./styles/chat.css?v=chat-v1">
+  <link rel="stylesheet" href="./styles/health.css?v=health-v1">
 
   <script type="importmap">
     {"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}
   </script>
   <script defer src="./vendor/supabase.js"></script>
-  <script type="module" src="./js/main.js?v=chat-v1"></script>
+  <script type="module" src="./js/main.js?v=health-v1"></script>
 </head>
 <body>
   <main id="game" aria-label="Free Roam"></main>
@@ -65,7 +66,7 @@
 
   <section id="welcome" class="welcome">
     <div class="welcome-card">
-      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.10.0</p>
+      <p class="eyebrow">FANTASCUOLA · FREE ROAM v0.11.0</p>
       <h1>FantaScuola<br><span>Free Roam</span></h1>
       <p>Entra nel mondo con il tuo nome. Su computer usa WASD, Shift, Spazio e P per la pistola; destro per mirare e sinistro per sparare. Premi E vicino a un'auto per guidarla, WASD per muoverla ed E per uscire. Premi Invio per la chat globale. Su mobile usa il joystick, il tasto AUTO vicino a un veicolo, ESCI al posto di Salto durante la guida e tocca CHAT per scrivere.</p>
 
@@ -175,7 +176,7 @@
   </section>
 
   <aside id="hud" class="hud" aria-live="off" hidden>
-    <div class="hud-top"><strong>FREE ROAM <small>v0.10.0</small></strong><a href="../index.html">Esci</a></div>
+    <div class="hud-top"><strong>FREE ROAM <small>v0.11.0</small></strong><a href="../index.html">Esci</a></div>
     <dl>
       <div><dt>FPS</dt><dd id="fps">—</dd></div>
       <div><dt>Multiplayer</dt><dd id="network">Offline</dd></div>
@@ -188,6 +189,11 @@
     </dl>
     <p id="network-detail" class="network-detail">Modalità locale</p>
     <p id="asset-status" class="asset-status" hidden></p>
+  </aside>
+
+  <aside id="health-hud" class="health-hud" role="status" aria-label="Vita 100 su 100" hidden>
+    <div class="health-label"><span>VITA</span><strong id="health-value">100/100</strong></div>
+    <div class="health-track"><span id="health-fill" class="health-fill"></span></div>
   </aside>
 
   <aside id="compact-hud" class="compact-hud" aria-live="off" hidden>

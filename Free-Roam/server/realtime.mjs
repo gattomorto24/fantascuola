@@ -36,6 +36,9 @@ function validSnapshot(snapshot) {
   if (snapshot.aiming !== undefined && typeof snapshot.aiming !== 'boolean') return false;
   if (snapshot.shotId !== undefined && (!Number.isSafeInteger(snapshot.shotId) || snapshot.shotId < 0 || snapshot.shotId >= 1_000_000_000)) return false;
   if (snapshot.shotTarget !== undefined && (!Array.isArray(snapshot.shotTarget) || snapshot.shotTarget.length !== 3 || !snapshot.shotTarget.every(validNumber))) return false;
+  if (snapshot.shotOrigin !== undefined && (!Array.isArray(snapshot.shotOrigin) || snapshot.shotOrigin.length !== 3 || !snapshot.shotOrigin.every(validNumber))) return false;
+  if (snapshot.shotVictimId !== undefined && (typeof snapshot.shotVictimId !== 'string' || snapshot.shotVictimId.length < 1 || snapshot.shotVictimId.length > 120)) return false;
+  if (snapshot.health !== undefined && (!Number.isInteger(snapshot.health) || snapshot.health < 0 || snapshot.health > 100)) return false;
   if (snapshot.vehicleId !== undefined && (typeof snapshot.vehicleId !== 'string' || snapshot.vehicleId.length > 64)) return false;
   if (snapshot.vehicleStates !== undefined && (!Array.isArray(snapshot.vehicleStates) || snapshot.vehicleStates.length > 24 || !snapshot.vehicleStates.every(validVehicleState))) return false;
   if (snapshot.chat !== undefined && !validChat(snapshot.chat)) return false;
